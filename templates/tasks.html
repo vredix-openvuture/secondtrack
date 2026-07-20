@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Tasks') }} · secondtrack{% endblock %}
+{% block content %}
+
+<div class="page-head"><h1>{{ _('Tasks') }}</h1>
+  {% if enabled and vikunja_url %}<a class="btn" style="margin-left:auto" href="{{ vikunja_url }}" target="_blank">{{ _('Open Vikunja ↗') }}</a>{% endif %}
+</div>
+
+{% if not enabled %}
+  <div class="card"><p class="muted">{{ _('Vikunja is not connected. Set') }}
+  <code>SECONDTRACK_VIKUNJA_URL</code> + <code>SECONDTRACK_VIKUNJA_TOKEN</code>
+  {{ _('in the .env (token: Vikunja → Settings → API Tokens).') }}</p></div>
+{% elif error %}
+  <div class="card"><p class="error">{{ _('Could not load tasks:') }} {{ error }}</p></div>
+{% else %}
+
+  {% if subprojects %}
+  <div class="subproject-tabs">
+    {% for s in subprojects %}<a href="/tasks?project={{ s.id }}" class="{{ 'on' if s.id == selected }}">{{ s.title }}</a>{% endfor %}
+  </div>
+  {% endif %}
+
+  {% if board %}
+  <div class="kanban">
+    {% for col in board %}
+    <div class="kanban-col">
+      <h3>{{ col.title }} <span class="count">{{ col.tasks|length }}</span></h3>
+      <div class="kanban-tasks">
+        {% for t in col.tasks %}
+          <div class="task-card {{ 'done' if t.done }}"><a href="{{ vikunja_url }}/tasks/{{ t.id }}" target="_blank">{{ t.title }}</a></div>
+        {% else %}
+          <p class="muted small">—</p>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="muted empty">{{ _('No buckets/tasks found.') }}</p>
+  {% endif %}
+
+  <button class="fab" onclick="window.open('{{ vikunja_url }}', '_blank')" title="{{ _('New task in Vikunja') }}">+</button>
+{% endif %}
+{% endblock %}

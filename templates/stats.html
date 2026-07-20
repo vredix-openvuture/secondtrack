@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Statistics') }} · secondtrack{% endblock %}
+{% block content %}
+{% set labels = {"in_production": _('In production'), "archived": _('Stored'), "sold": _('Sold')} %}
+
+<div class="page-head">
+  <h1>{{ _('Statistics') }}</h1>
+  <div class="tabs">
+    <a href="/stats?period=all" class="{{ 'on' if period == 'all' }}">{{ _('All') }}</a>
+    <a href="/stats?period=year" class="{{ 'on' if period == 'year' }}">{{ _('This year') }}</a>
+    <a href="/stats?period=month" class="{{ 'on' if period == 'month' }}">{{ _('This month') }}</a>
+  </div>
+</div>
+
+<section class="card">
+  <h2>{{ _('Profit & loss') }} <span class="muted small">({{ _('income from paid InvoiceNinja invoices') }})</span></h2>
+  <div class="summary-row">
+    <div class="sumitem"><span>{{ _('Income') }}</span><strong class="pos">{{ pl.income|money }} {{ currency }}</strong></div>
+    <div class="sumitem"><span>{{ _('Expenses') }}</span><strong class="neg">{{ pl.expenses|money }} {{ currency }}</strong></div>
+    <div class="sumitem accent"><span>{{ _('Profit / loss') }}</span><strong class="{{ 'pos' if pl.profit >= 0 else 'neg' }}">{{ pl.profit|money }} {{ currency }}</strong></div>
+  </div>
+</section>
+
+<div class="kpis">
+  <div class="kpi"><span class="k">{{ _('Projects active') }}</span><span class="v">{{ s.active_count }}</span></div>
+  <div class="kpi"><span class="k">{{ _('Stored') }}</span><span class="v">{{ s.archived_count }}</span></div>
+  <div class="kpi"><span class="k">{{ _('Sold') }}</span><span class="v">{{ s.sold_count }}</span></div>
+  <div class="kpi"><span class="k">{{ _('Total work time') }}</span><span class="v">{{ s.total_hours|hours }} h</span></div>
+</div>
+
+<div class="kpis">
+  <div class="kpi"><span class="k">{{ _('Material expenses') }}</span><span class="v">{{ s.material_expenses|money }} {{ currency }}</span></div>
+  <div class="kpi"><span class="k">{{ _('Stock value (cost)') }}</span><span class="v">{{ s.warehouse_stock_cost|money }} {{ currency }}</span></div>
+  <div class="kpi"><span class="k">{{ _('Labor value') }} ({{ rate|money }} {{ currency }}/h)</span><span class="v">{{ s.total_labor_value|money }} {{ currency }}</span></div>
+  <div class="kpi big"><span class="k">{{ _('Expected revenue') }}</span><span class="v">{{ s.projected_sale_value|money }} {{ currency }}</span></div>
+  <div class="kpi big"><span class="k">{{ _('Expected gross profit') }}</span><span class="v {{ 'pos' if s.projected_gross_profit >= 0 else 'neg' }}">{{ s.projected_gross_profit|money }} {{ currency }}</span></div>
+  <div class="kpi big"><span class="k">{{ _('Profit after labor') }}</span><span class="v {{ 'pos' if s.projected_net_profit >= 0 else 'neg' }}">{{ s.projected_net_profit|money }} {{ currency }}</span></div>
+</div>
+
+<section class="card">
+  <h2>{{ _('Per project') }}</h2>
+  <table class="grid">
+    <thead>
+      <tr><th>{{ _('Device') }}</th><th>{{ _('Status') }}</th><th class="num">{{ _('Hrs') }}</th><th class="num">{{ _('Material') }}</th>
+          <th class="num">{{ _('VK') }}</th><th class="num">{{ _('Gross') }}</th><th class="num">{{ _('Net') }}</th></tr>
+    </thead>
+    <tbody>
+    {% for f in s.per_project %}
+      <tr onclick="location.href='/projects/{{ f.project.id }}'">
+        <td><strong>{{ f.project.name }}</strong></td>
+        <td><span class="badge {{ f.project.status.value }}">{{ labels[f.project.status.value] }}</span></td>
+        <td class="num">{{ f.hours|hours }}</td>
+        <td class="num">{{ f.material_cost|money }}</td>
+        <td class="num">{{ f.sale_price|money }}</td>
+        <td class="num {{ 'pos' if f.gross_profit >= 0 else 'neg' }}">{{ f.gross_profit|money }}</td>
+        <td class="num {{ 'pos' if f.net_profit >= 0 else 'neg' }}">{{ f.net_profit|money }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

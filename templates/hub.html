@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Hub') }} · secondtrack{% endblock %}
+{% block content %}
+{% set inv_labels = {"1": _('Draft'), "2": _('Sent'), "3": _('Partial'), "4": _('Paid'), "5": _('Cancelled')} %}
+
+<div class="page-head"><h1>{{ _('Business hub') }}</h1></div>
+{% if msg %}<p class="notice">{{ _(msg) }}</p>{% endif %}
+
+{% if not view.in_enabled and not view.woo_enabled %}
+<div class="card">
+  <p class="muted">{{ _('No integration active yet. Add your WooCommerce and InvoiceNinja credentials in the') }}
+  <a href="/settings">{{ _('Settings') }}</a>.</p>
+</div>
+{% endif %}
+
+{% if view.in_enabled %}
+<div class="kpis">
+  <div class="kpi big"><span class="k">{{ _('Paid') }}</span><span class="v pos">{{ view.kpis.get('paid', 0)|money }} {{ currency }}</span></div>
+  <div class="kpi big"><span class="k">{{ _('Outstanding') }}</span><span class="v {{ 'neg' if view.kpis.get('outstanding',0) > 0 }}">{{ view.kpis.get('outstanding', 0)|money }} {{ currency }}</span></div>
+  <div class="kpi"><span class="k">{{ _('Drafts') }}</span><span class="v">{{ view.kpis.get('draft', 0)|money }} {{ currency }}</span></div>
+  <div class="kpi"><span class="k">{{ _('Invoices') }}</span><span class="v">{{ view.kpis.get('count', 0) }}</span></div>
+</div>
+{% if auto_send %}<p class="muted small">{{ _('Auto-send is on: new invoices are emailed to the customer immediately.') }}</p>{% endif %}
+{% endif %}
+
+<section class="card">
+  <h2>{{ _('WooCommerce orders') }}
+    {% if view.woo_enabled %}<form method="post" action="/hub/poll-orders" style="float:right"><button class="btn" style="font-size:.8rem">{{ _('Check orders now') }}</button></form>{% endif %}
+  </h2>
+  {% if not view.woo_enabled %}
+    <p class="muted">{{ _('WooCommerce integration disabled.') }}</p>
+  {% elif view.woo_error %}
+    <p class="error">{{ _('Could not load orders:') }} {{ view.woo_error }}</p>
+  {% elif view.orders %}
+  <table class="grid">
+    <thead><tr><th>#</th><th>{{ _('Date') }}</th><th>{{ _('Customer') }}</th><th>{{ _('Status') }}</th><th class="num">{{ _('Total') }}</th><th>{{ _('Invoice') }}</th></tr></thead>
+    <tbody>
+    {% for o in view.orders %}
+      <tr>
+        <td><strong>{{ o.number }}</strong></td>
+        <td>{{ o.date }}</td>
+        <td>{{ o.customer }}<br><span class="muted small">{{ o.email }}</span></td>
+        <td><span class="badge in_production">{{ o.status }}</span></td>
+        <td class="num">{{ o.total|money }} {{ o.currency }}</td>
+        <td class="actions">
+          {% if o.invoice %}
+            <a class="btn" href="{{ in_url }}/invoices/{{ o.invoice.invoiceninja_id }}/edit" target="_blank">{{ _('No.') }} {{ o.invoice.invoice_number or '↗' }}</a>
+            {% if o.invoice.emailed_at %}<span class="muted small">{{ _('✓ sent to customer') }}</span>
+            {% else %}<form method="post" action="/hub/invoice/{{ o.invoice.id }}/send"><button>{{ _('Send to customer') }}</button></form>{% endif %}
+          {% else %}
+            <form method="post" action="/hub/orders/{{ o.id }}/invoice"><button class="primary">{{ _('→ Create invoice') }}</button></form>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="muted">{{ _('No open orders.') }}</p>{% endif %}
+</section>
+
+<section class="card">
+  <h2>{{ _('Invoices (InvoiceNinja)') }}
+    <span style="float:right;display:flex;gap:.4rem">
+      {% if email_on %}<form method="post" action="/hub/process-due"><button class="btn" style="font-size:.8rem">{{ _('Process overdue') }}</button></form>{% endif %}
+      <a class="btn" style="font-size:.8rem" href="/hub?drafts={{ 0 if include_drafts else 1 }}&archived={{ 1 if include_archived else 0 }}">{{ _('Hide drafts') if include_drafts else _('Show drafts') }}</a>
+      <a class="btn" style="font-size:.8rem" href="/hub?archived={{ 0 if include_archived else 1 }}&drafts={{ 1 if include_drafts else 0 }}">{{ _('Hide archive') if include_archived else _('Show archive') }}</a>
+    </span>
+  </h2>
+  {% if not view.in_enabled %}
+    <p class="muted">{{ _('InvoiceNinja integration disabled.') }}</p>
+  {% elif view.in_error %}
+    <p class="error">{{ _('Could not load invoices:') }} {{ view.in_error }}</p>
+  {% elif view.invoices %}
+  <table class="grid">
+    <thead><tr><th>{{ _('No.') }}</th><th>{{ _('Date') }}</th><th>{{ _('Due') }}</th><th>{{ _('Customer') }}</th><th>{{ _('Status') }}</th><th class="num">{{ _('Amount') }}</th><th class="num">{{ _('Open') }}</th><th></th></tr></thead>
+    <tbody>
+    {% for inv in view.invoices %}
+      <tr>
+        <td><strong>{{ inv.number }}</strong></td>
+        <td>{{ inv.date }}</td>
+        <td>{{ inv.due_date }}{% if inv.overdue %} <span class="badge neg-badge" title="{{ _('Overdue') }}">{{ _('Overdue') }}</span>{% endif %}</td>
+        <td>{{ inv.client }}</td>
+        <td>
+          <span class="badge {{ 'sold' if inv.status_id|string == '4' else 'in_production' if inv.status_id|string == '2' else 'archived' }}">{{ inv_labels.get(inv.status_id|string, inv.status) }}</span>
+          {% if inv.archived %}<span class="badge archived" title="{{ _('Archived') }}">{{ _('Archived') }}</span>{% endif %}
+        </td>
+        <td class="num">{{ inv.amount|money }} {{ currency }}</td>
+        <td class="num {{ 'neg' if inv.balance > 0 }}">{{ inv.balance|money }} {{ currency }}</td>
+        <td class="actions">
+          <a class="btn" href="{{ in_url }}/invoices/{{ inv.id }}/edit" target="_blank" title="InvoiceNinja ↗">↗</a>
+          {% if email_on %}
+          <form method="post" action="/hub/in/{{ inv.id }}/mail?kind=invoice"><button title="{{ _('Send invoice') }}">✉</button></form>
+          {% if inv.overdue %}
+          <form method="post" action="/hub/in/{{ inv.id }}/mail?kind=reminder"><button title="{{ _('Reminder') }}">⏰</button></form>
+          <form method="post" action="/hub/in/{{ inv.id }}/mail?kind=dunning"><button class="link danger" title="{{ _('Dunning') }}">⚠</button></form>
+          {% endif %}
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="muted">{{ _('No invoices yet.') }}</p>{% endif %}
+</section>
+{% endblock %}

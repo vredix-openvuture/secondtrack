@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Settings') }} · secondtrack{% endblock %}
+{% block content %}
+{% set fontopts = [('system','System'),('rounded','Rounded'),('serif','Serif'),('mono','Mono')] %}
+
+<div class="page-head"><h1>{{ _('Settings') }}</h1></div>
+{% if msg %}<p class="notice">{{ _(msg) }}</p>{% endif %}
+
+<div class="tabs settings-tabs">
+  <a href="/settings?tab=general" class="{{ 'on' if tab == 'general' }}">{{ _('General') }}</a>
+  <a href="/settings?tab=connections" class="{{ 'on' if tab == 'connections' }}">{{ _('Connections') }}</a>
+  <a href="/settings?tab=style" class="{{ 'on' if tab == 'style' }}">{{ _('Style') }}</a>
+  <a href="/settings?tab=account" class="{{ 'on' if tab == 'account' }}">{{ _('Account') }}</a>
+</div>
+
+{% if tab == 'general' %}
+<section class="card" style="max-width:560px">
+  <h2>{{ _('General') }}</h2>
+  <form method="post" action="/settings/general" class="stack">
+    <label>{{ _('Display name') }}<input name="display_name" value="{{ display_name }}" placeholder="{{ user.username }}"></label>
+    <label>{{ _('Language') }}
+      <select name="language">{% for code, label in languages.items() %}<option value="{{ code }}" {{ 'selected' if code == current_lang }}>{{ label }}</option>{% endfor %}</select>
+    </label>
+    <label>{{ _('Default hourly rate') }}<input name="hourly_rate" value="{{ hourly_rate }}" inputmode="decimal"></label>
+    <label>{{ _('Currency symbol') }}<input name="currency" value="{{ currency }}" maxlength="4"></label>
+    <button type="submit" class="primary">{{ _('Save') }}</button>
+  </form>
+</section>
+
+{% elif tab == 'connections' %}
+<div class="tabs">
+  <a href="/settings?tab=connections&sub=woo" class="{{ 'on' if sub == 'woo' }}">WooCommerce</a>
+  <a href="/settings?tab=connections&sub=in" class="{{ 'on' if sub == 'in' }}">InvoiceNinja</a>
+  <a href="/settings?tab=connections&sub=vikunja" class="{{ 'on' if sub == 'vikunja' }}">Vikunja</a>
+  <a href="/settings?tab=connections&sub=email" class="{{ 'on' if sub == 'email' }}">{{ _('Email & sending') }}</a>
+</div>
+
+{% if sub == 'woo' %}
+<section class="card" style="max-width:620px">
+  <h2>WooCommerce</h2>
+  <form method="post" action="/settings/connection/woo" class="stack">
+    <label class="chk"><input type="checkbox" name="enabled" {{ 'checked' if rt_bool['woo_enabled'] }}> {{ _('Enabled') }}</label>
+    <label>{{ _('Shop URL') }}<input name="url" value="{{ rt['woo_url'] }}" placeholder="https://shop.example.com"></label>
+    <label>{{ _('Consumer key') }}<input name="key" value="{{ rt['woo_key'] }}" placeholder="ck_..."></label>
+    <label>{{ _('Consumer secret') }}<input name="secret" value="{{ rt['woo_secret'] }}" placeholder="cs_..."></label>
+    <label>{{ _('Order statuses (comma)') }}<input name="order_statuses" value="{{ rt['woo_order_statuses'] }}"></label>
+    <hr>
+    <h3 style="margin:.2rem 0">{{ _('Auto receipt on order (webhook)') }}</h3>
+    <p class="muted small">{{ _('When a paid order comes in, secondtrack creates a paid document in InvoiceNinja and emails the customer a receipt immediately.') }}</p>
+    <label class="chk"><input type="checkbox" name="webhook_enabled" {{ 'checked' if rt_bool['woo_webhook_enabled'] }}> {{ _('Enable order webhook') }}</label>
+    <label>{{ _('Webhook secret') }}<input name="webhook_secret" value="{{ rt['woo_webhook_secret'] }}" placeholder="{{ _('any long random string') }}"></label>
+    <p class="muted small">{{ _('In WooCommerce → Settings → Advanced → Webhooks add a webhook (Topic: Order updated), set the same secret, and Delivery URL:') }}<br>
+      <code>https://&lt;{{ _('your secondtrack URL') }}&gt;/webhooks/woo</code></p>
+    <hr>
+    <h3 style="margin:.2rem 0">{{ _('Polling (no WordPress changes)') }}</h3>
+    <p class="muted small">{{ _('Instead of a webhook, secondtrack checks for new paid orders on an interval and auto-creates + sends the receipt. Only orders placed after enabling are processed.') }}</p>
+    <label class="chk"><input type="checkbox" name="poll_enabled" {{ 'checked' if rt_bool['woo_poll_enabled'] }}> {{ _('Enable order polling') }}</label>
+    <label>{{ _('Interval (minutes)') }}<input name="poll_interval" value="{{ rt['woo_poll_interval'] }}" style="max-width:110px" inputmode="numeric"></label>
+    {% if rt['woo_poll_since'] %}<p class="muted small">{{ _('Processing orders since:') }} <code>{{ rt['woo_poll_since'] }}</code></p>{% endif %}
+    <button type="submit" class="primary">{{ _('Save') }}</button>
+  </form>
+</section>
+{% elif sub == 'in' %}
+<section class="card" style="max-width:620px">
+  <h2>InvoiceNinja</h2>
+  <form method="post" action="/settings/connection/in" class="stack">
+    <label class="chk"><input type="checkbox" name="enabled" {{ 'checked' if rt_bool['in_enabled'] }}> {{ _('Enabled') }}</label>
+    <label>{{ _('InvoiceNinja URL') }}<input name="url" value="{{ rt['in_url'] }}" placeholder="https://invoice.example.com"></label>
+    <label>{{ _('API token') }}<input name="token" value="{{ rt['in_token'] }}"></label>
+    <label class="chk"><input type="checkbox" name="auto_send" {{ 'checked' if rt_bool['in_auto_send'] }}> {{ _('Auto-send invoices on create') }}</label>
+    <button type="submit" class="primary">{{ _('Save') }}</button>
+  </form>
+</section>
+{% elif sub == 'vikunja' %}
+<section class="card" style="max-width:620px">
+  <h2>Vikunja</h2>
+  <form method="post" action="/settings/connection/vikunja" class="stack">
+    <label class="chk"><input type="checkbox" name="enabled" {{ 'checked' if rt_bool['vikunja_enabled'] }}> {{ _('Enabled') }}</label>
+    <label>{{ _('Vikunja URL') }}<input name="url" value="{{ rt['vikunja_url'] }}" placeholder="https://vikunja.example.com"></label>
+    <label>{{ _('API token') }}<input name="token" value="{{ rt['vikunja_token'] }}"></label>
+    <label>{{ _('Parent project') }}<input name="parent" value="{{ rt['vikunja_parent'] }}"></label>
+    <button type="submit" class="primary">{{ _('Save') }}</button>
+  </form>
+</section>
+{% elif sub == 'email' %}
+<section class="card" style="max-width:680px">
+  <h2>{{ _('Email & sending') }} {% if email_on %}<span class="badge sold">{{ _('active') }}</span>{% else %}<span class="badge archived">{{ _('off') }}</span>{% endif %}</h2>
+  <p class="muted small">{{ _('All invoice & reminder emails are sent by secondtrack via this SMTP server (no longer through Woo/InvoiceNinja).') }}</p>
+  <form method="post" action="/settings/connection/email" class="stack">
+    <label>{{ _('Send via') }}
+      <select name="email_provider">
+        <option value="secondtrack" {{ 'selected' if rt['email_provider'] == 'secondtrack' }}>secondtrack (SMTP)</option>
+        <option value="invoiceninja" {{ 'selected' if rt['email_provider'] == 'invoiceninja' }}>InvoiceNinja</option>
+      </select>
+    </label>
+    <p class="muted small">{{ _('With InvoiceNinja, IN sends using its own SMTP & templates — the SMTP fields and templates below are then unused.') }}</p>
+    <label class="chk"><input type="checkbox" name="email_enabled" {{ 'checked' if rt_bool['email_enabled'] }}> {{ _('Send mail through secondtrack (SMTP)') }}</label>
+    <div class="row-form">
+      <label>{{ _('SMTP host') }}<input name="smtp_host" value="{{ rt['smtp_host'] }}" placeholder="smtp.example.com"></label>
+      <label>{{ _('SMTP port') }}<input name="smtp_port" value="{{ rt['smtp_port'] }}" style="max-width:90px"></label>
+      <label>{{ _('Security') }}
+        <select name="smtp_security">
+          {% for s in ['tls','ssl','none'] %}<option value="{{ s }}" {{ 'selected' if rt['smtp_security']==s }}>{{ s|upper }}</option>{% endfor %}
+        </select>
+      </label>
+    </div>
+    <div class="row-form">
+      <label>{{ _('SMTP user') }}<input name="smtp_user" value="{{ rt['smtp_user'] }}"></label>
+      <label>{{ _('SMTP password') }}<input type="password" name="smtp_pass" value="{{ rt['smtp_pass'] }}"></label>
+    </div>
+    <div class="row-form">
+      <label>{{ _('From name') }}<input name="mail_from_name" value="{{ rt['mail_from_name'] }}"></label>
+      <label>{{ _('From email') }}<input name="mail_from_email" value="{{ rt['mail_from_email'] }}" placeholder="billing@example.com"></label>
+    </div>
+    <hr>
+    <label class="chk"><input type="checkbox" name="email_auto" {{ 'checked' if rt_bool['email_auto'] }}> {{ _('Auto reminders/dunning (daily)') }}</label>
+    <div class="row-form">
+      <label>{{ _('Reminder after (days overdue)') }}<input name="reminder_days" value="{{ rt['reminder_days'] }}" style="max-width:90px"></label>
+      <label>{{ _('Dunning after (days overdue)') }}<input name="dunning_days" value="{{ rt['dunning_days'] }}" style="max-width:90px"></label>
+    </div>
+    <hr>
+    <p class="muted small">{{ _('Templates') }} — {{ _('Placeholders:') }} <code>{client} {number} {amount} {due_date} {link} {company}</code></p>
+    <details class="adder" open><summary>{{ _('Invoice email') }}</summary>
+      <input name="tpl_invoice_subject" value="{{ rt['tpl_invoice_subject'] }}" placeholder="{{ _('Subject') }}">
+      <textarea name="tpl_invoice_body" rows="4">{{ rt['tpl_invoice_body'] }}</textarea>
+    </details>
+    <details class="adder"><summary>{{ _('Reminder email') }}</summary>
+      <input name="tpl_reminder_subject" value="{{ rt['tpl_reminder_subject'] }}" placeholder="{{ _('Subject') }}">
+      <textarea name="tpl_reminder_body" rows="4">{{ rt['tpl_reminder_body'] }}</textarea>
+    </details>
+    <details class="adder"><summary>{{ _('Dunning email') }}</summary>
+      <input name="tpl_dunning_subject" value="{{ rt['tpl_dunning_subject'] }}" placeholder="{{ _('Subject') }}">
+      <textarea name="tpl_dunning_body" rows="4">{{ rt['tpl_dunning_body'] }}</textarea>
+    </details>
+    <button type="submit" class="primary">{{ _('Save') }}</button>
+  </form>
+  <hr>
+  <form method="post" action="/settings/email/test" class="row-form">
+    <input name="to" type="email" placeholder="{{ _('Send test email to') }}" required>
+    <button type="submit">{{ _('Send test') }}</button>
+  </form>
+</section>
+{% endif %}
+
+{% elif tab == 'style' %}
+<div class="cols">
+  <section class="card">
+    <h2>{{ _('Style') }}</h2>
+    <form method="post" action="/settings/style" class="stack">
+      <div class="row-form">
+        <label>{{ _('Accent color') }}<input type="color" name="accent" value="{{ style_accent }}" style="height:38px"></label>
+        <label>{{ _('Accent color 2') }}<input type="color" name="accent2" value="{{ style_accent2 }}" style="height:38px"></label>
+        <label>{{ _('Background base') }}<input type="color" name="bg" value="{{ style_bg }}" style="height:38px"></label>
+      </div>
+      <label>{{ _('Corner radius') }}
+        <div class="range-row"><input type="range" name="radius" min="0" max="28" value="{{ style_radius }}" data-output="radOut" data-unit="px" oninput="stRange(this)"><output id="radOut">{{ style_radius }}px</output></div>
+      </label>
+      <label>{{ _('Card opacity') }} ({{ _('with background') }})
+        <div class="range-row"><input type="range" name="card_opacity" min="40" max="100" value="{{ style_card_opacity }}" data-output="coOut" data-unit="%" oninput="stRange(this)"><output id="coOut">{{ style_card_opacity }}%</output></div>
+      </label>
+      <div class="row-form">
+        <label>{{ _('Font') }}<select name="font">{% for v,l in fontopts %}<option value="{{ v }}" {{ 'selected' if style_font==v }}>{{ l }}</option>{% endfor %}</select></label>
+        <label>{{ _('Density') }}<select name="density"><option value="comfortable" {{ 'selected' if style_density=='comfortable' }}>{{ _('Comfortable') }}</option><option value="compact" {{ 'selected' if style_density=='compact' }}>{{ _('Compact') }}</option></select></label>
+        <label>{{ _('Sidebar default') }}<select name="sidebar"><option value="closed" {{ 'selected' if style_sidebar=='closed' }}>{{ _('Closed') }}</option><option value="open" {{ 'selected' if style_sidebar=='open' }}>{{ _('Open') }}</option></select></label>
+      </div>
+      <label class="chk"><input type="checkbox" name="glass" {{ 'checked' if style_glass=='1' }}> {{ _('Glass effect (blur)') }}</label>
+      <button type="submit" class="primary">{{ _('Save') }}</button>
+    </form>
+  </section>
+
+  <aside class="col-side">
+    <section class="card">
+      <h2>{{ _('Background image') }}</h2>
+      {% if wallpaper_url %}<img src="{{ wallpaper_url }}" class="detail-image" alt="">{% endif %}
+      <form method="post" action="/settings/wallpaper" enctype="multipart/form-data" class="stack">
+        <label class="file-field">{{ _('Choose image') }}<input type="file" name="wallpaper" accept="image/*" onchange="stPreview(this)"></label>
+        <label>{{ _('Blur') }}<div class="range-row"><input type="range" name="blur" min="0" max="40" value="{{ wallpaper_blur }}" data-output="blurOut" data-unit="px" oninput="stRange(this)"><output id="blurOut">{{ wallpaper_blur }}px</output></div></label>
+        <label>{{ _('Darkening') }}<div class="range-row"><input type="range" name="dark" min="0" max="95" value="{{ wallpaper_dark }}" data-output="darkOut" data-unit="%" oninput="stRange(this)"><output id="darkOut">{{ wallpaper_dark }}%</output></div></label>
+        <div class="row-form">
+          <button type="submit" class="primary">{{ _('Save') }}</button>
+          {% if wallpaper_url %}<button type="submit" formaction="/settings/wallpaper/clear" class="link danger">{{ _('Remove') }}</button>{% endif %}
+        </div>
+      </form>
+    </section>
+  </aside>
+</div>
+
+{% elif tab == 'account' %}
+<div class="cols">
+  <section class="card">
+    <h2>{{ _('Change password') }}</h2>
+    <form method="post" action="/settings/password" class="stack">
+      <label>{{ _('Current password') }}<input type="password" name="current" required></label>
+      <label>{{ _('New password') }}<input type="password" name="new" required></label>
+      <button type="submit" class="primary">{{ _('Change') }}</button>
+    </form>
+  </section>
+  <aside class="col-side">
+    <section class="card">
+      <h2>{{ _('Two-factor authentication') }}</h2>
+      {% if user.totp_enabled %}
+        <p class="notice ok">{{ _('✓ 2FA is active.') }}</p>
+        <form method="post" action="/settings/2fa/disable" class="stack">
+          <label>{{ _('Password to disable') }}<input type="password" name="password" required></label>
+          <button type="submit" class="link danger">{{ _('Disable 2FA') }}</button>
+        </form>
+      {% elif enrolling_qr %}
+        <p class="muted">{{ _('Scan the code with your authenticator app and enter a code to confirm.') }}</p>
+        <img src="{{ enrolling_qr }}" alt="TOTP QR" class="qr">
+        <form method="post" action="/settings/2fa/enable" class="stack">
+          <input name="code" inputmode="numeric" placeholder="123456" required>
+          <button type="submit" class="primary">{{ _('Enable') }}</button>
+        </form>
+      {% else %}
+        <p class="muted">{{ _('Protect your account with a second factor (TOTP).') }}</p>
+        <form method="post" action="/settings/2fa/start"><button type="submit">{{ _('Set up 2FA') }}</button></form>
+      {% endif %}
+    </section>
+  </aside>
+</div>
+{% endif %}
+{% endblock %}

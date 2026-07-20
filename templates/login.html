@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ _('Sign in') }} · secondtrack</title>
+  <link rel="stylesheet" href="/static/style.css">
+  {% if accent %}<style>:root{ --accent: {{ accent }}; }</style>{% endif %}
+</head>
+<body class="centered">
+  <div class="card login-card">
+    <h1 class="brand">second<span>track</span></h1>
+    {% if error %}<p class="error">{{ _(error) }}</p>{% endif %}
+
+    {% if stage == "totp" %}
+      <p class="muted">{{ _('Two-factor code from your authenticator app:') }}</p>
+      <form method="post" action="/login/2fa">
+        <input name="code" inputmode="numeric" autocomplete="one-time-code"
+               placeholder="123456" autofocus required>
+        <button type="submit" class="primary">{{ _('Confirm') }}</button>
+      </form>
+    {% else %}
+      <form method="post" action="/login">
+        <label>{{ _('Username') }}
+          <input name="username" autofocus required>
+        </label>
+        <label>{{ _('Password') }}
+          <input name="password" type="password" required>
+        </label>
+        <button type="submit" class="primary">{{ _('Sign in') }}</button>
+      </form>
+    {% endif %}
+  </div>
+</body>
+</html>

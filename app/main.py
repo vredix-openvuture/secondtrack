@@ -1,0 +1,119 @@
+from __future__ import annotations
+
+import os
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, Request
+from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
+from starlette.middleware.sessions import SessionMiddleware
+
+from .auth import _RedirectToLogin
+from .config import get_settings
+from .db import init_db
+from .routers import (
+    auth,
+    dashboard,
+    expenses as expenses_router,
+    hub,
+    projects,
+    settings as settings_router,
+    stats,
+    tasks,
+    warehouse,
+    webhooks,
+)
+
+settings = get_settings()
+
+
+async def _email_loop():
+    import asyncio
+
+    from . import runtime
+    from .db import SessionLocal
+    from .services import emails
+
+    while True:
+        try:
+            await asyncio.sleep(60 * 60 * 24)  # daily
+            if runtime.get_bool("email_auto"):
+                with SessionLocal() as db:
+                    emails.process_due(db)
+        except asyncio.CancelledError:
+            break
+        except Exception:  # noqa: BLE001
+            pass
+
+
+async def _order_poll_loop():
+    import asyncio
+
+    from . import runtime
+    from .db import SessionLocal
+    from .services import hub
+
+    while True:
+        try:
+            interval = max(1, runtime.get_int("woo_poll_interval", 5))
+            await asyncio.sleep(interval * 60)
+            if runtime.get_bool("woo_poll_enabled"):
+                with SessionLocal() as db:
+                    hub.poll_orders(db)
+        except asyncio.CancelledError:
+            break
+        except Exception:  # noqa: BLE001
+            pass
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    import asyncio
+
+    init_db()
+    from . import runtime
+    from .db import SessionLocal
+
+    with SessionLocal() as db:
+        runtime.load(db)
+    tasks = [asyncio.create_task(_email_loop()), asyncio.create_task(_order_poll_loop())]
+    yield
+    for t in tasks:
+        t.cancel()
+
+
+app = FastAPI(title="secondtrack", lifespan=lifespan)
+
+# User uploads (project/part images, wallpaper).
+os.makedirs(settings.upload_dir, exist_ok=True)
+
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.secret_key,
+    https_only=settings.cookie_secure,
+    same_site="lax",
+)
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/uploads", StaticFiles(directory=settings.upload_dir), name="uploads")
+
+app.include_router(auth.router)
+app.include_router(dashboard.router)
+app.include_router(projects.router)
+app.include_router(warehouse.router)
+app.include_router(hub.router)
+app.include_router(expenses_router.router)
+app.include_router(tasks.router)
+app.include_router(stats.router)
+app.include_router(settings_router.router)
+app.include_router(webhooks.router)
+
+
+@app.exception_handler(_RedirectToLogin)
+async def redirect_to_login(request: Request, exc: _RedirectToLogin):
+    return RedirectResponse(url="/login", status_code=303)
+
+
+@app.get("/healthz")
+async def healthz():
+    return {"status": "ok"}

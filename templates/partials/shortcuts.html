@@ -1,0 +1,35 @@
+<div class="modal-backdrop" id="shortcutHelp">
+  <div class="modal">
+    <div class="modal-head"><h2>{{ _('Keyboard shortcuts') }}</h2><button class="modal-close" onclick="stCloseModal(this)">×</button></div>
+
+    <div class="sc-group">
+      <h3>{{ _('General') }}</h3>
+      <div class="sc"><kbd>Strg</kbd>+<kbd>/</kbd><span>{{ _('Show this help') }}</span></div>
+      <div class="sc"><kbd>n</kbd><span>{{ _('Create new (context)') }}</span></div>
+      <div class="sc"><kbd>Esc</kbd><span>{{ _('Close overlay') }}</span></div>
+    </div>
+
+    <div class="sc-group">
+      <h3>{{ _('Navigation') }} (<kbd>g</kbd> …)</h3>
+      <div class="sc"><kbd>g</kbd> <kbd>d</kbd><span>{{ _('Dashboard') }}</span></div>
+      <div class="sc"><kbd>g</kbd> <kbd>p</kbd><span>{{ _('Projects') }}</span></div>
+      <div class="sc"><kbd>g</kbd> <kbd>w</kbd><span>{{ _('Warehouse') }}</span></div>
+      <div class="sc"><kbd>g</kbd> <kbd>h</kbd><span>{{ _('Hub') }}</span></div>
+      <div class="sc"><kbd>g</kbd> <kbd>t</kbd><span>{{ _('Tasks') }}</span></div>
+      <div class="sc"><kbd>g</kbd> <kbd>s</kbd><span>{{ _('Statistics') }}</span></div>
+    </div>
+
+    {% if active == "projects" or active == "warehouse" %}
+    <div class="sc-group">
+      <h3>{{ _('This page') }}</h3>
+      <div class="sc"><kbd>n</kbd><span>{{ _('Create new device') if active == "projects" else _('Add part') }}</span></div>
+      <div class="sc"><kbd>v</kbd><span>{{ _('Toggle list/cards view') }}</span></div>
+    </div>
+    {% elif active == "tasks" %}
+    <div class="sc-group">
+      <h3>{{ _('This page') }}</h3>
+      <div class="sc"><kbd>n</kbd><span>{{ _('New task (opens Vikunja)') }}</span></div>
+    </div>
+    {% endif %}
+  </div>
+</div>

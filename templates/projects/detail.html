@@ -1,0 +1,267 @@
+{% extends "base.html" %}
+{% block title %}{{ project.name }} · secondtrack{% endblock %}
+{% block content %}
+{% set labels = {"in_production": _('In production'), "archived": _('Stored'), "sold": _('Sold')} %}
+
+<p class="crumb"><a href="/projects">← {{ _('Projects') }}</a></p>
+{% if request.query_params.get('msg') %}<p class="notice">{{ _(request.query_params.get('msg')) }}</p>{% endif %}
+
+<!-- ===== HEADER (full width) ===== -->
+<section class="card project-header">
+  <div class="ph-image {{ 'placeholder' if not project.image_path }}">
+    {% if project.image_path %}<img src="{{ project.image_path }}" alt="" onerror="this.style.display='none'; this.closest('.ph-image').classList.add('placeholder')">{% endif %}
+  </div>
+
+  <form method="post" action="/projects/{{ project.id }}/update" enctype="multipart/form-data" class="ph-form">
+    <div class="ph-top">
+      <input class="ph-name" name="name" value="{{ project.name }}" required>
+      <span class="badge {{ project.status.value }}">{{ labels[project.status.value] }}</span>
+    </div>
+
+    <div class="ph-grid">
+      <label>{{ _('Status') }}
+        <select name="status">
+          {% for st in statuses %}<option value="{{ st.value }}" {{ 'selected' if project.status == st }}>{{ labels[st.value] }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>{{ _('Purchase price (device)') }}<input name="purchase_price" value="{{ project.purchase_price }}" inputmode="decimal"></label>
+      <label>{{ _('List price VK (empty = suggestion)') }}<input name="sale_price" value="{{ project.sale_price if project.sale_price is not none else '' }}" inputmode="decimal"></label>
+      <label>{{ _('Hourly rate (empty = {rate})').replace('{rate}', (global_rate|money) ~ ' ' ~ currency) }}<input name="hourly_rate" value="{{ project.hourly_rate if project.hourly_rate is not none else '' }}" inputmode="decimal"></label>
+    </div>
+
+    <div class="ph-grid">
+      <label>{{ _('Project type') }}
+        <select name="kind">
+          {% for k in kinds %}<option value="{{ k.value }}" {{ 'selected' if project.kind == k }}>{{ _('Customer order') if k.value == 'customer' else _('Shop production') }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>{{ _('WooCommerce product ID') }}<input name="woo_product_id" value="{{ project.woo_product_id or '' }}" inputmode="numeric" placeholder="{{ _('for shop production') }}"></label>
+    </div>
+
+    <label>{{ _('Description') }}<textarea name="description" rows="2">{{ project.description or "" }}</textarea></label>
+
+    <div class="ph-grid">
+      <label class="file-field">{{ _('Change image') }}<input type="file" name="image" accept="image/*" onchange="stPreview(this)"></label>
+      <label>{{ _('Vikunja task (ID or URL)') }}<input name="vikunja_task_id" value="{{ project.vikunja_task_id or '' }}" placeholder="z.B. 123"></label>
+    </div>
+    {% if project.vikunja_task_id and vikunja_url %}
+      <p class="muted small">🔗 <a href="{{ vikunja_url }}/tasks/{{ project.vikunja_task_id }}" target="_blank">{{ _('Open linked task in Vikunja ↗') }}</a></p>
+    {% endif %}
+
+    <div class="ph-actions">
+      <button type="submit" class="primary">{{ _('Save') }}</button>
+      <button type="submit" formaction="/projects/{{ project.id }}/delete" class="link danger"
+              onclick="return confirm('{{ _('Delete project? Parts move to the warehouse.') }}')">{{ _('Delete project') }}</button>
+    </div>
+  </form>
+</section>
+
+<!-- ===== MIDDLE (masonry) ===== -->
+<div class="detail-masonry">
+    <section class="card">
+      <h2>{{ _('Installed parts') }}</h2>
+      {% if f.parts %}
+      <table class="grid tight">
+        <thead><tr><th>{{ _('Part') }}</th><th>{{ _('Origin') }}</th><th class="num">{{ _('Purchase') }}</th><th class="num">{{ _('Sale value') }}</th><th></th></tr></thead>
+        <tbody>
+        {% for p in f.parts %}
+          <tr>
+            <td>{% if p.image_path %}<img src="{{ p.image_path }}" class="row-img" alt="" onerror="this.style.display='none'">{% endif %}<strong>{{ p.name }}</strong>{% if p.notes %}<br><span class="muted small">{{ p.notes }}</span>{% endif %}</td>
+            <td>{{ _('Harvested') if p.origin.value == "harvested" else _('Bought') }}</td>
+            <td class="num">{{ p.purchase_price|money }} {% if p.purchase_price is not none %}{{ currency }}{% endif %}</td>
+            <td class="num">{{ p.sale_price|money }} {{ currency }}</td>
+            <td class="actions">
+              <form method="post" action="/projects/{{ project.id }}/parts/{{ p.id }}/remove" onsubmit="return confirm('{{ _('Move part to warehouse?') }}')"><button class="link">{{ _('→ Warehouse') }}</button></form>
+              <form method="post" action="/projects/{{ project.id }}/parts/{{ p.id }}/delete" onsubmit="return confirm('{{ _('Delete part permanently?') }}')"><button class="link danger">✕</button></form>
+            </td>
+          </tr>
+        {% endfor %}
+          <tr class="sum"><td colspan="2">{{ _('Sum') }}</td><td class="num">{{ f.parts_purchase_cost|money }} {{ currency }}</td><td class="num">{{ f.parts_value|money }} {{ currency }}</td><td></td></tr>
+        </tbody>
+      </table>
+      {% else %}<p class="muted">{{ _('No parts yet.') }}</p>{% endif %}
+
+      <details class="adder">
+        <summary>{{ _('+ Add part') }}</summary>
+        <form method="post" action="/projects/{{ project.id }}/parts" enctype="multipart/form-data" class="stack">
+          <div class="row-form">
+            <input name="name" placeholder="z.B. 16GB DDR4 RAM" required>
+            <select name="origin"><option value="purchased">{{ _('Bought') }}</option><option value="harvested">{{ _('Harvested') }}</option></select>
+          </div>
+          <div class="row-form">
+            <input name="purchase_price" placeholder="{{ _('Purchase') }}" inputmode="decimal">
+            <input name="sale_price" placeholder="{{ _('Sale value') }}" inputmode="decimal">
+          </div>
+          <input name="notes" placeholder="{{ _('Note (optional)') }}">
+          <label class="file-field">{{ _('Image (optional)') }}<input type="file" name="image" accept="image/*" onchange="stPreview(this)"></label>
+          <label class="file-field">{{ _('Purchase receipt (optional → expense)') }}<input type="file" name="receipt" accept="application/pdf,image/*"></label>
+          <button type="submit" class="primary">{{ _('Add') }}</button>
+        </form>
+        {% if warehouse_parts %}
+        <hr>
+        <form method="post" action="/projects/{{ project.id }}/parts/install" class="row-form">
+          <select name="part_id" required>
+            <option value="" disabled selected>{{ _('Install from warehouse…') }}</option>
+            {% for w in warehouse_parts %}<option value="{{ w.id }}">{{ w.name }} ({{ w.sale_price|money }} {{ currency }})</option>{% endfor %}
+          </select>
+          <button type="submit">{{ _('Install') }}</button>
+        </form>
+        {% endif %}
+      </details>
+    </section>
+
+    <section class="card">
+      <h2>{{ _('Work time') }}</h2>
+      {% if f.sessions %}
+      <table class="grid tight">
+        <thead><tr><th>{{ _('Date') }}</th><th class="num">{{ _('Hrs') }}</th><th class="num">{{ _('Rate') }}</th><th>{{ _('Description') }}</th><th></th></tr></thead>
+        <tbody>
+        {% for s in f.sessions|sort(attribute='work_date') %}
+          <tr>
+            <td>{{ s.work_date.isoformat() }}</td>
+            <td class="num">{{ s.hours|hours }}</td>
+            <td class="num">{{ (s.hourly_rate if s.hourly_rate is not none else f.rate)|money }} {{ currency }}</td>
+            <td class="md-content">{{ s.description|md }}</td>
+            <td class="actions"><form method="post" action="/projects/{{ project.id }}/sessions/{{ s.id }}/delete" onsubmit="return confirm('{{ _('Delete entry?') }}')"><button class="link danger">✕</button></form></td>
+          </tr>
+        {% endfor %}
+          <tr class="sum"><td>{{ _('Sum') }}</td><td class="num">{{ f.hours|hours }}</td><td colspan="3"></td></tr>
+        </tbody>
+      </table>
+      {% else %}<p class="muted">{{ _('No sessions yet.') }}</p>{% endif %}
+
+      <details class="adder">
+        <summary>{{ _('+ Work session') }}</summary>
+        <form method="post" action="/projects/{{ project.id }}/sessions" class="stack">
+          <div class="row-form">
+            <input type="date" name="work_date" value="{{ today }}">
+            <input name="hours" placeholder="{{ _('Hours') }}" inputmode="decimal" required>
+            <input name="hourly_rate" placeholder="{{ _('Rate (optional)') }}" inputmode="decimal">
+          </div>
+          <textarea name="description" class="md-field" rows="3" placeholder="{{ _('What was done? (type / for lists)') }}"></textarea>
+          <button type="submit" class="primary">{{ _('Log') }}</button>
+        </form>
+      </details>
+    </section>
+
+    {% if project.kind.value == 'shop' %}
+    <section class="card">
+      <h2>{{ _('Shop / pricing') }}</h2>
+      <div class="wstat"><span>{{ _('Production cost (material)') }}</span><strong>{{ f.material_cost|money }} {{ currency }}</strong></div>
+      <div class="wstat"><span>{{ _('Suggested price') }}</span><strong>{{ f.build_total|money }} {{ currency }}</strong></div>
+      <div class="wstat"><span>{{ _('Shop price (VK)') }}</span><strong>{{ f.sale_price|money }} {{ currency }}</strong></div>
+      {% if shop_sale %}
+        <p class="notice ok">{{ _('Sold via shop') }} · {{ shop_sale.invoice_number }} ({{ shop_sale.amount|money }} {{ currency }})</p>
+      {% elif project.woo_product_id %}
+        <p class="muted small">{{ _('Linked to shop product') }} #{{ project.woo_product_id }}{% if woo_url %} · <a href="{{ woo_url }}/wp-admin/post.php?post={{ project.woo_product_id }}&action=edit" target="_blank">↗</a>{% endif %}</p>
+      {% else %}
+        <p class="muted small">{{ _('Create the product in WooCommerce, then enter its product ID above to link the sale.') }}</p>
+      {% endif %}
+      <p class="muted small">⏱ {{ _('Work time is for pricing only — not booked as a cost.') }} ({{ f.hours|hours }} h)</p>
+    </section>
+    {% elif in_enabled %}
+    <section class="card">
+      <h2>{{ _('Invoice (InvoiceNinja)') }}</h2>
+      {% if project_invoice %}
+        <p>{{ _('Invoice') }} <strong>{{ project_invoice.invoice_number or project_invoice.invoiceninja_id }}</strong> {{ _('invoice created.') }}</p>
+        <div class="row-form">
+          <a class="btn" href="{{ in_url }}/invoices/{{ project_invoice.invoiceninja_id }}/edit" target="_blank">{{ _('Open in InvoiceNinja ↗') }}</a>
+          {% if project_invoice.emailed_at %}<span class="muted small">{{ _('✓ sent to customer') }}</span>
+          {% else %}<form method="post" action="/projects/{{ project.id }}/invoice/send"><button class="primary">{{ _('Send to customer') }}</button></form>{% endif %}
+        </div>
+      {% else %}
+        <form method="post" action="/projects/{{ project.id }}/invoice" class="stack">
+          {% if in_clients %}
+          <label>{{ _('Existing client') }}
+            <select name="client_id" onchange="stToggleNewClient(this)">
+              <option value="">{{ _('— Create new client —') }}</option>
+              {% for c in in_clients %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}
+            </select>
+          </label>
+          {% endif %}
+          <div id="newClient" class="stack new-client">
+            <div class="row-form">
+              <input name="first_name" placeholder="{{ _('First name') }}">
+              <input name="last_name" placeholder="{{ _('Last name') }}">
+            </div>
+            <input name="company" placeholder="{{ _('Company (optional)') }}">
+            <input name="email" type="email" placeholder="{{ _('Email (for sending)') }}">
+            <input name="address1" placeholder="{{ _('Street & no.') }}">
+            <div class="row-form">
+              <input name="postal_code" placeholder="{{ _('Postal code') }}">
+              <input name="city" placeholder="{{ _('City') }}">
+            </div>
+            <input name="phone" placeholder="{{ _('Phone (optional)') }}">
+          </div>
+          <button type="submit" class="primary">{{ _('Create invoice') }}</button>
+        </form>
+        <p class="muted small">{{ _('From parts + work time of this project. Pick an existing client or create a new one with address.') }}</p>
+      {% endif %}
+    </section>
+    {% endif %}
+
+    <section class="card">
+      <h2>{{ _('Expenses') }}</h2>
+      {% if project_expenses %}
+      <table class="grid tight">
+        <thead><tr><th>{{ _('Date') }}</th><th>{{ _('Vendor') }}</th><th class="num">{{ _('Amount') }}</th><th></th></tr></thead>
+        <tbody>
+        {% for e in project_expenses %}
+          <tr>
+            <td>{{ e.expense_date.isoformat() }}</td>
+            <td>{{ e.vendor or e.description or '—' }}</td>
+            <td class="num">{{ e.amount|money }} {{ currency }}</td>
+            <td class="actions">
+              {% if e.receipt_path %}<a class="btn" href="{{ e.receipt_path }}" target="_blank">📄</a>{% else %}<span class="badge neg-badge">{{ _('missing') }}</span>{% endif %}
+              <form method="post" action="/expenses/{{ e.id }}/delete" onsubmit="return confirm('{{ _('Delete expense?') }}')"><button class="link danger">✕</button></form>
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% else %}<p class="muted">{{ _('No expenses yet.') }}</p>{% endif %}
+
+      <details class="adder">
+        <summary>{{ _('+ Add expense') }}</summary>
+        <form method="post" action="/expenses" enctype="multipart/form-data" class="stack">
+          <input type="hidden" name="project_id" value="{{ project.id }}">
+          <div class="row-form">
+            <input name="amount" placeholder="{{ _('Amount') }}" inputmode="decimal" value="{{ f.device_cost if f.device_cost else '' }}" required>
+            <input type="date" name="expense_date" value="{{ today }}">
+          </div>
+          <input name="vendor" placeholder="{{ _('Vendor') }}">
+          <input name="category" placeholder="{{ _('Category') }}">
+          <label class="file-field">{{ _('Receipt (PDF/image, required)') }}<input type="file" name="receipt" accept="application/pdf,image/*" required onchange="stPreview(this)"></label>
+          <label class="file-field">{{ _('Reference image (optional)') }}<input type="file" name="image" accept="image/*" onchange="stPreview(this)"></label>
+          <button type="submit" class="primary">{{ _('Save') }}</button>
+        </form>
+      </details>
+    </section>
+
+    <section class="card">
+      <h2>{{ _('Export') }}</h2>
+      <div class="row-form">
+        <a class="btn" href="/projects/{{ project.id }}/export.md">⬇ Markdown</a>
+        <form method="post" action="/projects/{{ project.id }}/export"><button type="submit">{{ _('→ Vault') }}</button></form>
+      </div>
+    </section>
+</div>
+
+<!-- ===== SUMMARY (full width) ===== -->
+<section class="card">
+  <h2>{{ _('Summary') }}</h2>
+  <div class="statement">
+    <div class="line"><span>{{ _('Purchase (device)') }}</span><span>{{ f.device_cost|money }} {{ currency }}</span></div>
+    <div class="line"><span>{{ _('Parts (sale value)') }}</span><span>{{ f.parts_value|money }} {{ currency }}</span></div>
+    <div class="line"><span>{{ _('Work time') }} ({{ f.hours|hours }} h × {{ f.rate|money }} {{ currency }})</span><span>{{ f.labor_value|money }} {{ currency }}</span></div>
+    <div class="line total"><span>{{ _('Suggested total price') }}</span><span>{{ f.build_total|money }} {{ currency }}</span></div>
+
+    <div class="line gap"><span>{{ _('List price (VK)') }}</span><span>{{ f.sale_price|money }} {{ currency }}</span></div>
+    <div class="line"><span>− {{ _('Material costs') }}</span><span>−{{ f.material_cost|money }} {{ currency }}</span></div>
+    <div class="line total"><span>{{ _('Gross profit') }}</span><span class="{{ 'pos' if f.gross_profit >= 0 else 'neg' }}">{{ f.gross_profit|money }} {{ currency }}</span></div>
+    <div class="line"><span>− {{ _('Labor value') }}</span><span>−{{ f.labor_value|money }} {{ currency }}</span></div>
+    <div class="line total"><span>{{ _('Profit after labor') }}</span><span class="{{ 'pos' if f.net_profit >= 0 else 'neg' }}">{{ f.net_profit|money }} {{ currency }}</span></div>
+    {% if project.kind.value == 'shop' %}<p class="muted small" style="margin-top:.6rem">{{ _('For shop production, gross profit (sale − material) is the real result; labor is only a pricing guide.') }}</p>{% endif %}
+  </div>
+</section>
+{% endblock %}

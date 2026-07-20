@@ -1,0 +1,29 @@
+services:
+
+  secondtrack:
+    build: .
+    # image: ghcr.io/<you>/secondtrack:latest   # once published
+    container_name: secondtrack
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      SECONDTRACK_DB_PATH: /data/secondtrack.db
+      SECONDTRACK_UPLOAD_DIR: /data/uploads
+      SECONDTRACK_EXPORT_DIR: /data/exports
+    volumes:
+      - /server/secondtrack/data:/data
+      # Mounted so you can drop a custom logo at static/secondtrack.png
+      # (and tweak assets) without rebuilding the image.
+      - /server/secondtrack/static:/app/static:ro
+      # Optional: mount your Obsidian vault for direct Markdown export.
+      # Adjust the host path to your vault, keep the container path.
+      # - /path/to/Obsidian-Vault/secondtrack:/obsidian
+    ports:
+      - "40019:8000"
+    networks:
+      - nginxpm_web
+
+networks:
+  nginxpm_web:
+    external: true

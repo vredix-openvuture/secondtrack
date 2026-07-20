@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Warehouse') }} · secondtrack{% endblock %}
+{% block content %}
+
+{% if request.query_params.get('msg') %}<p class="notice">{{ _(request.query_params.get('msg')) }}</p>{% endif %}
+<div class="page-head">
+  <h1>{{ _('Virtual warehouse') }}</h1>
+  <div class="view-toggle" data-view-scope="warehouse" data-view-default="list">
+    <button type="button" data-mode="list" onclick="stSetView('warehouse','list')">☰ {{ _('List') }}</button>
+    <button type="button" data-mode="cards" onclick="stSetView('warehouse','cards')">▦ {{ _('Cards') }}</button>
+  </div>
+  <div class="kpi-inline">
+    <span>{{ _('Stock (cost)') }}: <strong>{{ stock_cost|money }} {{ currency }}</strong></span>
+    <span>{{ _('Stock (sale)') }}: <strong>{{ stock_value|money }} {{ currency }}</strong></span>
+  </div>
+</div>
+
+{% if parts %}
+<table class="grid view-list">
+  <thead>
+    <tr><th>{{ _('Part') }}</th><th>{{ _('Origin') }}</th><th class="num">{{ _('Purchase') }}</th><th class="num">{{ _('Sale') }}</th><th>{{ _('Actions') }}</th></tr>
+  </thead>
+  <tbody>
+  {% for p in parts %}
+    <tr>
+      <td>
+        <details class="inline-edit">
+          <summary>{% if p.image_path %}<img src="{{ p.image_path }}" class="row-img" alt="" onerror="this.style.display='none'">{% endif %}<strong>{{ p.name }}</strong>{% if p.notes %} <span class="muted small">· {{ p.notes }}</span>{% endif %}</summary>
+          <form method="post" action="/warehouse/{{ p.id }}/update" enctype="multipart/form-data" class="stack mt">
+            <input name="name" value="{{ p.name }}" required>
+            <div class="row-form">
+              <input name="purchase_price" value="{{ p.purchase_price if p.purchase_price is not none else '' }}" placeholder="{{ _('Purchase') }}" inputmode="decimal">
+              <input name="sale_price" value="{{ p.sale_price }}" placeholder="{{ _('Sale') }}" inputmode="decimal">
+            </div>
+            <input name="notes" value="{{ p.notes or '' }}" placeholder="{{ _('Note (optional)') }}">
+            <label class="file-field">{{ _('Change image') }}<input type="file" name="image" accept="image/*" onchange="stPreview(this)"></label>
+            <button type="submit" class="primary">{{ _('Save') }}</button>
+          </form>
+        </details>
+      </td>
+      <td>{{ _('Harvested') if p.origin.value == "harvested" else _('Bought') }}</td>
+      <td class="num">{{ p.purchase_price|money }}{% if p.purchase_price is not none %} {{ currency }}{% endif %}</td>
+      <td class="num">{{ p.sale_price|money }} {{ currency }}</td>
+      <td class="actions">
+        {% if projects %}
+        <form method="post" action="/warehouse/{{ p.id }}/install" class="row-form compact">
+          <select name="project_id" required>
+            <option value="" disabled selected>{{ _('install into…') }}</option>
+            {% for pr in projects %}<option value="{{ pr.id }}">{{ pr.name }}</option>{% endfor %}
+          </select>
+          <button type="submit">→</button>
+        </form>
+        {% endif %}
+        <form method="post" action="/warehouse/{{ p.id }}/delete" onsubmit="return confirm('{{ _('Delete part?') }}')"><button class="link danger">✕</button></form>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<div class="cards-grid view-cards">
+  {% for p in parts %}
+  <div class="entity-card">
+    <div class="thumb {{ 'placeholder' if not p.image_path }}"
+         {% if p.image_path %}style="background-image:url('{{ p.image_path }}')"{% endif %}></div>
+    <div class="body">
+      <h3>{{ p.name }}</h3>
+      <div class="meta">
+        <span>{{ _('Harvested') if p.origin.value == "harvested" else _('Bought') }}</span>
+        <span>{{ p.sale_price|money }} {{ currency }}</span>
+      </div>
+      {% if projects %}
+      <form method="post" action="/warehouse/{{ p.id }}/install" class="row-form compact" onclick="event.stopPropagation()">
+        <select name="project_id" required>
+          <option value="" disabled selected>{{ _('install into…') }}</option>
+          {% for pr in projects %}<option value="{{ pr.id }}">{{ pr.name }}</option>{% endfor %}
+        </select>
+        <button type="submit">→</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<p class="muted empty">{{ _('Warehouse is empty. Remove parts from projects or add them with +.') }}</p>
+{% endif %}
+
+<button class="fab" onclick="stOpenModal('newPart')" title="{{ _('Add part') }}">+</button>
+<div class="modal-backdrop" id="newPart">
+  <div class="modal">
+    <div class="modal-head"><h2>{{ _('Create part manually') }}</h2><button class="modal-close" onclick="stCloseModal(this)">×</button></div>
+    <form method="post" action="/warehouse" enctype="multipart/form-data" class="stack">
+      <input name="name" placeholder="z.B. GTX 1060 6GB" required autofocus>
+      <div class="row-form">
+        <input name="purchase_price" placeholder="{{ _('Purchase price (empty = harvested)') }}" inputmode="decimal">
+        <input name="sale_price" placeholder="{{ _('Sale price') }}" inputmode="decimal">
+      </div>
+      <input name="notes" placeholder="{{ _('Note (optional)') }}">
+      <label class="file-field">{{ _('Image (optional)') }}<input type="file" name="image" accept="image/*" onchange="stPreview(this)"></label>
+      <label class="file-field">{{ _('Purchase receipt (optional → expense)') }}<input type="file" name="receipt" accept="application/pdf,image/*"></label>
+      <button type="submit" class="primary">{{ _('Create') }}</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Expenses') }} · secondtrack{% endblock %}
+{% block content %}
+
+{% if request.query_params.get('msg') %}<p class="notice">{{ _(request.query_params.get('msg')) }}</p>{% endif %}
+<div class="page-head">
+  <h1>{{ _('Expenses') }}</h1>
+  <div class="view-toggle" data-view-scope="expenses" data-view-default="list">
+    <button type="button" data-mode="list" onclick="stSetView('expenses','list')">☰ {{ _('List') }}</button>
+    <button type="button" data-mode="cards" onclick="stSetView('expenses','cards')">▦ {{ _('Cards') }}</button>
+  </div>
+  <div class="kpi-inline"><span>{{ _('Total') }}: <strong>{{ total|money }} {{ currency }}</strong></span></div>
+</div>
+
+{% if rows %}
+<table class="grid view-list">
+  <thead><tr>
+    <th>{{ _('Date') }}</th><th>{{ _('Vendor') }}</th><th>{{ _('Category') }}</th>
+    <th>{{ _('Project') }}</th><th class="num">{{ _('Amount') }}</th>
+    <th>{{ _('Receipt') }}</th><th>IN</th><th></th>
+  </tr></thead>
+  <tbody>
+  {% for e in rows %}
+    <tr>
+      <td>{{ e.expense_date.isoformat() }}</td>
+      <td>
+        <details class="inline-edit">
+          <summary>{% if e.image_path %}<img src="{{ e.image_path }}" class="row-img" alt="" onerror="this.style.display='none'">{% endif %}<strong>{{ e.vendor or '—' }}</strong>{% if e.description %} <span class="muted small">· {{ e.description }}</span>{% endif %}</summary>
+          <form method="post" action="/expenses/{{ e.id }}/update" enctype="multipart/form-data" class="stack mt">
+            <div class="row-form">
+              <input name="amount" value="{{ e.amount }}" inputmode="decimal" required>
+              <input type="date" name="expense_date" value="{{ e.expense_date.isoformat() }}">
+            </div>
+            <input name="vendor" value="{{ e.vendor or '' }}" placeholder="{{ _('Vendor') }}">
+            <div class="row-form">
+              <input name="category" value="{{ e.category or '' }}" placeholder="{{ _('Category') }}">
+              <select name="project_id">
+                <option value="">{{ _('No project') }}</option>
+                {% for p in projects %}<option value="{{ p.id }}" {{ 'selected' if e.project_id == p.id }}>{{ p.name }}</option>{% endfor %}
+              </select>
+            </div>
+            <input name="description" value="{{ e.description or '' }}" placeholder="{{ _('Description') }}">
+            <label class="file-field">{{ _('Replace receipt') }}<input type="file" name="receipt" accept="application/pdf,image/*"></label>
+            <label class="file-field">{{ _('Replace reference image') }}<input type="file" name="image" accept="image/*"></label>
+            <button type="submit" class="primary">{{ _('Save') }}</button>
+          </form>
+        </details>
+      </td>
+      <td>{{ e.category or '—' }}</td>
+      <td>{% if e.project %}<a href="/projects/{{ e.project.id }}">{{ e.project.name }}</a>{% else %}—{% endif %}</td>
+      <td class="num">{{ e.amount|money }} {{ currency }}</td>
+      <td>{% if e.receipt_path %}<a class="btn" href="{{ e.receipt_path }}" target="_blank">📄</a>{% else %}<span class="badge neg-badge">{{ _('missing') }}</span>{% endif %}</td>
+      <td>{% if e.invoiceninja_id %}<span class="badge sold" title="InvoiceNinja">✓</span>{% elif in_enabled %}<span class="badge archived" title="{{ _('Not synced') }}">—</span>{% else %}—{% endif %}</td>
+      <td class="actions"><form method="post" action="/expenses/{{ e.id }}/delete" onsubmit="return confirm('{{ _('Delete expense?') }}')"><button class="link danger">✕</button></form></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<div class="cards-grid view-cards">
+  {% for e in rows %}
+  <div class="entity-card">
+    <div class="thumb {{ 'placeholder' if not e.image_path }}"
+         {% if e.image_path %}style="background-image:url('{{ e.image_path }}')"{% endif %}></div>
+    <div class="body">
+      <div class="meta"><span>{{ e.expense_date.isoformat() }}</span><strong>{{ e.amount|money }} {{ currency }}</strong></div>
+      <h3>{{ e.vendor or e.description or '—' }}</h3>
+      <div class="meta">
+        <span>{{ e.category or '—' }}</span>
+        {% if e.project %}<a href="/projects/{{ e.project.id }}">{{ e.project.name }}</a>{% endif %}
+      </div>
+      <div class="meta">
+        <span>
+          {% if e.receipt_path %}<a class="btn" href="{{ e.receipt_path }}" target="_blank">📄 {{ _('Receipt') }}</a>{% else %}<span class="badge neg-badge">{{ _('missing') }}</span>{% endif %}
+          {% if e.invoiceninja_id %}<span class="badge sold">IN ✓</span>{% endif %}
+        </span>
+        <form method="post" action="/expenses/{{ e.id }}/delete" onsubmit="return confirm('{{ _('Delete expense?') }}')"><button class="link danger">✕</button></form>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<p class="muted empty">{{ _('No expenses yet. Add one with + (receipt required).') }}</p>
+{% endif %}
+
+<button class="fab" onclick="stOpenModal('newExpense')" title="{{ _('Add expense') }}">+</button>
+<div class="modal-backdrop" id="newExpense">
+  <div class="modal">
+    <div class="modal-head"><h2>{{ _('Add expense') }}</h2><button class="modal-close" onclick="stCloseModal(this)">×</button></div>
+    <form method="post" action="/expenses" enctype="multipart/form-data" class="stack">
+      <div class="row-form">
+        <input name="amount" placeholder="{{ _('Amount') }}" inputmode="decimal" required>
+        <input type="date" name="expense_date" value="{{ today }}">
+      </div>
+      <input name="vendor" placeholder="{{ _('Vendor') }}">
+      <div class="row-form">
+        <input name="category" placeholder="{{ _('Category') }}">
+        <select name="project_id">
+          <option value="">{{ _('No project') }}</option>
+          {% for p in projects %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <input name="description" placeholder="{{ _('Description') }}">
+      <label class="file-field">{{ _('Receipt (PDF/image, required)') }}<input type="file" name="receipt" accept="application/pdf,image/*" required onchange="stPreview(this)"></label>
+      <label class="file-field">{{ _('Reference image (optional)') }}<input type="file" name="image" accept="image/*" onchange="stPreview(this)"></label>
+      <button type="submit" class="primary">{{ _('Save') }}</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Dashboard') }} · secondtrack{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gridstack@11.1.2/dist/gridstack.min.css">
+<script src="https://cdn.jsdelivr.net/npm/gridstack@11.1.2/dist/gridstack-all.js"></script>
+
+<div class="page-head">
+  <h1 id="greeting">{{ _('Welcome') }}</h1>
+  <div style="margin-left:auto;display:flex;gap:.5rem;flex-wrap:wrap">
+    <button id="editToggle" class="btn" onclick="stToggleEdit()">✥ {{ _('Edit layout') }}</button>
+    <button id="editSave" class="btn primary" style="display:none" onclick="stSaveLayout()">{{ _('Save layout') }}</button>
+    <button class="btn" onclick="stOpenModal('dashCustomize')">⚙ {{ _('Customize') }}</button>
+  </div>
+</div>
+
+<div class="grid-stack">
+{% for w in widgets %}{% set g = layout.get(w.key) %}
+  <div class="grid-stack-item" gs-id="{{ w.key }}"
+       {% if g %}gs-x="{{ g.x }}" gs-y="{{ g.y }}" gs-w="{{ g.w }}" gs-h="{{ g.h }}"{% else %}gs-w="{{ w.size * 3 }}" gs-h="3"{% endif %}>
+    <div class="grid-stack-item-content">
+
+      {% if w.key == "welcome" %}
+      <div class="card widget tone-accent">
+        <h2 id="welcomeLine">{{ _("Glad you're here,") }} {{ username }}.</h2>
+        <p class="muted" id="todayLine"></p>
+      </div>
+
+      {% elif w.key == "finance" and d.stats %}
+      <div class="card widget">
+        <h2><span class="wico">💶</span> {{ _('Finances (forecast)') }}</h2>
+        <div class="wbig {{ 'pos' if d.stats.projected_gross_profit >= 0 else 'neg' }}">{{ d.stats.projected_gross_profit|money }} {{ currency }}</div>
+        <div class="wstat"><span>{{ _('Revenue') }}</span><strong>{{ d.stats.projected_sale_value|money }} {{ currency }}</strong></div>
+        <div class="wstat"><span>{{ _('Material expenses') }}</span><strong>{{ d.stats.material_expenses|money }} {{ currency }}</strong></div>
+        <a class="wlink" href="/stats">{{ _('To statistics →') }}</a>
+      </div>
+
+      {% elif w.key == "projects" %}
+      <div class="card widget">
+        <h2><span class="wico">🖥️</span> {{ _('Active projects') }} {% if d.stats %}<span class="muted">({{ d.stats.active_count }})</span>{% endif %}</h2>
+        {% if d.active_projects %}<ul class="wlist">{% for p in d.active_projects %}<li><a href="/projects/{{ p.id }}">{{ p.name }}</a></li>{% endfor %}</ul>
+        {% else %}<p class="muted">{{ _('No active projects.') }}</p>{% endif %}
+        <a class="wlink" href="/projects">{{ _('All projects →') }}</a>
+      </div>
+
+      {% elif w.key == "warehouse" %}
+      <div class="card widget">
+        <h2><span class="wico">📦</span> {{ _('Warehouse') }}</h2>
+        <div class="wbig">{{ d.warehouse_count or 0 }}</div>
+        <div class="wstat"><span>{{ _('Sale value') }}</span><strong>{{ (d.warehouse_value or 0)|money }} {{ currency }}</strong></div>
+        <a class="wlink" href="/warehouse">{{ _('To warehouse →') }}</a>
+      </div>
+
+      {% elif w.key == "invoices" %}
+      <div class="card widget">
+        <h2><span class="wico">🧾</span> {{ _('Open invoices') }}</h2>
+        {% if not in_on %}<p class="muted">{{ _('InvoiceNinja not connected.') }}</p>
+        {% elif d.in_kpis %}
+          <div class="wbig {{ 'neg' if d.in_kpis.outstanding > 0 }}">{{ d.in_kpis.outstanding|money }} {{ currency }}</div>
+          <div class="wstat"><span>{{ _('Paid') }}</span><strong class="pos">{{ d.in_kpis.paid|money }} {{ currency }}</strong></div>
+          <a class="wlink" href="/hub">{{ _('To the hub →') }}</a>
+        {% else %}<p class="error">{{ _('Could not load.') }}</p>{% endif %}
+      </div>
+
+      {% elif w.key == "orders" %}
+      <div class="card widget">
+        <h2><span class="wico">🛒</span> {{ _('Shop orders') }}</h2>
+        {% if not woo_on %}<p class="muted">{{ _('WooCommerce not connected.') }}</p>
+        {% elif d.orders %}
+          <ul class="wlist">{% for o in d.orders %}<li>#{{ o.number }} · {{ o.total }} {{ o.currency }} <span class="muted small">{{ o.status }}</span></li>{% endfor %}</ul>
+          <a class="wlink" href="/hub">{{ _('To the hub →') }}</a>
+        {% elif d.orders is none %}<p class="error">{{ _('Could not load.') }}</p>
+        {% else %}<p class="muted">{{ _('No open orders.') }}</p>{% endif %}
+      </div>
+
+      {% elif w.key == "tasks" %}
+      <div class="card widget">
+        <h2><span class="wico">✅</span> {{ _('Tasks') }}</h2>
+        {% if not vikunja_on %}<p class="muted">{{ _('Vikunja not connected.') }}</p>
+        {% elif d.task_count is not none %}
+          <div class="wbig">{{ d.task_count }}</div>
+          <a class="wlink" href="/tasks">{{ _('To the board →') }}</a>
+        {% else %}<p class="error">{{ _('Could not load.') }}</p>{% endif %}
+      </div>
+
+      {% elif w.key == "quick" %}
+      <div class="card widget">
+        <h2><span class="wico">⚡</span> {{ _('Quick access') }}</h2>
+        <div class="quick-actions">
+          <a class="btn" href="/projects">+ {{ _('Projects') }}</a>
+          <a class="btn" href="/warehouse">+ {{ _('Part') }}</a>
+          <a class="btn" href="/hub">{{ _('Hub') }}</a>
+          <a class="btn" href="/tasks">{{ _('Tasks') }}</a>
+        </div>
+      </div>
+
+      {% elif w.key == "logo" %}
+      <div class="card widget widget-logo">
+        {% if logo_url %}
+        <img class="dash-logo" src="{{ logo_url }}" alt="{{ _('Logo') }}">
+        <div class="logo-tools">
+          <form method="post" action="/dashboard/logo" enctype="multipart/form-data">
+            <label class="btn small" title="{{ _('Change logo') }}">✎<input type="file" name="logo" accept="image/*" hidden onchange="this.form.submit()"></label>
+          </form>
+          <form method="post" action="/dashboard/logo/clear">
+            <button class="btn small" title="{{ _('Remove logo') }}">🗑</button>
+          </form>
+        </div>
+        {% else %}
+        <form class="logo-empty" method="post" action="/dashboard/logo" enctype="multipart/form-data">
+          <label class="logo-drop">
+            <span class="wico">🖼️</span>
+            <strong>{{ _('Add your logo') }}</strong>
+            <span class="muted small">{{ _('Click to upload · PNG/JPG/WebP') }}</span>
+            <input type="file" name="logo" accept="image/*" hidden onchange="this.form.submit()">
+          </label>
+        </form>
+        {% endif %}
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+{% endfor %}
+</div>
+
+{% if not widgets %}
+<p class="muted empty">{{ _('All widgets hidden. Re-enable via "Customize".') }}</p>
+{% endif %}
+
+<div class="modal-backdrop" id="dashCustomize">
+  <div class="modal modal-wide">
+    <div class="modal-head"><h2>{{ _('Customize dashboard') }}</h2><button class="modal-close" onclick="stCloseModal(this)">×</button></div>
+    <p class="muted small">{{ _('Show/hide widgets and drag to reorder. Position & size via “Edit layout”.') }}</p>
+    <form method="post" action="/dashboard/widgets">
+      <input type="hidden" name="order" id="widgetOrder">
+      <ul class="sortable" id="widgetSort">
+        {% set active_set = [] %}{% for w in widgets %}{% set _x = active_set.append(w.key) %}{% endfor %}
+        {% for key, label in all_widgets %}
+        <li draggable="true" data-key="{{ key }}">
+          <span class="drag">⠿</span>
+          <label class="w-toggle"><input type="checkbox" name="widget" value="{{ key }}" {{ 'checked' if key in active_set }}> <span class="w-name">{{ _(label) }}</span></label>
+          <input type="hidden" name="size_{{ key }}" value="{{ sizes.get(key, 2) }}">
+        </li>
+        {% endfor %}
+      </ul>
+      <button type="submit" class="primary" onclick="stSyncOrder()">{{ _('Save') }}</button>
+    </form>
+  </div>
+</div>
+
+<script>
+  // Greeting
+  (function(){
+    const G = {m:"{{ _('Good morning') }}", d:"{{ _('Good day') }}", e:"{{ _('Good evening') }}", n:"{{ _('Good night') }}"};
+    const h = new Date().getHours();
+    const g = h < 5 ? G.n : h < 11 ? G.m : h < 17 ? G.d : h < 22 ? G.e : G.n;
+    const el = document.getElementById('greeting'); if (el) el.textContent = g + ", {{ username }}";
+    const t = document.getElementById('todayLine');
+    if (t) t.textContent = new Date().toLocaleDateString('{{ lang }}', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
+  })();
+
+  // GridStack
+  var stGrid = null;
+  function stInitGrid(){
+    if (!window.GridStack) return;
+    stGrid = GridStack.init({
+      column: 12, cellHeight: 90, margin: 8, float: true, staticGrid: true,
+      handle: '.grid-stack-item-content',
+      columnOpts: { breakpointForWindow: true, breakpoints: [{ w: 700, c: 1 }] },
+    });
+  }
+  function stToggleEdit(){
+    if (!stGrid) return;
+    const editing = document.body.classList.toggle('dash-editing');
+    stGrid.setStatic(!editing);
+    document.getElementById('editSave').style.display = editing ? '' : 'none';
+    document.getElementById('editToggle').textContent = editing ? '✕ {{ _('Cancel') }}' : '✥ {{ _('Edit layout') }}';
+  }
+  function stSaveLayout(){
+    if (!stGrid) return;
+    const nodes = stGrid.save(false);
+    const layout = {};
+    nodes.forEach(n => { if (n.id) layout[n.id] = { x: n.x, y: n.y, w: n.w, h: n.h }; });
+    fetch('/dashboard/layout', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(layout) })
+      .then(() => location.reload());
+  }
+  if (document.readyState !== 'loading') stInitGrid();
+  else document.addEventListener('DOMContentLoaded', stInitGrid);
+</script>
+{% endblock %}

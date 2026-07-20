@@ -1,0 +1,195 @@
+from __future__ import annotations
+
+import json
+
+from fastapi import APIRouter, Depends, File, Request, UploadFile
+from fastapi.responses import RedirectResponse
+from sqlalchemy.orm import Session
+
+from ..auth import require_login
+from ..db import get_db, get_setting, set_setting
+from ..models import Part, PartOrigin, Project, ProjectStatus
+from ..services.finance import compute_stats
+from ..services.integrations import invoiceninja, vikunja, woo
+from ..services.uploads import delete_image, save_image
+from ..templating import ctx, templates
+
+router = APIRouter()
+
+# Canonical widget order + labels.
+ALL_WIDGETS = [
+    ("welcome", "Greeting"),
+    ("finance", "Finances"),
+    ("projects", "Active projects"),
+    ("warehouse", "Warehouse"),
+    ("invoices", "Open invoices"),
+    ("orders", "Shop orders"),
+    ("tasks", "Tasks"),
+    ("quick", "Quick access"),
+    ("logo", "Logo"),
+]
+DEFAULT_WIDGETS = "welcome:4,finance:2,projects:2,warehouse:1,invoices:1,orders:2,tasks:1,quick:2"
+
+
+def _enabled_widgets(db: Session) -> list[dict]:
+    """Parse the stored 'key:size,...' list into ordered {key, size} dicts."""
+    raw = get_setting(db, "dashboard_widgets", DEFAULT_WIDGETS) or DEFAULT_WIDGETS
+    valid = {k for k, _ in ALL_WIDGETS}
+    out: list[dict] = []
+    seen: set[str] = set()
+    for tok in raw.split(","):
+        tok = tok.strip()
+        if not tok:
+            continue
+        key, _, size = tok.partition(":")
+        key = key.strip()
+        if key in valid and key not in seen:
+            try:
+                sz = max(1, min(4, int(size)))
+            except ValueError:
+                sz = 1
+            out.append({"key": key, "size": sz})
+            seen.add(key)
+    return out
+
+
+@router.get("/")
+async def dashboard(
+    request: Request,
+    db: Session = Depends(get_db),
+    user=Depends(require_login),
+):
+    enabled = _enabled_widgets(db)
+    keys = {w["key"] for w in enabled}
+    sizes = {w["key"]: w["size"] for w in enabled}
+    try:
+        layout = json.loads(get_setting(db, "dashboard_layout", "{}") or "{}")
+    except (ValueError, TypeError):
+        layout = {}
+    data: dict = {}
+
+    if "finance" in keys or "projects" in keys or "warehouse" in keys:
+        stats = compute_stats(db)
+        data["stats"] = stats
+
+    if "projects" in keys:
+        data["active_projects"] = (
+            db.query(Project)
+            .filter(Project.status == ProjectStatus.in_production)
+            .order_by(Project.created_at.desc())
+            .limit(6)
+            .all()
+        )
+
+    if "warehouse" in keys:
+        wparts = db.query(Part).filter(Part.project_id.is_(None)).all()
+        data["warehouse_count"] = len(wparts)
+        data["warehouse_value"] = sum((p.sale_price or 0.0) for p in wparts)
+
+    if "invoices" in keys and invoiceninja.is_enabled():
+        try:
+            data["in_kpis"] = invoiceninja.get_company_totals()
+        except Exception:  # noqa: BLE001
+            data["in_kpis"] = None
+
+    if "orders" in keys and woo.is_enabled():
+        try:
+            data["orders"] = woo.list_orders(limit=5)
+        except Exception:  # noqa: BLE001
+            data["orders"] = None
+
+    if "tasks" in keys and vikunja.is_enabled():
+        try:
+            data["task_count"] = vikunja.open_task_count()
+        except Exception:  # noqa: BLE001
+            data["task_count"] = None
+
+    return templates.TemplateResponse(
+        "dashboard.html",
+        ctx(
+            request, db, active="dashboard",
+            widgets=enabled, all_widgets=ALL_WIDGETS, sizes=sizes, layout=layout,
+            username=user.display_name or user.username, d=data,
+            logo_url=get_setting(db, "dashboard_logo", "") or "",
+            woo_on=woo.is_enabled(), in_on=invoiceninja.is_enabled(),
+            vikunja_on=vikunja.is_enabled(),
+        ),
+    )
+
+
+@router.post("/dashboard/widgets")
+async def save_widgets(
+    request: Request,
+    db: Session = Depends(get_db),
+    user=Depends(require_login),
+):
+    form = await request.form()
+    # Preserve drag order, keep only checked widgets, with per-widget size.
+    order = form.get("order", "")
+    chosen = set(form.getlist("widget"))
+    ordered_keys = [k.strip() for k in order.split(",") if k.strip()] or [k for k, _ in ALL_WIDGETS]
+    result = []
+    for k in ordered_keys:
+        if k in chosen:
+            try:
+                size = max(1, min(4, int(form.get(f"size_{k}", "1"))))
+            except (ValueError, TypeError):
+                size = 1
+            result.append(f"{k}:{size}")
+    set_setting(db, "dashboard_widgets", ",".join(result))
+    return RedirectResponse("/", status_code=303)
+
+
+@router.post("/dashboard/logo")
+async def upload_logo(
+    logo: UploadFile | None = File(None),
+    db: Session = Depends(get_db),
+    user=Depends(require_login),
+):
+    """Store a custom logo shown by the 'logo' dashboard widget."""
+    url = save_image(logo, "dashlogo")
+    if url:
+        old = get_setting(db, "dashboard_logo", "")
+        if old and old != url:
+            delete_image(old)
+        set_setting(db, "dashboard_logo", url)
+    return RedirectResponse("/", status_code=303)
+
+
+@router.post("/dashboard/logo/clear")
+async def clear_logo(
+    db: Session = Depends(get_db),
+    user=Depends(require_login),
+):
+    old = get_setting(db, "dashboard_logo", "")
+    if old:
+        delete_image(old)
+    set_setting(db, "dashboard_logo", "")
+    return RedirectResponse("/", status_code=303)
+
+
+@router.post("/dashboard/layout")
+async def save_layout(
+    request: Request,
+    db: Session = Depends(get_db),
+    user=Depends(require_login),
+):
+    """Persist the GridStack layout (x/y/w/h per widget) sent as JSON."""
+    valid = {k for k, _ in ALL_WIDGETS}
+    try:
+        data = await request.json()
+    except Exception:  # noqa: BLE001
+        data = {}
+    clean: dict = {}
+    if isinstance(data, dict):
+        for k, v in data.items():
+            if k in valid and isinstance(v, dict):
+                try:
+                    clean[k] = {
+                        "x": int(v.get("x", 0)), "y": int(v.get("y", 0)),
+                        "w": max(1, int(v.get("w", 3))), "h": max(1, int(v.get("h", 2))),
+                    }
+                except (ValueError, TypeError):
+                    continue
+    set_setting(db, "dashboard_layout", json.dumps(clean))
+    return {"ok": True}
