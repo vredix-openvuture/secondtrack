@@ -46,8 +46,16 @@ def compute_project(db: Session, project: Project) -> ProjectFinance:
     rate = project_hourly_rate(db, project)
     parts = [p for p in project.parts]
     sessions = list(project.sessions)
+    devices = list(project.devices)
 
-    device_cost = project.purchase_price or 0.0
+    # Device acquisition cost: sum over the project's devices. Fall back to the
+    # legacy project.purchase_price for projects not yet migrated to a device
+    # (transition safety — removed with the P4 cleanup).
+    if devices:
+        device_cost = sum((d.purchase_price or 0.0) for d in devices)
+    else:
+        device_cost = project.purchase_price or 0.0
+
     parts_purchase_cost = sum(
         (p.purchase_price or 0.0)
         for p in parts
@@ -66,7 +74,14 @@ def compute_project(db: Session, project: Project) -> ProjectFinance:
     # resale value of installed parts, plus labor. (Purchased-part cost is not
     # added separately — it's already reflected in each part's sale price.)
     build_total = device_cost + parts_value + labor_value
-    sale_price = project.sale_price if project.sale_price is not None else build_total
+    # Listing/sale price: explicit device sale prices if any device sets one,
+    # else the legacy project.sale_price, else the suggested build total.
+    if any(d.sale_price is not None for d in devices):
+        sale_price = sum((d.sale_price or 0.0) for d in devices)
+    elif project.sale_price is not None:
+        sale_price = project.sale_price
+    else:
+        sale_price = build_total
     gross_profit = sale_price - material_cost
     net_profit = sale_price - material_cost - labor_value
 
