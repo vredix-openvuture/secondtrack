@@ -32,6 +32,7 @@
   <a href="/settings?tab=connections&sub=woo" class="{{ 'on' if sub == 'woo' }}">WooCommerce</a>
   <a href="/settings?tab=connections&sub=in" class="{{ 'on' if sub == 'in' }}">InvoiceNinja</a>
   <a href="/settings?tab=connections&sub=vikunja" class="{{ 'on' if sub == 'vikunja' }}">Vikunja</a>
+  <a href="/settings?tab=connections&sub=nextcloud" class="{{ 'on' if sub == 'nextcloud' }}">Nextcloud</a>
   <a href="/settings?tab=connections&sub=email" class="{{ 'on' if sub == 'email' }}">{{ _('Email & sending') }}</a>
 </div>
 
@@ -80,6 +81,23 @@
     <label>{{ _('API token') }}<input name="token" value="{{ rt['vikunja_token'] }}"></label>
     <label>{{ _('Parent project') }}<input name="parent" value="{{ rt['vikunja_parent'] }}"></label>
     <button type="submit" class="primary">{{ _('Save') }}</button>
+  </form>
+</section>
+{% elif sub == 'nextcloud' %}
+<section class="card" style="max-width:620px">
+  <h2>Nextcloud</h2>
+  <p class="muted small">{{ _('Store invoice/receipt PDFs (fetched from InvoiceNinja) in Nextcloud via WebDAV. Use a Nextcloud app password, not your login password.') }}</p>
+  <form method="post" action="/settings/connection/nextcloud" class="stack">
+    <label class="chk"><input type="checkbox" name="enabled" {{ 'checked' if rt_bool['nc_enabled'] }}> {{ _('Enabled') }}</label>
+    <label>{{ _('Nextcloud URL') }}<input name="url" value="{{ rt['nc_url'] }}" placeholder="https://cloud.example.com"></label>
+    <label>{{ _('User') }}<input name="user_name" value="{{ rt['nc_user'] }}"></label>
+    <label>{{ _('App password') }}<input type="password" name="password" value="{{ rt['nc_pass'] }}"></label>
+    <label>{{ _('Base folder') }}<input name="base_path" value="{{ rt['nc_base_path'] }}" placeholder="/OpenVuture/Belege"></label>
+    <label class="chk"><input type="checkbox" name="auto_archive" {{ 'checked' if rt_bool['nc_auto_archive'] }}> {{ _('Auto-archive invoice PDF on send') }}</label>
+    <button type="submit" class="primary">{{ _('Save') }}</button>
+  </form>
+  <form method="post" action="/settings/connection/nextcloud/test" style="margin-top:.5rem">
+    <button type="submit">{{ _('Test connection') }}</button>
   </form>
 </section>
 {% elif sub == 'email' %}

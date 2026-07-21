@@ -9,7 +9,7 @@ from ..auth import require_login
 from ..db import get_db
 from ..models import OrderInvoice
 from ..services import emails, hub
-from ..services.integrations import invoiceninja
+from ..services.integrations import invoiceninja, nextcloud
 from ..templating import ctx, templates
 
 router = APIRouter(prefix="/hub")
@@ -39,6 +39,7 @@ async def hub_page(
             include_archived=include_archived,
             in_url=invoiceninja.base_url(),
             auto_send=runtime.get_bool("in_auto_send"),
+            nc_enabled=nextcloud.is_enabled(),
             email_on=emails.sending_enabled(),
             msg=request.query_params.get("msg"),
         ),
@@ -79,6 +80,24 @@ async def send_invoice(
         msg = f"{label} for {link.invoice_number or ''} sent to customer."
     except Exception as e:  # noqa: BLE001
         msg = f"Error while sending: {e}"
+    return RedirectResponse(f"/hub?msg={msg}", status_code=303)
+
+
+@router.post("/invoice/{link_id}/archive")
+async def archive_invoice(
+    link_id: int,
+    kind: str = "rechnung",
+    db: Session = Depends(get_db),
+    user=Depends(require_login),
+):
+    link = db.get(OrderInvoice, link_id)
+    if not link:
+        return RedirectResponse("/hub?msg=Invoice not found", status_code=303)
+    try:
+        remote = hub.archive_invoice(db, link, kind)
+        msg = f"In Nextcloud abgelegt: {remote}"
+    except Exception as e:  # noqa: BLE001
+        msg = f"Error: {e}"
     return RedirectResponse(f"/hub?msg={msg}", status_code=303)
 
 

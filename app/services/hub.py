@@ -228,6 +228,42 @@ def send_invoice(db: Session, link: OrderInvoice, kind: str = "invoice") -> None
     from . import emails
 
     emails.send_for_link(db, link, kind)
+    _maybe_archive(db, link)
+
+
+def archive_invoice(db: Session, link: OrderInvoice, kind: str = "rechnung") -> str:
+    """Fetch the invoice PDF from InvoiceNinja and store it in Nextcloud.
+    Returns the stored remote path. `kind`: 'rechnung' | 'quittung' → subfolder."""
+    from .integrations import nextcloud
+
+    if not nextcloud.is_enabled():
+        raise RuntimeError("Nextcloud-Integration ist deaktiviert")
+    if not link.invoiceninja_id:
+        raise RuntimeError("Keine InvoiceNinja-Rechnung verknüpft")
+    pdf = invoiceninja.download_pdf(link.invoiceninja_id)
+    if not pdf:
+        raise RuntimeError("PDF konnte nicht aus InvoiceNinja geladen werden")
+
+    folder = "Quittungen" if str(kind).lower().startswith("quitt") else "Rechnungen"
+    when = getattr(link, "created_at", None) or datetime.utcnow()
+    year = when.strftime("%Y")
+    number = (link.invoice_number or link.invoiceninja_id).replace("/", "-").replace("\\", "-")
+    base = (runtime.get("nc_base_path") or "/OpenVuture/Belege").rstrip("/")
+    remote = f"{base}/{folder}/{year}/{number}.pdf"
+    return nextcloud.put_file(remote, pdf, "application/pdf")
+
+
+def _maybe_archive(db: Session, link: OrderInvoice) -> None:
+    """Auto-archive to Nextcloud after sending, if enabled. Never raises —
+    archiving must not break the send path."""
+    from .integrations import nextcloud
+
+    if not runtime.get_bool("nc_auto_archive") or not nextcloud.is_enabled():
+        return
+    try:
+        archive_invoice(db, link)
+    except Exception:  # noqa: BLE001
+        pass
 
 
 # ---- Overview ----

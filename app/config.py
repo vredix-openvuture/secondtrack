@@ -47,6 +47,17 @@ class Settings(BaseSettings):
     # Name of the parent project whose subprojects we surface (Kanban).
     vikunja_parent_project: str = "OpenVuture"
 
+    # Nextcloud (WebDAV storage for invoice/receipt PDFs)
+    nextcloud_enabled: bool = False
+    nextcloud_url: str = ""
+    nextcloud_user: str = ""
+    # Use a Nextcloud *app password* (Settings → Security), not the login password.
+    nextcloud_pass: str = ""
+    # Base folder inside the user's files where documents are written.
+    nextcloud_base_path: str = "/OpenVuture/Belege"
+    # Auto-archive the invoice PDF to Nextcloud when an invoice is sent.
+    nextcloud_auto_archive: bool = False
+
     @property
     def woo_status_list(self) -> list[str]:
         return [s.strip() for s in self.woo_order_statuses.split(",") if s.strip()]

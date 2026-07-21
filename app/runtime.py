@@ -34,6 +34,13 @@ DEFAULTS: dict[str, str] = {
     "vikunja_url": _env.vikunja_url,
     "vikunja_token": _env.vikunja_token,
     "vikunja_parent": _env.vikunja_parent_project,
+    # Nextcloud (WebDAV document storage)
+    "nc_enabled": "1" if _env.nextcloud_enabled else "0",
+    "nc_url": _env.nextcloud_url,
+    "nc_user": _env.nextcloud_user,
+    "nc_pass": _env.nextcloud_pass,
+    "nc_base_path": _env.nextcloud_base_path,
+    "nc_auto_archive": "1" if _env.nextcloud_auto_archive else "0",
     # Email — provider: "secondtrack" (own SMTP) or "invoiceninja" (IN sends)
     "email_provider": "secondtrack",
     "email_enabled": "0",

@@ -189,6 +189,36 @@ async def conn_vikunja(
     return RedirectResponse("/settings?tab=connections&sub=vikunja&msg=Saved", status_code=303)
 
 
+@router.post("/connection/nextcloud")
+async def conn_nextcloud(
+    enabled: str = Form(""), url: str = Form(""), user_name: str = Form(""),
+    password: str = Form(""), base_path: str = Form("/OpenVuture/Belege"),
+    auto_archive: str = Form(""),
+    db: Session = Depends(get_db), user: User = Depends(require_login),
+):
+    runtime.save(db, {
+        "nc_enabled": _bx(enabled), "nc_url": url.strip(),
+        "nc_user": user_name.strip(), "nc_pass": password,
+        "nc_base_path": base_path.strip() or "/OpenVuture/Belege",
+        "nc_auto_archive": _bx(auto_archive),
+    })
+    return RedirectResponse("/settings?tab=connections&sub=nextcloud&msg=Saved", status_code=303)
+
+
+@router.post("/connection/nextcloud/test")
+async def conn_nextcloud_test(
+    db: Session = Depends(get_db), user: User = Depends(require_login),
+):
+    from ..services.integrations import nextcloud
+
+    try:
+        ok = nextcloud.test_connection()
+        msg = "Nextcloud-Verbindung OK." if ok else "Nextcloud-Verbindung fehlgeschlagen."
+    except Exception as e:  # noqa: BLE001
+        msg = f"Error: {e}"
+    return RedirectResponse(f"/settings?tab=connections&sub=nextcloud&msg={msg}", status_code=303)
+
+
 @router.post("/connection/email")
 async def conn_email(
     email_provider: str = Form("secondtrack"),

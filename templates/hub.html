@@ -47,6 +47,7 @@
             <a class="btn" href="{{ in_url }}/invoices/{{ o.invoice.invoiceninja_id }}/edit" target="_blank">{{ _('No.') }} {{ o.invoice.invoice_number or '↗' }}</a>
             {% if o.invoice.emailed_at %}<span class="muted small">{{ _('✓ sent to customer') }}</span>
             {% else %}<form method="post" action="/hub/invoice/{{ o.invoice.id }}/send"><button>{{ _('Send to customer') }}</button></form>{% endif %}
+            {% if nc_enabled %}<form method="post" action="/hub/invoice/{{ o.invoice.id }}/archive"><button title="{{ _('Archive PDF to Nextcloud') }}">☁ {{ _('Nextcloud') }}</button></form>{% endif %}
           {% else %}
             <form method="post" action="/hub/orders/{{ o.id }}/invoice"><button class="primary">{{ _('→ Create invoice') }}</button></form>
           {% endif %}
