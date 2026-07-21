@@ -16,6 +16,7 @@
 
   {% if subprojects %}
   <div class="subproject-tabs">
+    <a href="/tasks" class="{{ 'on' if not selected }}">{{ _('All open') }}</a>
     {% for s in subprojects %}<a href="/tasks?project={{ s.id }}" class="{{ 'on' if s.id == selected }}">{{ s.title }}</a>{% endfor %}
   </div>
   {% endif %}

@@ -124,6 +124,25 @@ def open_task_count() -> int:
     return total
 
 
+def open_tasks_by_subproject() -> list[dict]:
+    """Open (not-done) tasks grouped per configured subproject, as
+    [{title, tasks:[...]}]. Only subprojects that actually have open tasks are
+    returned, so the aggregated Tasks view surfaces all open work at once
+    instead of just the first (possibly empty) subproject."""
+    _require()
+    out = []
+    with _client() as c:
+        for sub in get_subprojects():
+            try:
+                tasks = c.get(f"/projects/{sub['id']}/tasks").json() or []
+            except Exception:  # noqa: BLE001
+                continue
+            open_tasks = [t for t in tasks if not t.get("done")]
+            if open_tasks:
+                out.append({"title": sub.get("title", "—"), "tasks": open_tasks})
+    return out
+
+
 # ── Write path (create tasks/projects; see ARCHITEKTUR-SOLL.md) ──────────────
 # Vikunja creates via PUT: `PUT /projects` and `PUT /projects/{id}/tasks`.
 

@@ -27,10 +27,17 @@ async def tasks_page(
     if enabled:
         try:
             subprojects = vikunja.get_subprojects()
-            if subprojects:
+            if project:
                 ids = [s["id"] for s in subprojects]
-                selected = project if project in ids else ids[0]
-                board = vikunja.get_board(selected)
+                selected = project if project in ids else (ids[0] if ids else None)
+                if selected:
+                    board = vikunja.get_board(selected)
+            else:
+                # Default "All open": aggregate open tasks across all subprojects
+                # (the old behaviour showed only the first subproject, which was
+                # often empty even while other subprojects had open tasks).
+                selected = None
+                board = vikunja.open_tasks_by_subproject()
         except Exception as e:  # noqa: BLE001
             error = str(e)
 
