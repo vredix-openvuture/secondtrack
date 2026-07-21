@@ -23,14 +23,32 @@ class Base(DeclarativeBase):
 
 
 class ProjectStatus(str, enum.Enum):
-    in_production = "in_production"  # actively being worked on
-    archived = "archived"           # finished, stored for later sale
-    sold = "sold"                   # sold / done
+    # New container-lifecycle statuses (used going forward).
+    open = "open"                    # created, nothing done yet
+    in_progress = "in_progress"      # being worked on
+    done = "done"                    # finished, not yet invoiced
+    invoiced = "invoiced"            # invoice created in InvoiceNinja
+    # Legacy device-era statuses — kept until the P4 cleanup so finance/stats
+    # and existing rows keep working during the projects rework.
+    in_production = "in_production"
+    archived = "archived"
+    sold = "sold"
 
 
 class ProjectKind(str, enum.Enum):
     customer = "customer"  # built for a specific customer → invoice them
     shop = "shop"          # in-house production for the shop → sold via shop
+
+
+class CustomerKind(str, enum.Enum):
+    invoiceninja = "invoiceninja"  # backed by an InvoiceNinja client
+    internal = "internal"          # internal / no external invoicing
+
+
+class DeviceStatus(str, enum.Enum):
+    in_production = "in_production"  # being worked on
+    archived = "archived"           # finished, stored for later sale
+    sold = "sold"                   # sold
 
 
 class PartOrigin(str, enum.Enum):
@@ -55,6 +73,14 @@ class Project(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(200), index=True)
+    # Container model (projects rework): human project number + title + customer.
+    number: Mapped[str | None] = mapped_column(
+        String(32), unique=True, index=True, nullable=True
+    )
+    title: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    customer_id: Mapped[int | None] = mapped_column(
+        ForeignKey("customers.id"), nullable=True, index=True
+    )
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     image_path: Mapped[str | None] = mapped_column(String(255), nullable=True)
     status: Mapped[ProjectStatus] = mapped_column(
@@ -84,6 +110,13 @@ class Project(Base):
     sessions: Mapped[list["WorkSession"]] = relationship(
         back_populates="project", cascade="all, delete-orphan"
     )
+    customer: Mapped["Customer | None"] = relationship(back_populates="projects")
+    devices: Mapped[list["Device"]] = relationship(
+        back_populates="project", cascade="all, delete-orphan"
+    )
+    reports: Mapped[list["Report"]] = relationship(
+        back_populates="project", cascade="all, delete-orphan"
+    )
 
 
 class Part(Base):
@@ -94,9 +127,13 @@ class Part(Base):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     image_path: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
-    # NULL project_id == the part currently lives in the virtual warehouse.
+    # Warehouse == both project_id and device_id are NULL. A part can sit
+    # directly on a device (device_id) or loosely on a project (project_id only).
     project_id: Mapped[int | None] = mapped_column(
         ForeignKey("projects.id"), nullable=True, index=True
+    )
+    device_id: Mapped[int | None] = mapped_column(
+        ForeignKey("devices.id"), nullable=True, index=True
     )
 
     origin: Mapped[PartOrigin] = mapped_column(
@@ -115,10 +152,67 @@ class Part(Base):
     project: Mapped["Project | None"] = relationship(
         back_populates="parts", foreign_keys=[project_id]
     )
+    device: Mapped["Device | None"] = relationship(
+        back_populates="parts", foreign_keys=[device_id]
+    )
 
     @property
     def in_warehouse(self) -> bool:
-        return self.project_id is None
+        return self.project_id is None and self.device_id is None
+
+
+class Customer(Base):
+    __tablename__ = "customers"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(200), index=True)
+    kind: Mapped[CustomerKind] = mapped_column(
+        Enum(CustomerKind), default=CustomerKind.internal
+    )
+    # Set when this customer maps to an InvoiceNinja client.
+    invoiceninja_client_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    email: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    company: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    projects: Mapped[list["Project"]] = relationship(back_populates="customer")
+
+
+class Device(Base):
+    __tablename__ = "devices"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
+    name: Mapped[str] = mapped_column(String(200), index=True)
+    status: Mapped[DeviceStatus] = mapped_column(
+        Enum(DeviceStatus), default=DeviceStatus.in_production, index=True
+    )
+    # What the device cost to acquire.
+    purchase_price: Mapped[float] = mapped_column(Float, default=0.0)
+    # Expected / target selling price (the listing price).
+    sale_price: Mapped[float | None] = mapped_column(Float, nullable=True)
+    woo_product_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    image_path: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    project: Mapped["Project"] = relationship(back_populates="devices")
+    parts: Mapped[list["Part"]] = relationship(
+        back_populates="device", foreign_keys="Part.device_id"
+    )
+
+
+class Report(Base):
+    """A Markdown report/note attached to a project (uses the markdown editor)."""
+
+    __tablename__ = "reports"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
+    title: Mapped[str] = mapped_column(String(200), default="")
+    body_md: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    project: Mapped["Project"] = relationship(back_populates="reports")
 
 
 class WorkSession(Base):
