@@ -53,8 +53,9 @@ class Settings(BaseSettings):
     nextcloud_user: str = ""
     # Use a Nextcloud *app password* (Settings → Security), not the login password.
     nextcloud_pass: str = ""
-    # Base folder inside the user's files where documents are written.
-    nextcloud_base_path: str = "/OpenVuture/Belege"
+    # Base folder inside the user's files where documents are written
+    # (Invoices/ and Expenses/ subfolders are created underneath).
+    nextcloud_base_path: str = "/OpenVuture"
     # Auto-archive the invoice PDF to Nextcloud when an invoice is sent.
     nextcloud_auto_archive: bool = False
 
