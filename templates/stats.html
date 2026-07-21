@@ -28,7 +28,7 @@
   <div class="kpi"><span class="k">{{ _('Total work time') }}</span><span class="v">{{ s.total_hours|hours }} h</span></div>
 </div>
 
-<div class="kpis">
+<div class="kpis six">
   <div class="kpi"><span class="k">{{ _('Material expenses') }}</span><span class="v">{{ s.material_expenses|money }} {{ currency }}</span></div>
   <div class="kpi"><span class="k">{{ _('Stock value (cost)') }}</span><span class="v">{{ s.warehouse_stock_cost|money }} {{ currency }}</span></div>
   <div class="kpi"><span class="k">{{ _('Labor value') }} ({{ rate|money }} {{ currency }}/h)</span><span class="v">{{ s.total_labor_value|money }} {{ currency }}</span></div>
