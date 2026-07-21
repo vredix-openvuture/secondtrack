@@ -1,7 +1,8 @@
 {% extends "base.html" %}
 {% block title %}{{ _('Projects') }} · secondtrack{% endblock %}
 {% block content %}
-{% set labels = {"in_production": _('In production'), "archived": _('Stored'), "sold": _('Sold')} %}
+{% set st_label = {"open": _('Open'), "in_progress": _('In progress'), "done": _('Done'), "invoiced": _('Invoiced')} %}
+{% set st_class = {"open": "in_production", "in_progress": "in_production", "done": "archived", "invoiced": "sold"} %}
 
 {% if request.query_params.get('msg') %}<p class="notice">{{ _(request.query_params.get('msg')) }}</p>{% endif %}
 <div class="page-head">
@@ -11,9 +12,9 @@
     <button type="button" data-mode="cards" onclick="stSetView('projects','cards')">▦ {{ _('Cards') }}</button>
   </div>
   <div class="tabs">
-    <a href="/projects?status=active" class="{{ 'on' if status == 'active' }}">{{ _('In production') }}</a>
-    <a href="/projects?status=archived" class="{{ 'on' if status == 'archived' }}">{{ _('Stored') }}</a>
-    <a href="/projects?status=sold" class="{{ 'on' if status == 'sold' }}">{{ _('Sold') }}</a>
+    <a href="/projects?status=active" class="{{ 'on' if status == 'active' }}">{{ _('Active') }}</a>
+    <a href="/projects?status=done" class="{{ 'on' if status == 'done' }}">{{ _('Done') }}</a>
+    <a href="/projects?status=invoiced" class="{{ 'on' if status == 'invoiced' }}">{{ _('Invoiced') }}</a>
     <a href="/projects?status=all" class="{{ 'on' if status == 'all' }}">{{ _('All') }}</a>
   </div>
 </div>
@@ -31,7 +32,7 @@
     {% for f in rows %}
     <tr onclick="location.href='/projects/{{ f.project.id }}'">
       <td>{% if f.project.image_path %}<img src="{{ f.project.image_path }}" class="row-img" alt="" onerror="this.style.display='none'">{% endif %}<strong>{{ f.project.name }}</strong>{% if f.project.kind.value == 'shop' %} <span class="badge archived">{{ _('Shop') }}</span>{% endif %}</td>
-      <td><span class="badge {{ f.project.status.value }}">{{ labels[f.project.status.value] }}</span></td>
+      <td><span class="badge {{ st_class.get(f.project.status.value, f.project.status.value) }}">{{ st_label.get(f.project.status.value, f.project.status.value) }}</span></td>
       <td class="num">{{ f.parts|length }}</td>
       <td class="num">{{ f.hours|hours }}</td>
       <td class="num">{{ f.sale_price|money }} {{ currency }}</td>
@@ -49,7 +50,7 @@
     <div class="body">
       <h3>{{ f.project.name }}</h3>
       <div class="meta">
-        <span class="badge {{ f.project.status.value }}">{{ labels[f.project.status.value] }}</span>
+        <span class="badge {{ st_class.get(f.project.status.value, f.project.status.value) }}">{{ st_label.get(f.project.status.value, f.project.status.value) }}</span>
         <span>{{ f.sale_price|money }} {{ currency }}</span>
       </div>
       <div class="meta">

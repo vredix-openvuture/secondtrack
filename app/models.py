@@ -84,7 +84,7 @@ class Project(Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     image_path: Mapped[str | None] = mapped_column(String(255), nullable=True)
     status: Mapped[ProjectStatus] = mapped_column(
-        Enum(ProjectStatus), default=ProjectStatus.in_production, index=True
+        Enum(ProjectStatus), default=ProjectStatus.open, index=True
     )
     kind: Mapped[ProjectKind] = mapped_column(
         Enum(ProjectKind), default=ProjectKind.customer, index=True

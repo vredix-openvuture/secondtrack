@@ -1,7 +1,8 @@
 {% extends "base.html" %}
 {% block title %}{{ _('Statistics') }} · secondtrack{% endblock %}
 {% block content %}
-{% set labels = {"in_production": _('In production'), "archived": _('Stored'), "sold": _('Sold')} %}
+{% set st_label = {"open": _('Open'), "in_progress": _('In progress'), "done": _('Done'), "invoiced": _('Invoiced')} %}
+{% set st_class = {"open": "in_production", "in_progress": "in_production", "done": "archived", "invoiced": "sold"} %}
 
 <div class="page-head">
   <h1>{{ _('Statistics') }}</h1>
@@ -23,8 +24,8 @@
 
 <div class="kpis">
   <div class="kpi"><span class="k">{{ _('Projects active') }}</span><span class="v">{{ s.active_count }}</span></div>
-  <div class="kpi"><span class="k">{{ _('Stored') }}</span><span class="v">{{ s.archived_count }}</span></div>
-  <div class="kpi"><span class="k">{{ _('Sold') }}</span><span class="v">{{ s.sold_count }}</span></div>
+  <div class="kpi"><span class="k">{{ _('Done') }}</span><span class="v">{{ s.archived_count }}</span></div>
+  <div class="kpi"><span class="k">{{ _('Invoiced') }}</span><span class="v">{{ s.sold_count }}</span></div>
   <div class="kpi"><span class="k">{{ _('Total work time') }}</span><span class="v">{{ s.total_hours|hours }} h</span></div>
 </div>
 
@@ -48,7 +49,7 @@
     {% for f in s.per_project %}
       <tr onclick="location.href='/projects/{{ f.project.id }}'">
         <td><strong>{{ f.project.name }}</strong></td>
-        <td><span class="badge {{ f.project.status.value }}">{{ labels[f.project.status.value] }}</span></td>
+        <td><span class="badge {{ st_class.get(f.project.status.value, f.project.status.value) }}">{{ st_label.get(f.project.status.value, f.project.status.value) }}</span></td>
         <td class="num">{{ f.hours|hours }}</td>
         <td class="num">{{ f.material_cost|money }}</td>
         <td class="num">{{ f.sale_price|money }}</td>

@@ -161,6 +161,24 @@ def _backfill_projects() -> None:
             db.commit()
 
 
+def _remap_project_status() -> None:
+    """P3 status remap: legacy device-era project statuses → new container
+    lifecycle. Idempotent — only rows still holding a legacy value change."""
+    from sqlalchemy import text
+
+    mapping = {
+        "in_production": "in_progress",
+        "archived": "done",
+        "sold": "invoiced",
+    }
+    with engine.begin() as conn:
+        for old, new in mapping.items():
+            conn.execute(
+                text("UPDATE projects SET status = :new WHERE status = :old"),
+                {"new": new, "old": old},
+            )
+
+
 def init_db() -> None:
     """Create tables, seed the admin user and default settings."""
     from passlib.hash import bcrypt
@@ -187,3 +205,5 @@ def init_db() -> None:
 
     # P2 backfill (idempotent): legacy projects → number + device + parts move.
     _backfill_projects()
+    # P3 status remap (idempotent): legacy statuses → new lifecycle values.
+    _remap_project_status()

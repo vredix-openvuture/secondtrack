@@ -137,7 +137,7 @@ def compute_stats(db: Session) -> Stats:
         sum(f.material_cost for f in per_project) + warehouse_stock_cost
     )
 
-    unsold = [f for f in per_project if f.project.status != ProjectStatus.sold]
+    unsold = [f for f in per_project if f.project.status != ProjectStatus.invoiced]
     projected_sale_value = sum(f.sale_price for f in unsold)
     projected_gross_profit = sum(f.gross_profit for f in unsold)
     projected_net_profit = sum(f.net_profit for f in unsold)
@@ -151,11 +151,12 @@ def compute_stats(db: Session) -> Stats:
         projected_gross_profit=projected_gross_profit,
         projected_net_profit=projected_net_profit,
         active_count=sum(
-            1 for p in projects if p.status == ProjectStatus.in_production
+            1 for p in projects
+            if p.status in (ProjectStatus.open, ProjectStatus.in_progress)
         ),
         archived_count=sum(
-            1 for p in projects if p.status == ProjectStatus.archived
+            1 for p in projects if p.status == ProjectStatus.done
         ),
-        sold_count=sum(1 for p in projects if p.status == ProjectStatus.sold),
+        sold_count=sum(1 for p in projects if p.status == ProjectStatus.invoiced),
         per_project=per_project,
     )

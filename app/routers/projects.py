@@ -24,6 +24,15 @@ app_settings = get_app_settings()
 
 router = APIRouter(prefix="/projects")
 
+# New container-lifecycle statuses offered in the UI (legacy values are only
+# kept in the enum for the transition and never shown as choices).
+NEW_STATUSES = [
+    ProjectStatus.open,
+    ProjectStatus.in_progress,
+    ProjectStatus.done,
+    ProjectStatus.invoiced,
+]
+
 
 def _parse_float(value: str | None) -> float | None:
     if value is None or value.strip() == "":
@@ -43,11 +52,11 @@ async def list_projects(
 ):
     q = db.query(Project)
     if status == "active":
-        q = q.filter(Project.status == ProjectStatus.in_production)
-    elif status == "archived":
-        q = q.filter(Project.status == ProjectStatus.archived)
-    elif status == "sold":
-        q = q.filter(Project.status == ProjectStatus.sold)
+        q = q.filter(Project.status.in_([ProjectStatus.open, ProjectStatus.in_progress]))
+    elif status == "done":
+        q = q.filter(Project.status == ProjectStatus.done)
+    elif status == "invoiced":
+        q = q.filter(Project.status == ProjectStatus.invoiced)
     projects = q.order_by(Project.created_at.desc()).all()
 
     rows = [compute_project(db, p) for p in projects]
@@ -133,7 +142,7 @@ async def project_detail(
             warehouse_parts=warehouse_parts,
             global_rate=global_hourly_rate(db),
             today=date.today().isoformat(),
-            statuses=list(ProjectStatus),
+            statuses=NEW_STATUSES,
             kinds=list(ProjectKind),
             in_enabled=invoiceninja.is_enabled(),
             in_url=invoiceninja.base_url(),
@@ -155,7 +164,7 @@ async def update_project(
     project_id: int,
     name: str = Form(...),
     description: str = Form(""),
-    status: str = Form("in_production"),
+    status: str = Form("open"),
     purchase_price: str = Form(""),
     sale_price: str = Form(""),
     hourly_rate: str = Form(""),
@@ -180,7 +189,7 @@ async def update_project(
     project.name = name.strip()
     project.description = description.strip() or None
     new_status = ProjectStatus(status)
-    if new_status == ProjectStatus.archived and project.status != ProjectStatus.archived:
+    if new_status == ProjectStatus.done and project.status != ProjectStatus.done:
         project.archived_at = datetime.utcnow()
     project.status = new_status
     project.purchase_price = _parse_float(purchase_price) or 0.0

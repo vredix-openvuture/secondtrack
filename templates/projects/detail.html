@@ -1,7 +1,8 @@
 {% extends "base.html" %}
 {% block title %}{{ project.name }} · secondtrack{% endblock %}
 {% block content %}
-{% set labels = {"in_production": _('In production'), "archived": _('Stored'), "sold": _('Sold')} %}
+{% set st_label = {"open": _('Open'), "in_progress": _('In progress'), "done": _('Done'), "invoiced": _('Invoiced')} %}
+{% set st_class = {"open": "in_production", "in_progress": "in_production", "done": "archived", "invoiced": "sold"} %}
 
 <p class="crumb"><a href="/projects">← {{ _('Projects') }}</a></p>
 {% if request.query_params.get('msg') %}<p class="notice">{{ _(request.query_params.get('msg')) }}</p>{% endif %}
@@ -15,13 +16,13 @@
   <form method="post" action="/projects/{{ project.id }}/update" enctype="multipart/form-data" class="ph-form">
     <div class="ph-top">
       <input class="ph-name" name="name" value="{{ project.name }}" required>
-      <span class="badge {{ project.status.value }}">{{ labels[project.status.value] }}</span>
+      <span class="badge {{ st_class.get(project.status.value, project.status.value) }}">{{ st_label.get(project.status.value, project.status.value) }}</span>
     </div>
 
     <div class="ph-grid">
       <label>{{ _('Status') }}
         <select name="status">
-          {% for st in statuses %}<option value="{{ st.value }}" {{ 'selected' if project.status == st }}>{{ labels[st.value] }}</option>{% endfor %}
+          {% for st in statuses %}<option value="{{ st.value }}" {{ 'selected' if project.status == st }}>{{ st_label.get(st.value, st.value) }}</option>{% endfor %}
         </select>
       </label>
       <label>{{ _('Purchase price (device)') }}<input name="purchase_price" value="{{ project.purchase_price }}" inputmode="decimal"></label>
