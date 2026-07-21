@@ -99,8 +99,21 @@ async def archive_invoice(
     if not link:
         return RedirectResponse("/hub?msg=Invoice not found", status_code=303)
     try:
-        remote = hub.archive_invoice(db, link, kind)
+        remote = hub.archive_invoice(db, link)
         msg = f"In Nextcloud abgelegt: {remote}"
+    except Exception as e:  # noqa: BLE001
+        msg = f"Error: {e}"
+    return RedirectResponse(f"/hub?msg={msg}", status_code=303)
+
+
+@router.post("/archive-paid")
+async def archive_paid(
+    db: Session = Depends(get_db),
+    user=Depends(require_login),
+):
+    try:
+        r = hub.archive_paid_invoices(db)
+        msg = f"Nextcloud: {r.get('archived', 0)} bezahlte Rechnung(en) abgelegt."
     except Exception as e:  # noqa: BLE001
         msg = f"Error: {e}"
     return RedirectResponse(f"/hub?msg={msg}", status_code=303)

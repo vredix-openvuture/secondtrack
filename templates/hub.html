@@ -71,6 +71,7 @@
   <h2>{{ _('Invoices (InvoiceNinja)') }}
     <span style="float:right;display:flex;gap:.4rem">
       {% if email_on %}<form method="post" action="/hub/process-due"><button class="btn" style="font-size:.8rem">{{ _('Process overdue') }}</button></form>{% endif %}
+      {% if nc_enabled %}<form method="post" action="/hub/archive-paid"><button class="btn" style="font-size:.8rem" title="{{ _('Store paid invoices in Nextcloud') }}">☁ {{ _('Sync paid') }}</button></form>{% endif %}
       <a class="btn" style="font-size:.8rem" href="/hub?drafts={{ 0 if include_drafts else 1 }}&archived={{ 1 if include_archived else 0 }}&period={{ period }}">{{ _('Hide drafts') if include_drafts else _('Show drafts') }}</a>
       <a class="btn" style="font-size:.8rem" href="/hub?archived={{ 0 if include_archived else 1 }}&drafts={{ 1 if include_drafts else 0 }}&period={{ period }}">{{ _('Hide archive') if include_archived else _('Show archive') }}</a>
     </span>

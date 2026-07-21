@@ -66,6 +66,26 @@ async def _order_poll_loop():
             pass
 
 
+async def _nc_archive_loop():
+    import asyncio
+
+    from . import runtime
+    from .db import SessionLocal
+    from .services import hub
+    from .services.integrations import nextcloud
+
+    while True:
+        try:
+            await asyncio.sleep(60 * 15)  # every 15 minutes
+            if runtime.get_bool("nc_auto_archive") and nextcloud.is_enabled():
+                with SessionLocal() as db:
+                    hub.archive_paid_invoices(db)
+        except asyncio.CancelledError:
+            break
+        except Exception:  # noqa: BLE001
+            pass
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     import asyncio
@@ -76,7 +96,11 @@ async def lifespan(app: FastAPI):
 
     with SessionLocal() as db:
         runtime.load(db)
-    tasks = [asyncio.create_task(_email_loop()), asyncio.create_task(_order_poll_loop())]
+    tasks = [
+        asyncio.create_task(_email_loop()),
+        asyncio.create_task(_order_poll_loop()),
+        asyncio.create_task(_nc_archive_loop()),
+    ]
     yield
     for t in tasks:
         t.cancel()

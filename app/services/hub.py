@@ -231,9 +231,30 @@ def send_invoice(db: Session, link: OrderInvoice, kind: str = "invoice") -> None
     _maybe_archive(db, link)
 
 
-def archive_invoice(db: Session, link: OrderInvoice, kind: str = "rechnung") -> str:
-    """Fetch the invoice PDF from InvoiceNinja and store it in Nextcloud.
-    Returns the stored remote path. `kind`: 'rechnung' | 'quittung' → subfolder."""
+def _safe_name(s: str) -> str:
+    """Filesystem-safe: strip path/illegal chars, collapse whitespace."""
+    s = (s or "").strip()
+    for ch in '/\\:*?"<>|':
+        s = s.replace(ch, "-")
+    return " ".join(s.split())
+
+
+def _invoice_remote_path(inv: dict) -> str:
+    """Nextcloud path for an InvoiceNinja invoice dict:
+    <base>/Invoices/<year>/<number>_<customer>.pdf"""
+    number = _safe_name(str(inv.get("number") or inv.get("id")))
+    client = inv.get("client") or {}
+    cname = _safe_name(client.get("display_name") or client.get("name") or "")
+    d = invoiceninja._invoice_date(inv)
+    year = str(d.year) if d else datetime.utcnow().strftime("%Y")
+    stem = f"{number}_{cname}".strip("_ ") or number
+    base = (runtime.get("nc_base_path") or "/OpenVuture/Belege").rstrip("/")
+    return f"{base}/Invoices/{year}/{stem}.pdf"
+
+
+def archive_invoice(db: Session, link: OrderInvoice, kind: str = "") -> str:
+    """Fetch the invoice PDF from InvoiceNinja and store it in Nextcloud under
+    Invoices/<year>/<number>_<customer>.pdf. Returns the remote path."""
     from .integrations import nextcloud
 
     if not nextcloud.is_enabled():
@@ -243,14 +264,43 @@ def archive_invoice(db: Session, link: OrderInvoice, kind: str = "rechnung") -> 
     pdf = invoiceninja.download_pdf(link.invoiceninja_id)
     if not pdf:
         raise RuntimeError("PDF konnte nicht aus InvoiceNinja geladen werden")
+    inv = invoiceninja.get_invoice(link.invoiceninja_id) or {
+        "number": link.invoice_number, "id": link.invoiceninja_id,
+    }
+    return nextcloud.put_file(_invoice_remote_path(inv), pdf, "application/pdf")
 
-    folder = "Quittungen" if str(kind).lower().startswith("quitt") else "Rechnungen"
-    when = getattr(link, "created_at", None) or datetime.utcnow()
-    year = when.strftime("%Y")
-    number = (link.invoice_number or link.invoiceninja_id).replace("/", "-").replace("\\", "-")
-    base = (runtime.get("nc_base_path") or "/OpenVuture/Belege").rstrip("/")
-    remote = f"{base}/{folder}/{year}/{number}.pdf"
-    return nextcloud.put_file(remote, pdf, "application/pdf")
+
+def archive_paid_invoices(db: Session) -> dict:
+    """Archive every PAID InvoiceNinja invoice not yet stored into Nextcloud
+    (Invoices/<year>/<number>_<customer>.pdf). Deduped via a setting so each
+    invoice uploads exactly once. Returns {'archived': n}."""
+    from ..db import get_setting, set_setting
+    from .integrations import nextcloud
+
+    if not nextcloud.is_enabled() or not invoiceninja.is_enabled():
+        return {"archived": 0, "skipped": "integration disabled"}
+
+    done = {
+        x for x in (get_setting(db, "nc_archived_invoice_ids", "") or "").split(",") if x
+    }
+    archived = 0
+    for inv in invoiceninja.list_invoices(limit=400, include_archived=True):
+        if str(inv.get("status_id")) != "4":  # 4 = paid
+            continue
+        iid = str(inv.get("id"))
+        if iid in done:
+            continue
+        pdf = invoiceninja.download_pdf(iid)
+        if not pdf:
+            continue
+        try:
+            nextcloud.put_file(_invoice_remote_path(inv), pdf, "application/pdf")
+        except Exception:  # noqa: BLE001
+            continue
+        done.add(iid)
+        archived += 1
+    set_setting(db, "nc_archived_invoice_ids", ",".join(sorted(done)))
+    return {"archived": archived}
 
 
 def _maybe_archive(db: Session, link: OrderInvoice) -> None:
