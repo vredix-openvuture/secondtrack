@@ -33,6 +33,17 @@ def _parse_date(v: str) -> date:
         return date.today()
 
 
+def _parse_allocation(sel: str) -> tuple[int | None, str | None]:
+    """The project select carries either a project id, or 'warehouse' /
+    'advertisement'. Returns (project_id, bucket)."""
+    sel = (sel or "").strip()
+    if sel.isdigit():
+        return int(sel), "project"
+    if sel in ("warehouse", "advertisement"):
+        return None, sel
+    return None, None
+
+
 @router.get("")
 async def list_expenses(
     request: Request,
@@ -60,6 +71,7 @@ async def list_expenses(
 
 @router.post("")
 async def create_expense(
+    name: str = Form(""),
     amount: str = Form("0"),
     expense_date: str = Form(""),
     vendor: str = Form(""),
@@ -79,11 +91,13 @@ async def create_expense(
             "/expenses?msg=A receipt (PDF/image) is required for every expense.",
             status_code=303,
         )
-    pid = int(project_id) if project_id.strip().isdigit() else None
+    pid, bucket = _parse_allocation(project_id)
     exp_service.create(
-        db, amount=_parse_float(amount), expense_date=_parse_date(expense_date),
+        db, name=name.strip(), amount=_parse_float(amount),
+        expense_date=_parse_date(expense_date),
         vendor=vendor.strip(), description=description.strip(), category=category.strip(),
-        project_id=pid, receipt_path=receipt_path, image_path=save_image(image, "expense"),
+        project_id=pid, bucket=bucket,
+        receipt_path=receipt_path, image_path=save_image(image, "expense"),
     )
     return RedirectResponse("/expenses?msg=Expense saved", status_code=303)
 
@@ -91,6 +105,7 @@ async def create_expense(
 @router.post("/{expense_id}/update")
 async def update_expense(
     expense_id: int,
+    name: str = Form(""),
     amount: str = Form("0"),
     expense_date: str = Form(""),
     vendor: str = Form(""),
@@ -108,11 +123,13 @@ async def update_expense(
     receipt_path, err = save_receipt_or_error(receipt, "receipt")
     if err:
         return RedirectResponse(f"/expenses?msg={err}", status_code=303)
-    pid = int(project_id) if project_id.strip().isdigit() else None
+    pid, bucket = _parse_allocation(project_id)
     exp_service.update(
-        db, exp, amount=_parse_float(amount), expense_date=_parse_date(expense_date),
+        db, exp, name=name.strip(), amount=_parse_float(amount),
+        expense_date=_parse_date(expense_date),
         vendor=vendor.strip(), description=description.strip(), category=category.strip(),
-        project_id=pid, receipt_path=receipt_path, image_path=save_image(image, "expense"),
+        project_id=pid, bucket=bucket,
+        receipt_path=receipt_path, image_path=save_image(image, "expense"),
     )
     return RedirectResponse("/expenses?msg=Expense updated", status_code=303)
 

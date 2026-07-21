@@ -144,11 +144,14 @@ class Expense(Base):
     __tablename__ = "expenses"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     amount: Mapped[float] = mapped_column(Float, default=0.0)
     expense_date: Mapped[date] = mapped_column(Date, default=date.today, index=True)
     vendor: Mapped[str | None] = mapped_column(String(200), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     category: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    # Allocation: "project" (with project_id), "warehouse" or "advertisement".
+    bucket: Mapped[str | None] = mapped_column(String(20), nullable=True)
     project_id: Mapped[int | None] = mapped_column(
         ForeignKey("projects.id"), nullable=True, index=True
     )

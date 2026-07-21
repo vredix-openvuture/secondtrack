@@ -81,7 +81,11 @@ def _ensure_columns() -> None:
             ("reminder_sent_at", "DATETIME"),
             ("dunning_sent_at", "DATETIME"),
         ],
-        "expenses": [("image_path", "VARCHAR(255)")],
+        "expenses": [
+            ("image_path", "VARCHAR(255)"),
+            ("name", "VARCHAR(200)"),
+            ("bucket", "VARCHAR(20)"),
+        ],
     }
     with engine.begin() as conn:
         for table, cols in wanted.items():

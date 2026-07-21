@@ -25,8 +25,9 @@
       <td>{{ e.expense_date.isoformat() }}</td>
       <td>
         <details class="inline-edit">
-          <summary>{% if e.image_path %}<img src="{{ e.image_path }}" class="row-img" alt="" onerror="this.style.display='none'">{% endif %}<strong>{{ e.vendor or '—' }}</strong>{% if e.description %} <span class="muted small">· {{ e.description }}</span>{% endif %}</summary>
+          <summary>{% if e.image_path %}<img src="{{ e.image_path }}" class="row-img" alt="" onerror="this.style.display='none'">{% endif %}<strong>{{ e.name or e.vendor or '—' }}</strong>{% if e.description %} <span class="muted small">· {{ e.description }}</span>{% endif %}</summary>
           <form method="post" action="/expenses/{{ e.id }}/update" enctype="multipart/form-data" class="stack mt">
+            <input name="name" value="{{ e.name or '' }}" placeholder="{{ _('Name') }}">
             <div class="row-form">
               <input name="amount" value="{{ e.amount }}" inputmode="decimal" required>
               <input type="date" name="expense_date" value="{{ e.expense_date.isoformat() }}">
@@ -36,7 +37,9 @@
               <input name="category" value="{{ e.category or '' }}" placeholder="{{ _('Category') }}">
               <select name="project_id">
                 <option value="">{{ _('No project') }}</option>
-                {% for p in projects %}<option value="{{ p.id }}" {{ 'selected' if e.project_id == p.id }}>{{ p.name }}</option>{% endfor %}
+                <option value="warehouse" {{ 'selected' if e.bucket == 'warehouse' }}>🏬 {{ _('Warehouse (internal)') }}</option>
+                <option value="advertisement" {{ 'selected' if e.bucket == 'advertisement' }}>📣 {{ _('Advertisement') }}</option>
+                {% if projects %}<optgroup label="{{ _('Projects') }}">{% for p in projects %}<option value="{{ p.id }}" {{ 'selected' if e.project_id == p.id }}>{{ p.name }}</option>{% endfor %}</optgroup>{% endif %}
               </select>
             </div>
             <input name="description" value="{{ e.description or '' }}" placeholder="{{ _('Description') }}">
@@ -89,6 +92,7 @@
   <div class="modal">
     <div class="modal-head"><h2>{{ _('Add expense') }}</h2><button class="modal-close" onclick="stCloseModal(this)">×</button></div>
     <form method="post" action="/expenses" enctype="multipart/form-data" class="stack">
+      <input name="name" placeholder="{{ _('Name (e.g. Testobjekt-Bestellung)') }}" required>
       <div class="row-form">
         <input name="amount" placeholder="{{ _('Amount') }}" inputmode="decimal" required>
         <input type="date" name="expense_date" value="{{ today }}">
@@ -98,14 +102,46 @@
         <input name="category" placeholder="{{ _('Category') }}">
         <select name="project_id">
           <option value="">{{ _('No project') }}</option>
-          {% for p in projects %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}
+          <option value="warehouse">🏬 {{ _('Warehouse (internal)') }}</option>
+          <option value="advertisement">📣 {{ _('Advertisement') }}</option>
+          {% if projects %}<optgroup label="{{ _('Projects') }}">{% for p in projects %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}</optgroup>{% endif %}
         </select>
       </div>
-      <input name="description" placeholder="{{ _('Description') }}">
+      <div class="md-edit">
+        <textarea name="description" rows="3" placeholder="{{ _('Description (Markdown: # heading, **bold**, - list)') }}" oninput="stMd(this)"></textarea>
+        <div class="md-preview muted small"></div>
+      </div>
       <label class="file-field">{{ _('Receipt (PDF/image, required)') }}<input type="file" name="receipt" accept="application/pdf,image/*" required onchange="stPreview(this)"></label>
       <label class="file-field">{{ _('Reference image (optional)') }}<input type="file" name="image" accept="image/*" onchange="stPreview(this)"></label>
       <button type="submit" class="primary">{{ _('Save') }}</button>
     </form>
   </div>
 </div>
+
+<script>
+function stMdRender(src){
+  const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const inline = t => t
+    .replace(/`([^`]+)`/g,'<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>')
+    .replace(/\*([^*]+)\*/g,'<em>$1</em>')
+    .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
+  const out=[]; let inList=false;
+  for(const raw of src.split(/\r?\n/)){
+    const l=esc(raw);
+    const h=l.match(/^(#{1,6})\s+(.*)$/);
+    if(h){ if(inList){out.push('</ul>');inList=false;} const n=h[1].length; out.push('<h'+n+'>'+inline(h[2])+'</h'+n+'>'); continue; }
+    if(/^\s*[-*]\s+/.test(l)){ if(!inList){out.push('<ul>');inList=true;} out.push('<li>'+inline(l.replace(/^\s*[-*]\s+/,''))+'</li>'); continue; }
+    if(inList){out.push('</ul>');inList=false;}
+    if(l.trim()===''){continue;}
+    out.push('<p>'+inline(l)+'</p>');
+  }
+  if(inList)out.push('</ul>');
+  return out.join('');
+}
+function stMd(el){
+  const p=el.parentElement.querySelector('.md-preview');
+  if(p) p.innerHTML=stMdRender(el.value);
+}
+</script>
 {% endblock %}

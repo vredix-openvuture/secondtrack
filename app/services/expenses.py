@@ -2,6 +2,7 @@
 InvoiceNinja expenses (with the receipt attached as a document)."""
 from __future__ import annotations
 
+import calendar
 from datetime import date
 
 from sqlalchemy.orm import Session
@@ -9,6 +10,42 @@ from sqlalchemy.orm import Session
 from ..models import Expense
 from .integrations import invoiceninja
 from .uploads import delete_image, read_upload
+
+_MIME = {
+    ".pdf": "application/pdf", ".png": "image/png", ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg", ".webp": "image/webp", ".gif": "image/gif",
+}
+
+
+def _safe(s: str) -> str:
+    s = (s or "").strip()
+    for ch in '/\\:*?"<>|':
+        s = s.replace(ch, "-")
+    return " ".join(s.split())
+
+
+def archive_receipt_to_nextcloud(exp: Expense) -> None:
+    """Store the receipt in Nextcloud at
+    Expenses/<year>/<MM - Month>/<ISOdate>_<name>.<ext>. Never raises."""
+    from .. import runtime
+    from .integrations import nextcloud
+
+    if not nextcloud.is_enabled() or not exp.receipt_path:
+        return
+    r = read_upload(exp.receipt_path)
+    if not r:
+        return
+    fname, data = r[0], r[1]
+    ext = ("." + fname.rsplit(".", 1)[-1].lower()) if "." in fname else ""
+    d = exp.expense_date
+    label = _safe(exp.name or exp.vendor or "expense")
+    month = f"{d.month:02d} - {calendar.month_name[d.month]}"
+    base = (runtime.get("nc_base_path") or "/OpenVuture").rstrip("/")
+    remote = f"{base}/Expenses/{d.year}/{month}/{d.isoformat()}_{label}{ext}"
+    try:
+        nextcloud.put_file(remote, data, _MIME.get(ext, "application/octet-stream"))
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def push_to_in(db: Session, exp: Expense) -> None:
@@ -37,15 +74,17 @@ def create(
     db: Session, *, amount: float, expense_date: date, vendor: str = "",
     description: str = "", category: str = "", project_id: int | None = None,
     receipt_path: str | None = None, image_path: str | None = None,
+    name: str = "", bucket: str | None = None,
 ) -> Expense:
     exp = Expense(
-        amount=amount, expense_date=expense_date,
+        name=name or None, amount=amount, expense_date=expense_date,
         vendor=vendor or None, description=description or None,
-        category=category or None, project_id=project_id,
+        category=category or None, bucket=bucket, project_id=project_id,
         receipt_path=receipt_path, image_path=image_path,
     )
     db.add(exp)
     db.commit()
+    archive_receipt_to_nextcloud(exp)
     push_to_in(db, exp)
     return exp
 
@@ -54,12 +93,15 @@ def update(
     db: Session, exp: Expense, *, amount: float, expense_date: date, vendor: str = "",
     description: str = "", category: str = "", project_id: int | None = None,
     receipt_path: str | None = None, image_path: str | None = None,
+    name: str = "", bucket: str | None = None,
 ) -> Expense:
+    exp.name = name or None
     exp.amount = amount
     exp.expense_date = expense_date
     exp.vendor = vendor or None
     exp.description = description or None
     exp.category = category or None
+    exp.bucket = bucket
     exp.project_id = project_id
     new_receipt = False
     if receipt_path:
@@ -70,6 +112,8 @@ def update(
         delete_image(exp.image_path)
         exp.image_path = image_path
     db.commit()
+    if new_receipt:
+        archive_receipt_to_nextcloud(exp)
 
     # Sync the change to InvoiceNinja.
     if invoiceninja.is_enabled():
