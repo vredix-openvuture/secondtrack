@@ -38,6 +38,20 @@ def _require() -> None:
         raise RuntimeError("Vikunja integration is disabled")
 
 
+def _norm(title: str) -> str:
+    """Normalize a project title for matching: drop emoji/symbols/spaces,
+    lowercase. So '🌞 OpenVuture' matches the configured 'OpenVuture'."""
+    return "".join(ch for ch in (title or "").lower() if ch.isalnum())
+
+
+def _find_parent(projects: list[dict]) -> dict | None:
+    """The configured parent project, matched tolerantly (ignores emoji prefixes)."""
+    target = _norm(runtime.get("vikunja_parent"))
+    if not target:
+        return None
+    return next((p for p in projects if _norm(p.get("title") or "") == target), None)
+
+
 def list_projects() -> list[dict]:
     _require()
     with _client() as c:
@@ -49,14 +63,7 @@ def list_projects() -> list[dict]:
 def get_subprojects() -> list[dict]:
     """Subprojects of the configured parent (e.g. shop, customers, website)."""
     projects = list_projects()
-    parent_name = runtime.get("vikunja_parent").strip().lower()
-    parent = next(
-        (
-            p for p in projects
-            if (p.get("title") or "").strip().lower() == parent_name
-        ),
-        None,
-    )
+    parent = _find_parent(projects)
     if not parent:
         # No parent match: return all top-level projects as a fallback.
         return [p for p in projects if not p.get("parent_project_id")]
@@ -115,3 +122,69 @@ def open_task_count() -> int:
             except Exception:  # noqa: BLE001
                 continue
     return total
+
+
+# ── Write path (create tasks/projects; see ARCHITEKTUR-SOLL.md) ──────────────
+# Vikunja creates via PUT: `PUT /projects` and `PUT /projects/{id}/tasks`.
+
+def _rfc3339(day: str) -> str:
+    """Accept 'YYYY-MM-DD' or a full ISO string; return an RFC3339 timestamp
+    (Vikunja stores due_date as a timestamp, midnight UTC for a bare date)."""
+    day = (day or "").strip()
+    if not day:
+        return ""
+    if "T" in day:
+        return day if day.endswith("Z") or "+" in day else day + "Z"
+    return f"{day}T00:00:00Z"
+
+
+def create_project(
+    title: str, parent_project_id: int | None = None, description: str = ""
+) -> dict:
+    """Create a Vikunja project (optionally as a subproject) and return it."""
+    _require()
+    body: dict = {"title": title.strip()}
+    if description:
+        body["description"] = description
+    if parent_project_id:
+        body["parent_project_id"] = int(parent_project_id)
+    with _client() as c:
+        resp = c.put("/projects", json=body)
+        resp.raise_for_status()
+        return resp.json()
+
+
+def create_task(
+    project_id: int, title: str, description: str = "", due_date: str = ""
+) -> dict:
+    """Create a task in the given Vikunja project and return it."""
+    _require()
+    body: dict = {"title": title.strip()}
+    if description:
+        body["description"] = description
+    due = _rfc3339(due_date)
+    if due:
+        body["due_date"] = due
+    with _client() as c:
+        resp = c.put(f"/projects/{int(project_id)}/tasks", json=body)
+        resp.raise_for_status()
+        return resp.json()
+
+
+def parent_project_id() -> int | None:
+    """id of the configured parent project (SECONDTRACK_VIKUNJA_PARENT_PROJECT)."""
+    _require()
+    parent = _find_parent(list_projects())
+    return parent.get("id") if parent else None
+
+
+def find_or_create_subproject(name: str) -> int:
+    """Return the id of subproject `name` under the configured parent, creating
+    it if it doesn't exist yet."""
+    _require()
+    name_l = name.strip().lower()
+    for p in list_projects():
+        if (p.get("title") or "").strip().lower() == name_l:
+            return int(p["id"])
+    created = create_project(name, parent_project_id=parent_project_id())
+    return int(created["id"])
