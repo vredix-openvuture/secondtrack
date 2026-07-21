@@ -115,9 +115,36 @@ def invoice_public_link(inv: dict) -> str:
     return ""
 
 
-def get_company_totals() -> dict:
-    """Light KPI snapshot derived from the invoice list."""
-    invoices = list_invoices(limit=400)
+def _invoice_date(inv: dict):
+    raw = (inv.get("date") or "")[:10]
+    try:
+        return date.fromisoformat(raw)
+    except ValueError:
+        return None
+
+
+def filter_period(invoices: list[dict], period: str) -> list[dict]:
+    """Filter invoices by their date. period: 'all' | 'year' | 'month'."""
+    if period not in ("year", "month"):
+        return invoices
+    today = date.today()
+    out = []
+    for inv in invoices:
+        d = _invoice_date(inv)
+        if d is None:
+            continue
+        if period == "year" and d.year == today.year:
+            out.append(inv)
+        elif period == "month" and d.year == today.year and d.month == today.month:
+            out.append(inv)
+    return out
+
+
+def get_company_totals(period: str = "all") -> dict:
+    """Light KPI snapshot derived from the invoice list. Archived invoices are
+    included (a completed/paid invoice is often archived) and can be narrowed
+    to the current year/month."""
+    invoices = filter_period(list_invoices(limit=400, include_archived=True), period)
     paid = outstanding = draft = 0.0
     for inv in invoices:
         amount = float(inv.get("amount") or 0)

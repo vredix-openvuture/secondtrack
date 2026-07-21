@@ -6,6 +6,14 @@
 <div class="page-head"><h1>{{ _('Business hub') }}</h1></div>
 {% if msg %}<p class="notice">{{ _(msg) }}</p>{% endif %}
 
+{% if view.in_enabled %}
+<div class="tabs" style="margin-bottom:1rem">
+  <a href="/hub?period=all&drafts={{ 1 if include_drafts else 0 }}&archived={{ 1 if include_archived else 0 }}" class="{{ 'on' if period == 'all' }}">{{ _('All') }}</a>
+  <a href="/hub?period=year&drafts={{ 1 if include_drafts else 0 }}&archived={{ 1 if include_archived else 0 }}" class="{{ 'on' if period == 'year' }}">{{ _('This year') }}</a>
+  <a href="/hub?period=month&drafts={{ 1 if include_drafts else 0 }}&archived={{ 1 if include_archived else 0 }}" class="{{ 'on' if period == 'month' }}">{{ _('This month') }}</a>
+</div>
+{% endif %}
+
 {% if not view.in_enabled and not view.woo_enabled %}
 <div class="card">
   <p class="muted">{{ _('No integration active yet. Add your WooCommerce and InvoiceNinja credentials in the') }}
@@ -63,8 +71,8 @@
   <h2>{{ _('Invoices (InvoiceNinja)') }}
     <span style="float:right;display:flex;gap:.4rem">
       {% if email_on %}<form method="post" action="/hub/process-due"><button class="btn" style="font-size:.8rem">{{ _('Process overdue') }}</button></form>{% endif %}
-      <a class="btn" style="font-size:.8rem" href="/hub?drafts={{ 0 if include_drafts else 1 }}&archived={{ 1 if include_archived else 0 }}">{{ _('Hide drafts') if include_drafts else _('Show drafts') }}</a>
-      <a class="btn" style="font-size:.8rem" href="/hub?archived={{ 0 if include_archived else 1 }}&drafts={{ 1 if include_drafts else 0 }}">{{ _('Hide archive') if include_archived else _('Show archive') }}</a>
+      <a class="btn" style="font-size:.8rem" href="/hub?drafts={{ 0 if include_drafts else 1 }}&archived={{ 1 if include_archived else 0 }}&period={{ period }}">{{ _('Hide drafts') if include_drafts else _('Show drafts') }}</a>
+      <a class="btn" style="font-size:.8rem" href="/hub?archived={{ 0 if include_archived else 1 }}&drafts={{ 1 if include_drafts else 0 }}&period={{ period }}">{{ _('Hide archive') if include_archived else _('Show archive') }}</a>
     </span>
   </h2>
   {% if not view.in_enabled %}

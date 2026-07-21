@@ -19,14 +19,18 @@ router = APIRouter(prefix="/hub")
 async def hub_page(
     request: Request,
     drafts: int = 0,
-    archived: int = 0,
+    archived: int = 1,
+    period: str = "all",
     db: Session = Depends(get_db),
     user=Depends(require_login),
 ):
     include_drafts = bool(drafts)
     include_archived = bool(archived)
+    if period not in ("all", "year", "month"):
+        period = "all"
     view = hub.build_hub_view(
-        db, include_drafts=include_drafts, include_archived=include_archived
+        db, include_drafts=include_drafts, include_archived=include_archived,
+        period=period,
     )
     return templates.TemplateResponse(
         "hub.html",
@@ -37,6 +41,7 @@ async def hub_page(
             view=view,
             include_drafts=include_drafts,
             include_archived=include_archived,
+            period=period,
             in_url=invoiceninja.base_url(),
             auto_send=runtime.get_bool("in_auto_send"),
             nc_enabled=nextcloud.is_enabled(),

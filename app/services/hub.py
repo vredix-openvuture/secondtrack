@@ -293,7 +293,8 @@ def status_label(status_id) -> str:
 
 
 def build_hub_view(
-    db: Session, include_drafts: bool = False, include_archived: bool = False
+    db: Session, include_drafts: bool = False, include_archived: bool = True,
+    period: str = "all",
 ) -> HubView:
     view = HubView(woo_enabled=woo.is_enabled(), in_enabled=invoiceninja.is_enabled())
 
@@ -328,8 +329,12 @@ def build_hub_view(
 
     if view.in_enabled:
         try:
-            view.kpis = invoiceninja.get_company_totals()
-            for inv in invoiceninja.list_invoices(limit=80, include_archived=include_archived):
+            view.kpis = invoiceninja.get_company_totals(period)
+            invs = invoiceninja.filter_period(
+                invoiceninja.list_invoices(limit=80, include_archived=include_archived),
+                period,
+            )
+            for inv in invs:
                 # Drafts (status_id == 1) are hidden by default — these are
                 # often leftover test invoices that clutter the overview.
                 if not include_drafts and str(inv.get("status_id")) == "1":
