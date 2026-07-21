@@ -9,9 +9,10 @@ from sqlalchemy.orm import Session
 from .. import runtime
 from ..auth import require_login
 from ..config import get_settings as get_app_settings
-from ..db import get_db
+from ..db import get_db, new_project_number
 from ..models import (
-    Expense, OrderInvoice, Part, PartOrigin, Project, ProjectKind, ProjectStatus, WorkSession,
+    Customer, CustomerKind, Device, DeviceStatus, Expense, OrderInvoice, Part,
+    PartOrigin, Project, ProjectKind, ProjectStatus, Report, WorkSession,
 )
 from ..services import expenses as exp_service, hub
 from ..services.finance import compute_project, global_hourly_rate
@@ -33,6 +34,8 @@ NEW_STATUSES = [
     ProjectStatus.invoiced,
 ]
 
+DEVICE_STATUSES = list(DeviceStatus)  # in_production / archived / sold
+
 
 def _parse_float(value: str | None) -> float | None:
     if value is None or value.strip() == "":
@@ -41,6 +44,41 @@ def _parse_float(value: str | None) -> float | None:
         return float(value.replace(",", ".").strip())
     except ValueError:
         return None
+
+
+def _resolve_customer(
+    db: Session,
+    customer_id: str = "",
+    new_name: str = "",
+    kind: str = "internal",
+    email: str = "",
+    company: str = "",
+) -> int | None:
+    """Return a Customer id for a project: an existing one (customer_id), or a
+    newly created one (new_name). An 'invoiceninja' customer also gets/creates a
+    matching InvoiceNinja client so invoices can be raised against it."""
+    if customer_id and customer_id.strip().isdigit():
+        return int(customer_id.strip())
+    if not new_name.strip():
+        return None
+    k = CustomerKind(kind) if kind in CustomerKind._value2member_map_ else CustomerKind.internal
+    inv_client_id = None
+    if k == CustomerKind.invoiceninja and invoiceninja.is_enabled():
+        try:
+            inv_client_id = invoiceninja.find_or_create_client(
+                email=email.strip(), company=company.strip(),
+                first_name=new_name.strip(),
+            )
+        except Exception:  # noqa: BLE001
+            inv_client_id = None
+    cust = Customer(
+        name=new_name.strip(), kind=k,
+        email=email.strip() or None, company=company.strip() or None,
+        invoiceninja_client_id=inv_client_id,
+    )
+    db.add(cust)
+    db.commit()
+    return cust.id
 
 
 @router.get("")
@@ -60,9 +98,10 @@ async def list_projects(
     projects = q.order_by(Project.created_at.desc()).all()
 
     rows = [compute_project(db, p) for p in projects]
+    customers = db.query(Customer).order_by(Customer.name).all()
     return templates.TemplateResponse(
         "projects/list.html",
-        ctx(request, db, active="projects", rows=rows, status=status),
+        ctx(request, db, active="projects", rows=rows, status=status, customers=customers),
     )
 
 
@@ -71,23 +110,45 @@ async def create_project(
     request: Request,
     name: str = Form(...),
     description: str = Form(""),
-    purchase_price: str = Form(""),
     kind: str = Form("customer"),
+    customer_id: str = Form(""),
+    new_customer_name: str = Form(""),
+    customer_kind: str = Form("internal"),
+    customer_email: str = Form(""),
+    customer_company: str = Form(""),
+    device_name: str = Form(""),
+    purchase_price: str = Form(""),
     image: UploadFile | None = File(None),
     receipt: UploadFile | None = File(None),
     db: Session = Depends(get_db),
     user=Depends(require_login),
 ):
     img_url, img_err = save_image_or_error(image, "project")
-    price = _parse_float(purchase_price) or 0.0
+    cust_id = _resolve_customer(
+        db, customer_id, new_customer_name, customer_kind,
+        customer_email, customer_company,
+    )
     project = Project(
         name=name.strip(),
+        title=name.strip(),
+        number=new_project_number(db),
+        customer_id=cust_id,
         description=description.strip() or None,
-        purchase_price=price,
+        status=ProjectStatus.open,
         kind=ProjectKind(kind) if kind in ProjectKind._value2member_map_ else ProjectKind.customer,
         image_path=img_url,
     )
     db.add(project)
+    db.commit()
+    # A project always starts with (at least) one device.
+    price = _parse_float(purchase_price) or 0.0
+    device = Device(
+        project_id=project.id,
+        name=device_name.strip() or name.strip(),
+        purchase_price=price,
+        status=DeviceStatus.in_production,
+    )
+    db.add(device)
     db.commit()
     # If a receipt for the device purchase was attached, log it as an expense.
     rpath = save_receipt(receipt, "receipt")
@@ -131,6 +192,19 @@ async def project_detail(
             in_clients = invoiceninja.list_clients()
         except Exception:  # noqa: BLE001
             in_clients = []
+    loose_parts = (
+        db.query(Part)
+        .filter(Part.project_id == project.id, Part.device_id.is_(None))
+        .order_by(Part.name)
+        .all()
+    )
+    reports = (
+        db.query(Report)
+        .filter(Report.project_id == project.id)
+        .order_by(Report.created_at.desc())
+        .all()
+    )
+    customers = db.query(Customer).order_by(Customer.name).all()
     return templates.TemplateResponse(
         "projects/detail.html",
         ctx(
@@ -139,6 +213,11 @@ async def project_detail(
             active="projects",
             f=f,
             project=project,
+            devices=sorted(project.devices, key=lambda d: d.id),
+            loose_parts=loose_parts,
+            reports=reports,
+            customers=customers,
+            device_statuses=DEVICE_STATUSES,
             warehouse_parts=warehouse_parts,
             global_rate=global_hourly_rate(db),
             today=date.today().isoformat(),
@@ -165,12 +244,14 @@ async def update_project(
     name: str = Form(...),
     description: str = Form(""),
     status: str = Form("open"),
-    purchase_price: str = Form(""),
-    sale_price: str = Form(""),
     hourly_rate: str = Form(""),
     vikunja_task_id: str = Form(""),
     kind: str = Form("customer"),
-    woo_product_id: str = Form(""),
+    customer_id: str = Form(""),
+    new_customer_name: str = Form(""),
+    customer_kind: str = Form("internal"),
+    customer_email: str = Form(""),
+    customer_company: str = Form(""),
     image: UploadFile | None = File(None),
     db: Session = Depends(get_db),
     user=Depends(require_login),
@@ -181,20 +262,27 @@ async def update_project(
     project.vikunja_task_id = vikunja_task_id.strip() or None
     if kind in ProjectKind._value2member_map_:
         project.kind = ProjectKind(kind)
-    project.woo_product_id = int(woo_product_id) if woo_product_id.strip().isdigit() else None
     new_image, img_err = save_image_or_error(image, "project")
     if new_image:
         delete_image(project.image_path)
         project.image_path = new_image
     project.name = name.strip()
+    project.title = name.strip()
     project.description = description.strip() or None
     new_status = ProjectStatus(status)
     if new_status == ProjectStatus.done and project.status != ProjectStatus.done:
         project.archived_at = datetime.utcnow()
     project.status = new_status
-    project.purchase_price = _parse_float(purchase_price) or 0.0
-    project.sale_price = _parse_float(sale_price)
     project.hourly_rate = _parse_float(hourly_rate)
+    # Customer: assign an existing one or create a new one (only when provided,
+    # so an untouched dropdown leaves the current customer in place).
+    if new_customer_name.strip() or customer_id.strip().isdigit():
+        project.customer_id = _resolve_customer(
+            db, customer_id, new_customer_name, customer_kind,
+            customer_email, customer_company,
+        )
+    elif customer_id.strip() == "none":
+        project.customer_id = None
     db.commit()
     dest = f"/projects/{project.id}"
     if img_err:
@@ -210,12 +298,160 @@ async def delete_project(
 ):
     project = db.get(Project, project_id)
     if project:
-        # Move its parts to the warehouse rather than deleting them.
+        # Move its parts to the warehouse (off any device and project) rather
+        # than deleting them; then the cascade removes devices + reports.
         for p in list(project.parts):
             p.project_id = None
+            p.device_id = None
         db.delete(project)
         db.commit()
     return RedirectResponse("/projects", status_code=303)
+
+
+# ---- Devices ----
+
+@router.post("/{project_id}/devices")
+async def add_device(
+    project_id: int,
+    name: str = Form(...),
+    purchase_price: str = Form(""),
+    sale_price: str = Form(""),
+    status: str = Form("in_production"),
+    woo_product_id: str = Form(""),
+    image: UploadFile | None = File(None),
+    receipt: UploadFile | None = File(None),
+    db: Session = Depends(get_db),
+    user=Depends(require_login),
+):
+    project = db.get(Project, project_id)
+    if not project:
+        return RedirectResponse("/projects", status_code=303)
+    img_url, img_err = save_image_or_error(image, "device")
+    price = _parse_float(purchase_price) or 0.0
+    device = Device(
+        project_id=project.id,
+        name=name.strip(),
+        purchase_price=price,
+        sale_price=_parse_float(sale_price),
+        status=DeviceStatus(status) if status in DeviceStatus._value2member_map_ else DeviceStatus.in_production,
+        woo_product_id=int(woo_product_id) if woo_product_id.strip().isdigit() else None,
+        image_path=img_url,
+    )
+    db.add(device)
+    db.commit()
+    rpath = save_receipt(receipt, "receipt")
+    if rpath and price > 0:
+        exp_service.create(
+            db, amount=price, expense_date=date.today(), vendor="",
+            description=f"Device purchase: {device.name}", category="Device purchase",
+            project_id=project.id, receipt_path=rpath,
+        )
+    dest = f"/projects/{project_id}"
+    if img_err:
+        dest += f"?msg={img_err}"
+    return RedirectResponse(dest, status_code=303)
+
+
+@router.post("/{project_id}/devices/{device_id}/update")
+async def update_device(
+    project_id: int,
+    device_id: int,
+    name: str = Form(...),
+    purchase_price: str = Form(""),
+    sale_price: str = Form(""),
+    status: str = Form("in_production"),
+    woo_product_id: str = Form(""),
+    image: UploadFile | None = File(None),
+    db: Session = Depends(get_db),
+    user=Depends(require_login),
+):
+    device = db.get(Device, device_id)
+    dest = f"/projects/{project_id}"
+    if device and device.project_id == project_id:
+        device.name = name.strip()
+        device.purchase_price = _parse_float(purchase_price) or 0.0
+        device.sale_price = _parse_float(sale_price)
+        if status in DeviceStatus._value2member_map_:
+            device.status = DeviceStatus(status)
+        device.woo_product_id = int(woo_product_id) if woo_product_id.strip().isdigit() else None
+        new_image, img_err = save_image_or_error(image, "device")
+        if new_image:
+            delete_image(device.image_path)
+            device.image_path = new_image
+        db.commit()
+        if img_err:
+            dest += f"?msg={img_err}"
+    return RedirectResponse(dest, status_code=303)
+
+
+@router.post("/{project_id}/devices/{device_id}/delete")
+async def delete_device(
+    project_id: int,
+    device_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(require_login),
+):
+    device = db.get(Device, device_id)
+    if device and device.project_id == project_id:
+        # Its parts go back to the warehouse rather than being deleted.
+        for p in db.query(Part).filter(Part.device_id == device_id).all():
+            p.device_id = None
+            p.project_id = None
+        db.delete(device)
+        db.commit()
+    return RedirectResponse(f"/projects/{project_id}", status_code=303)
+
+
+# ---- Reports (Markdown) ----
+
+@router.post("/{project_id}/reports")
+async def add_report(
+    project_id: int,
+    title: str = Form(""),
+    body_md: str = Form(""),
+    db: Session = Depends(get_db),
+    user=Depends(require_login),
+):
+    project = db.get(Project, project_id)
+    if project:
+        db.add(Report(
+            project_id=project.id,
+            title=title.strip() or "Report",
+            body_md=body_md.strip() or None,
+        ))
+        db.commit()
+    return RedirectResponse(f"/projects/{project_id}", status_code=303)
+
+
+@router.post("/{project_id}/reports/{report_id}/update")
+async def update_report(
+    project_id: int,
+    report_id: int,
+    title: str = Form(""),
+    body_md: str = Form(""),
+    db: Session = Depends(get_db),
+    user=Depends(require_login),
+):
+    report = db.get(Report, report_id)
+    if report and report.project_id == project_id:
+        report.title = title.strip() or "Report"
+        report.body_md = body_md.strip() or None
+        db.commit()
+    return RedirectResponse(f"/projects/{project_id}", status_code=303)
+
+
+@router.post("/{project_id}/reports/{report_id}/delete")
+async def delete_report(
+    project_id: int,
+    report_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(require_login),
+):
+    report = db.get(Report, report_id)
+    if report and report.project_id == project_id:
+        db.delete(report)
+        db.commit()
+    return RedirectResponse(f"/projects/{project_id}", status_code=303)
 
 
 # ---- Parts ----
@@ -224,6 +460,7 @@ async def delete_project(
 async def add_part(
     project_id: int,
     name: str = Form(...),
+    device_id: str = Form(""),
     purchase_price: str = Form(""),
     sale_price: str = Form(""),
     origin: str = Form("purchased"),
@@ -238,10 +475,12 @@ async def add_part(
         return RedirectResponse("/projects", status_code=303)
     img_url, img_err = save_image_or_error(image, "part")
     pp = _parse_float(purchase_price)
+    dev_id = int(device_id) if device_id.strip().isdigit() else None
     part = Part(
         name=name.strip(),
         notes=notes.strip() or None,
         project_id=project.id,
+        device_id=dev_id,
         origin=PartOrigin(origin),
         purchase_price=pp,
         sale_price=_parse_float(sale_price) or 0.0,
@@ -273,6 +512,7 @@ async def remove_part_to_warehouse(
     if part and part.project_id == project_id:
         # Moving out of a build: it becomes a harvested warehouse part.
         part.project_id = None
+        part.device_id = None
         if part.origin == PartOrigin.purchased and not part.purchase_price:
             part.origin = PartOrigin.harvested
         db.commit()
@@ -297,14 +537,16 @@ async def delete_part(
 async def install_from_warehouse(
     project_id: int,
     part_id: int = Form(...),
+    device_id: str = Form(""),
     db: Session = Depends(get_db),
     user=Depends(require_login),
 ):
-    """Install an existing warehouse part into this project.
-    Its stored sale price carries over automatically."""
+    """Install an existing warehouse part into this project (optionally onto a
+    specific device). Its stored sale price carries over automatically."""
     part = db.get(Part, part_id)
     if part and part.project_id is None:
         part.project_id = project_id
+        part.device_id = int(device_id) if device_id.strip().isdigit() else None
         db.commit()
     return RedirectResponse(f"/projects/{project_id}", status_code=303)
 

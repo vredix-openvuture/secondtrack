@@ -79,9 +79,21 @@ Warehouse = Part mit project_id IS NULL (unverändert)
   beim Start: je Project ohne `number` → `number` erzeugen, `Device` aus den Geräte-Feldern
   klonen (Status via `in_production/archived/sold`→Device), Parts dem Device zuordnen,
   `title = name`. Kunde bleibt leer/`internal`.
-- **P3 – UI-Umstellung (offen):** Projects-Liste/Detail, Create-Modal, Warehouse-Install,
-  Stats/Finance auf das neue Modell; **Project.status remap** in_production→in_progress,
-  archived→done, sold→invoiced. Alt-Felder am Project erst entfernen, wenn UI steht.
+- **P3 – UI-Umstellung (läuft):**
+  - **✅ P3a** – `compute_project` aggregiert über `project.devices` (Fallback für nicht
+    migrierte). Zahlen identisch vor/nach Migration.
+  - **✅ P3b-1** – Status-Remap (in_production→in_progress, archived→done, sold→invoiced,
+    idempotent beim Start), Finance/Stats + list/detail/stats-Anzeige auf neues Set.
+  - **✅ P3b-2** – Detail-Redesign: Geräte-Sektion (Teile pro Gerät verschachtelt),
+    lose Projekt-Teile, Reports (Markdown); Device/Report-CRUD; Warehouse-Install ans Gerät.
+  - **✅ P3c** – Create-Modal + Kunde (bestehenden wählen / neu: intern oder IN-Client).
+    Kunde auch im Detail-Header editierbar; `_resolve_customer` legt bei IN-Kunden den
+    InvoiceNinja-Client an.
+  - **✅ P3d** – Rechnung aus Projekt: Line-Items = Geräte-VK + Teile + Arbeit; nutzt den
+    verknüpften Kunden-IN-Client; erzeugt Entwurf in IN (Deep-Link/Send im Detail).
+  - **noch offen (P4):** Alt-Felder am Project (`purchase_price/sale_price/woo_product_id`)
+    entfernen — stehen aktuell nur noch als Fallback/Transition; UI nutzt sie nicht mehr.
+    **Live-Test gegen echte IN/Vikunja durch den User steht noch aus.**
 - **P4 – Cleanup:** verwaiste Project-Geräte-Felder entfernen (optional, spät).
 
 ## Betroffene Dateien (grob)

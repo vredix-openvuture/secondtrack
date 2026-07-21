@@ -10,7 +10,7 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 
 from .. import runtime
-from ..models import InvoiceSource, OrderInvoice, Project, ProjectKind, ProjectStatus
+from ..models import Customer, InvoiceSource, OrderInvoice, Project, ProjectKind, ProjectStatus
 from .integrations import invoiceninja, woo
 
 
@@ -68,6 +68,12 @@ def create_invoice_for_project(
     )
     if existing:
         return existing
+
+    # Prefer the project's linked customer (its InvoiceNinja client), if any.
+    if not client_id and project.customer_id:
+        cust = db.get(Customer, project.customer_id)
+        if cust and cust.invoiceninja_client_id:
+            client_id = cust.invoiceninja_client_id
 
     # Use an existing InvoiceNinja client if one was picked, else create one.
     if not client_id:

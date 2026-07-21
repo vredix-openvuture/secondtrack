@@ -70,12 +70,35 @@
   <div class="modal">
     <div class="modal-head"><h2>{{ _('Create new device') }}</h2><button class="modal-close" onclick="stCloseModal(this)">×</button></div>
     <form method="post" action="/projects" enctype="multipart/form-data" class="stack">
-      <input name="name" placeholder="z.B. Dell OptiPlex 7050" required autofocus>
-      <select name="kind">
-        <option value="customer">{{ _('Customer order') }}</option>
-        <option value="shop">{{ _('Shop production') }}</option>
-      </select>
-      <input name="purchase_price" placeholder="{{ _('Purchase price') }}" inputmode="decimal">
+      <input name="name" placeholder="{{ _('Project title') }}" required autofocus>
+      <input name="device_name" placeholder="{{ _('First device (optional, defaults to title)') }}">
+      <div class="row-form">
+        <select name="kind">
+          <option value="customer">{{ _('Customer order') }}</option>
+          <option value="shop">{{ _('Shop production') }}</option>
+        </select>
+        <input name="purchase_price" placeholder="{{ _('Purchase price') }}" inputmode="decimal">
+      </div>
+      <label>{{ _('Customer') }}
+        <select name="customer_id">
+          <option value="">— {{ _('none / internal') }} —</option>
+          {% for c in customers %}<option value="{{ c.id }}">{{ c.name }}{% if c.kind.value == 'invoiceninja' %} (IN){% endif %}</option>{% endfor %}
+        </select>
+      </label>
+      <details class="adder">
+        <summary>{{ _('+ New customer') }}</summary>
+        <div class="stack">
+          <input name="new_customer_name" placeholder="{{ _('Customer name') }}">
+          <div class="row-form">
+            <select name="customer_kind">
+              <option value="internal">{{ _('Internal (no invoicing)') }}</option>
+              <option value="invoiceninja">{{ _('InvoiceNinja client') }}</option>
+            </select>
+            <input name="customer_company" placeholder="{{ _('Company (optional)') }}">
+          </div>
+          <input name="customer_email" type="email" placeholder="{{ _('Email (optional)') }}">
+        </div>
+      </details>
       <input name="description" placeholder="{{ _('Note (optional)') }}">
       <label class="file-field">{{ _('Image (optional)') }}
         <input type="file" name="image" accept="image/*" onchange="stPreview(this)">
