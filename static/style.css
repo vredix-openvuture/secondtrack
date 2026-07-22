@@ -276,11 +276,12 @@ textarea.md-field { font-family: inherit; resize: vertical; }
 
 /* Tables */
 table.grid { width: 100%; border-collapse: collapse; }
-table.grid th, table.grid td { text-align: left; padding: .6rem .5rem; border-bottom: 1px solid var(--border); }
-table.grid th { color: var(--muted); font-weight: 600; font-size: .8rem; text-transform: uppercase; letter-spacing: .03em; }
-table.grid.tight th, table.grid.tight td { padding: .45rem .4rem; }
-table.grid tbody tr[onclick] { cursor: pointer; }
-table.grid tbody tr[onclick]:hover { background: var(--surface-2); }
+table.grid th, table.grid td { text-align: left; padding: .8rem .8rem; border-bottom: 1px solid rgba(255,255,255,.07); vertical-align: middle; }
+table.grid th { color: var(--muted); font-weight: 600; font-size: .76rem; text-transform: uppercase; letter-spacing: .04em; }
+table.grid.tight th, table.grid.tight td { padding: .55rem .55rem; }
+table.grid tbody tr:last-child td { border-bottom: none; }
+table.grid tbody tr[onclick] { cursor: pointer; transition: background .1s ease; }
+table.grid tbody tr[onclick]:hover { background: rgba(255,255,255,.05); }
 table.grid .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 table.grid tr.sum td { font-weight: 700; border-top: 2px solid var(--border); border-bottom: none; }
 td.actions { white-space: nowrap; text-align: right; }
@@ -297,16 +298,30 @@ td.actions > * + * { margin-left: .3rem; }
 
 /* Forms */
 input, select, textarea {
-  background: var(--surface-2); color: var(--text);
-  border: 1px solid var(--border); border-radius: 8px;
-  padding: .55rem .65rem; font: inherit; width: 100%;
+  background: rgba(0,0,0,.20); color: var(--text);
+  border: 1px solid rgba(255,255,255,.10); border-radius: 10px;
+  padding: .7rem .85rem; font: inherit; width: 100%;
+  transition: border-color .12s ease, box-shadow .12s ease, background .12s ease;
 }
+input::placeholder, textarea::placeholder { color: rgba(255,255,255,.38); }
 /* checkboxes/radios must not stretch to full width */
 input[type=checkbox], input[type=radio] {
   width: auto; padding: 0; accent-color: var(--accent); cursor: pointer;
 }
-input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
-label { display: block; font-size: .85rem; color: var(--muted); margin-bottom: .15rem; }
+input:focus, select:focus, textarea:focus {
+  outline: none; border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+  background: rgba(0,0,0,.28);
+}
+/* nicer native file inputs */
+input[type=file] { padding: .5rem .6rem; cursor: pointer; }
+input[type=file]::file-selector-button {
+  background: var(--surface); color: var(--text); font: inherit; font-weight: 600;
+  border: 1px solid rgba(255,255,255,.14); border-radius: 8px;
+  padding: .4rem .85rem; margin-right: .75rem; cursor: pointer;
+}
+input[type=file]::file-selector-button:hover { border-color: var(--accent); color: var(--accent); }
+label { display: block; font-size: .78rem; color: var(--muted); margin-bottom: .3rem; letter-spacing: .02em; }
 label input, label select, label textarea { margin-top: .25rem; }
 .stack > * + * { margin-top: .7rem; }
 .row-form { display: flex; gap: .6rem; align-items: stretch; flex-wrap: wrap; }
@@ -317,8 +332,8 @@ label input, label select, label textarea { margin-top: .25rem; }
 
 button, .btn {
   background: var(--surface-2); color: var(--text);
-  border: 1px solid var(--border); border-radius: 8px;
-  padding: .55rem .9rem; font: inherit; cursor: pointer; white-space: nowrap;
+  border: 1px solid rgba(255,255,255,.12); border-radius: 10px;
+  padding: .6rem .95rem; font: inherit; cursor: pointer; white-space: nowrap;
   display: inline-block; text-align: center;
 }
 button:hover, .btn:hover { border-color: var(--accent); text-decoration: none; }
