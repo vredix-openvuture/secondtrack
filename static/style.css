@@ -1,14 +1,16 @@
 :root {
-  --bg: #0f1115;
-  --surface: #181b22;
-  --surface-2: #1f2430;
-  --border: #2a2f3a;
-  --text: #e6e8ec;
-  --muted: #8b93a3;
-  --accent: #6d28d9; /* dark violet (default; user-overridable) */
+  /* Palette: Aubergine / Claret / Madder Lake / Rain Boots / Prussian Blue */
+  --bg: #26121b;             /* Aubergine — page background */
+  --surface: #341825;        /* lifted aubergine toward claret — cards */
+  --surface-2: #45202f;      /* claret-tinted — nested surfaces */
+  --border: #5a2a3c;         /* muted claret border */
+  --text: #f4e9e6;           /* warm off-white */
+  --muted: #b58f9c;          /* warm muted rose */
+  --accent: #fb6734;         /* Rain Boots (orange) — primary (user-overridable) */
+  --accent-2: #ce3737;       /* Madder Lake (red) — secondary */
   --accent-d: color-mix(in srgb, var(--accent), black 20%);
-  --pos: #46c98b;
-  --neg: #ef6a6a;
+  --pos: #46c98b;            /* keep green for profit/positive */
+  --neg: #e4485b;            /* warm red for loss */
   --radius: 10px;
 }
 
@@ -275,9 +277,9 @@ td.actions > * + * { margin-left: .3rem; }
 
 /* Badges */
 .badge { display: inline-block; padding: .15rem .55rem; border-radius: 999px; font-size: .75rem; font-weight: 600; }
-.badge.in_production { background: rgba(79,140,255,.18); color: #9cc0ff; }
-.badge.archived { background: rgba(139,147,163,.18); color: var(--muted); }
-.badge.sold { background: rgba(70,201,139,.18); color: var(--pos); }
+.badge.in_production { background: rgba(27,56,84,.42); color: #86b0d6; }  /* Prussian Blue — open/active */
+.badge.archived { background: rgba(107,26,52,.34); color: #cf94a6; }      /* Claret — done/stored */
+.badge.sold { background: rgba(70,201,139,.18); color: var(--pos); }       /* green — invoiced/sold */
 .badge.neg-badge { background: rgba(239,106,106,.18); color: var(--neg); }
 
 /* Forms */

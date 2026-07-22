@@ -46,7 +46,7 @@ def ctx(request, db, active: str = "", **extra):
         "active": active,
         "lang": lang,
         "_": make_translator(lang),
-        "accent": get_setting(db, "accent", "#6d28d9") or "#6d28d9",
+        "accent": get_setting(db, "accent", "#fb6734") or "#fb6734",
         "currency": get_setting(db, "currency", settings.currency),
         "wallpaper": {
             "url": get_setting(db, "wallpaper_path", "") or "",
@@ -54,9 +54,9 @@ def ctx(request, db, active: str = "", **extra):
             "dark": get_setting(db, "wallpaper_dark", "40") or "40",
         },
         "style": {
-            "accent": get_setting(db, "accent", "#6d28d9") or "#6d28d9",
-            "accent2": get_setting(db, "accent2", "#4f8cff") or "#4f8cff",
-            "bg": get_setting(db, "style_bg", "#0f1115") or "#0f1115",
+            "accent": get_setting(db, "accent", "#fb6734") or "#fb6734",
+            "accent2": get_setting(db, "accent2", "#ce3737") or "#ce3737",
+            "bg": get_setting(db, "style_bg", "#26121b") or "#26121b",
             "radius": get_setting(db, "style_radius", "10") or "10",
             "font": get_setting(db, "style_font", "system") or "system",
             "density": get_setting(db, "style_density", "comfortable") or "comfortable",

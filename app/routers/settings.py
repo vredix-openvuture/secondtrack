@@ -62,9 +62,9 @@ async def settings_page(
             export_dir=app_settings.export_dir,
             msg=request.query_params.get("msg"),
             # style
-            style_accent=get_setting(db, "accent", "#6d28d9"),
-            style_accent2=get_setting(db, "accent2", "#4f8cff"),
-            style_bg=get_setting(db, "style_bg", "#0f1115"),
+            style_accent=get_setting(db, "accent", "#fb6734"),
+            style_accent2=get_setting(db, "accent2", "#ce3737"),
+            style_bg=get_setting(db, "style_bg", "#26121b"),
             style_radius=get_setting(db, "style_radius", "10"),
             style_font=get_setting(db, "style_font", "system"),
             style_density=get_setting(db, "style_density", "comfortable"),
@@ -124,9 +124,9 @@ async def update_style(
         except ValueError:
             return str(d)
 
-    set_setting(db, "accent", hexcol(accent, "#6d28d9"))
-    set_setting(db, "accent2", hexcol(accent2, "#4f8cff"))
-    set_setting(db, "style_bg", hexcol(bg, "#0f1115"))
+    set_setting(db, "accent", hexcol(accent, "#fb6734"))
+    set_setting(db, "accent2", hexcol(accent2, "#ce3737"))
+    set_setting(db, "style_bg", hexcol(bg, "#26121b"))
     set_setting(db, "style_radius", clampi(radius, 0, 28, 10))
     set_setting(db, "style_font", font if font in {"system", "mono", "serif", "rounded"} else "system")
     set_setting(db, "style_density", "compact" if density == "compact" else "comfortable")
