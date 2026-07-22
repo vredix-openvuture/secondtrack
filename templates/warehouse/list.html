@@ -17,6 +17,7 @@
 </div>
 <script>window.ST_EBAY = {{ 'true' if ebay_enabled else 'false' }};</script>
 
+<section class="card">
 {% if parts %}
 <table class="grid view-list">
   <thead>
@@ -87,6 +88,7 @@
 {% else %}
 <p class="muted empty">{{ _('Warehouse is empty. Remove parts from projects or add them with +.') }}</p>
 {% endif %}
+</section>
 
 <button class="fab" onclick="stOpenModal('newPart')" title="{{ _('Add part') }}">+</button>
 <div class="modal-backdrop" id="newPart">
