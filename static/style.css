@@ -1,16 +1,18 @@
 :root {
-  /* Palette: Aubergine / Claret / Madder Lake / Rain Boots / Prussian Blue */
+  /* Palette (exact hex): Aubergine / Claret / Madder Lake / Rain Boots / Prussian Blue */
   --bg: #26121b;             /* Aubergine — page background */
-  --surface: #341825;        /* lifted aubergine toward claret — cards */
-  --surface-2: #45202f;      /* claret-tinted — nested surfaces */
-  --border: #5a2a3c;         /* muted claret border */
-  --text: #f4e9e6;           /* warm off-white */
-  --muted: #b58f9c;          /* warm muted rose */
-  --accent: #fb6734;         /* Rain Boots (orange) — primary (user-overridable) */
+  --surface: #6b1a34;        /* Claret — cards (bold, solid blocks) */
+  --surface-2: #4e1428;      /* deeper claret — nested surfaces / inputs */
+  --border: #8a2145;         /* claret border */
+  --text: #f7ece8;           /* warm near-white */
+  --muted: #d6a9b6;          /* light rose — readable on claret */
+  --accent: #fb6734;         /* Rain Boots (orange) — primary */
+  --accent-d: color-mix(in srgb, var(--accent), black 18%);
   --accent-2: #ce3737;       /* Madder Lake (red) — secondary */
-  --accent-d: color-mix(in srgb, var(--accent), black 20%);
-  --pos: #46c98b;            /* keep green for profit/positive */
-  --neg: #e4485b;            /* warm red for loss */
+  --blue: #3f74a6;           /* brightened Prussian — nav/link accents */
+  --blue-deep: #1b3854;      /* Prussian Blue */
+  --pos: #46c98b;            /* green — profit/positive */
+  --neg: #ce3737;            /* Madder Lake — loss/danger */
   --radius: 10px;
 }
 
@@ -44,7 +46,7 @@ h2 { font-size: 1.05rem; margin: 0 0 .75rem; }
 .sidebar {
   position: fixed; top: 0; left: 0; bottom: 0; z-index: 30;
   width: var(--side-w);
-  background: rgba(24,27,34,.92); backdrop-filter: blur(6px);
+  background: #1c0c13;
   border-right: 1px solid var(--border);
   display: flex; flex-direction: column;
   transition: width .15s ease;
@@ -76,7 +78,7 @@ body[data-sidebar="open"] .brand-text { opacity: 1; }
   white-space: nowrap; font-weight: 500;
 }
 .sidebar nav a:hover { background: var(--surface-2); color: var(--text); text-decoration: none; }
-.sidebar nav a.on { background: rgba(79,140,255,.16); color: #cfe0ff; }
+.sidebar nav a.on { background: color-mix(in srgb, var(--blue) 34%, transparent); color: #c3d8ec; box-shadow: inset 2px 0 0 var(--blue); }
 .sidebar .ico { width: 22px; display: flex; justify-content: center; flex: 0 0 auto; }
 .sidebar .lbl { opacity: 0; transition: opacity .12s; }
 body[data-sidebar="open"] .sidebar .lbl { opacity: 1; }
@@ -112,7 +114,7 @@ kbd {
 
 .widget {
   position: relative; overflow: hidden;
-  background: linear-gradient(165deg, var(--surface), var(--surface-2));
+  background: var(--surface);
   transition: transform .12s ease, border-color .12s ease, box-shadow .12s ease;
 }
 .widget::before {
@@ -205,7 +207,7 @@ textarea.md-field { font-family: inherit; resize: vertical; }
 .page-head { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
 .tabs { display: flex; gap: .5rem; margin-left: auto; flex-wrap: wrap; }
 .tabs a { color: var(--muted); padding: .3rem .7rem; border-radius: 999px; font-size: .85rem; }
-.tabs a.on { background: var(--surface-2); color: var(--text); }
+.tabs a.on { background: color-mix(in srgb, var(--accent) 22%, var(--surface-2)); color: var(--text); border: 1px solid var(--accent); }
 .crumb { margin: 0 0 1rem; }
 .crumb a { color: var(--muted); }
 .settings-tabs { margin: 0 0 1.25rem; }
@@ -277,9 +279,9 @@ td.actions > * + * { margin-left: .3rem; }
 
 /* Badges */
 .badge { display: inline-block; padding: .15rem .55rem; border-radius: 999px; font-size: .75rem; font-weight: 600; }
-.badge.in_production { background: rgba(27,56,84,.42); color: #86b0d6; }  /* Prussian Blue — open/active */
-.badge.archived { background: rgba(107,26,52,.34); color: #cf94a6; }      /* Claret — done/stored */
-.badge.sold { background: rgba(70,201,139,.18); color: var(--pos); }       /* green — invoiced/sold */
+.badge.in_production { background: var(--blue-deep); color: #cfe0f0; }    /* Prussian Blue — open/active */
+.badge.archived { background: rgba(0,0,0,.30); color: var(--muted); }     /* muted — done/stored */
+.badge.sold { background: rgba(70,201,139,.22); color: #7ee0ac; }          /* green — invoiced/sold */
 .badge.neg-badge { background: rgba(239,106,106,.18); color: var(--neg); }
 
 /* Forms */
@@ -447,11 +449,14 @@ input[type="range"] { width: 100%; accent-color: var(--accent); padding: 0; }
 .kanban-col h3 .count { color: var(--muted); font-weight: 500; }
 .kanban-tasks { padding: .7rem; display: flex; flex-direction: column; gap: .6rem; }
 .task-card { background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: .6rem .7rem; font-size: .9rem; }
-.task-card.done { opacity: .55; text-decoration: line-through; }
-.task-card a { color: var(--text); }
+.task-card { display: flex; align-items: center; gap: .65rem; }
+.task-card a, .task-link { color: var(--text); flex: 1; min-width: 0; }
+.task-check { display: flex; margin: 0; flex: 0 0 auto; }
+.task-check input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
+.task-card.done .task-link { opacity: .55; text-decoration: line-through; }
 .subproject-tabs { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 1rem; }
 .subproject-tabs a { padding: .3rem .8rem; border-radius: 999px; background: var(--surface); border: 1px solid var(--border); color: var(--muted); }
-.subproject-tabs a.on { background: var(--surface-2); color: var(--text); }
+.subproject-tabs a.on { background: color-mix(in srgb, var(--accent) 22%, var(--surface-2)); color: var(--text); border-color: var(--accent); }
 
 /* Markdown editor (expenses description, live preview) */
 .md-edit { display: grid; gap: .4rem; }
