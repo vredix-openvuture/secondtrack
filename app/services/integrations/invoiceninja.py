@@ -156,7 +156,10 @@ def get_company_totals(period: str = "all") -> dict:
             paid += amount - balance
             outstanding += balance
     return {
-        "count": len(invoices),
+        # Count real invoices only — empty leftover drafts (status 1) are noise
+        # and are hidden from the list too, so they must not inflate the count.
+        "count": sum(1 for inv in invoices if str(inv.get("status_id")) != "1"),
+        "draft_count": sum(1 for inv in invoices if str(inv.get("status_id")) == "1"),
         "paid": round(paid, 2),
         "outstanding": round(outstanding, 2),
         "draft": round(draft, 2),
