@@ -141,8 +141,8 @@ kbd {
 .qa-widget { display: flex; flex-direction: column; }
 .quick-actions { display: grid; grid-template-columns: 1fr 1fr; gap: .7rem; grid-auto-rows: 1fr; flex: 1; min-height: 132px; margin-top: .2rem; }
 .qa {
-  display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: .35rem;
-  padding: .9rem 1rem; min-height: 60px;
+  display: flex; flex-direction: row; align-items: center; gap: .7rem;
+  padding: .9rem 1.1rem; min-height: 60px;
   background: var(--surface-2); border: 1px solid rgba(255,255,255,.07); border-radius: 12px;
   color: var(--text); font-weight: 600; line-height: 1.1;
   transition: transform .12s ease, border-color .12s ease, background .12s ease;
