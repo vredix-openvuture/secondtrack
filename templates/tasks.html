@@ -26,7 +26,10 @@
   <div class="kanban">
     {% for col in board %}
     <div class="kanban-col">
-      <h3>{{ col.title }} <span class="count">{{ col.tasks|length }}</span></h3>
+      <h3>
+        <span class="col-title">{% if col.has_bg and col.id %}<img class="proj-thumb" src="/tasks/project/{{ col.id }}/background" alt="" onerror="this.remove()">{% endif %}{{ col.title }}</span>
+        <span class="count">{{ col.tasks|length }}</span>
+      </h3>
       <div class="kanban-tasks">
         {% for t in col.tasks %}
           <div class="task-card {{ 'done' if t.done }}">

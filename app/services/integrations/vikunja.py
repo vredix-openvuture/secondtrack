@@ -139,8 +139,27 @@ def open_tasks_by_subproject() -> list[dict]:
                 continue
             open_tasks = [t for t in tasks if not t.get("done")]
             if open_tasks:
-                out.append({"title": sub.get("title", "—"), "tasks": open_tasks})
+                out.append({
+                    "title": sub.get("title", "—"),
+                    "id": sub.get("id"),
+                    "has_bg": bool(sub.get("background_blur_hash")),
+                    "tasks": open_tasks,
+                })
     return out
+
+
+def get_project_background(project_id: int) -> tuple[bytes, str] | None:
+    """A Vikunja project's background image as (bytes, content_type), or None."""
+    if not is_enabled():
+        return None
+    try:
+        with _client() as c:
+            r = c.get(f"/projects/{int(project_id)}/background")
+            if r.status_code == 200 and r.content:
+                return r.content, r.headers.get("content-type", "image/jpeg")
+    except Exception:  # noqa: BLE001
+        return None
+    return None
 
 
 def open_tasks_for(project_id: int) -> list[dict]:

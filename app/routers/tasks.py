@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, Response
 from sqlalchemy.orm import Session
 
 from ..auth import require_login
@@ -32,13 +32,15 @@ async def tasks_page(
                 ids = [s["id"] for s in subprojects]
                 selected = project if project in ids else (ids[0] if ids else None)
                 if selected:
-                    title = next(
-                        (s.get("title", "—") for s in subprojects if s["id"] == selected),
-                        "—",
-                    )
+                    sub = next((s for s in subprojects if s["id"] == selected), None)
                     # Flat open-task list for this subproject (buckets don't
                     # reliably embed tasks in this Vikunja version).
-                    board = [{"title": title, "tasks": vikunja.open_tasks_for(selected)}]
+                    board = [{
+                        "title": sub.get("title", "—") if sub else "—",
+                        "id": selected,
+                        "has_bg": bool(sub.get("background_blur_hash")) if sub else False,
+                        "tasks": vikunja.open_tasks_for(selected),
+                    }]
             else:
                 # Default "All open": aggregate open tasks across all subprojects
                 # (the old behaviour showed only the first subproject, which was
@@ -72,6 +74,22 @@ async def toggle_task(
         except Exception:  # noqa: BLE001
             pass
     return RedirectResponse(next or "/tasks", status_code=303)
+
+
+@router.get("/project/{project_id}/background")
+async def project_background(
+    project_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(require_login),
+):
+    """Proxy a Vikunja project's background image (Vikunja token stays server-side)."""
+    if vikunja.is_enabled():
+        res = vikunja.get_project_background(project_id)
+        if res:
+            content, ctype = res
+            return Response(content=content, media_type=ctype,
+                            headers={"Cache-Control": "max-age=3600"})
+    return Response(status_code=404)
 
 
 @router.get("/{task_id}")
