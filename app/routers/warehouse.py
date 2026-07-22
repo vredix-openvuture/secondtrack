@@ -26,9 +26,9 @@ def _parse_float(value: str | None) -> float | None:
         return None
 
 
-def _set_members(part_name, part_sale, part_note, part_image) -> list[dict]:
+def _set_members(part_name, part_sale, part_purchase, part_note, part_image) -> list[dict]:
     """Parse the set-part sub-forms into member dicts (full products: name,
-    sale value, note, image), one per non-empty name (index-aligned)."""
+    sale value, own purchase price, note, image), one per non-empty name."""
     members = []
     for i, nm in enumerate(part_name):
         if not nm.strip():
@@ -39,6 +39,7 @@ def _set_members(part_name, part_sale, part_note, part_image) -> list[dict]:
         members.append({
             "name": nm.strip(),
             "sale": _parse_float(part_sale[i]) if i < len(part_sale) else None,
+            "purchase": _parse_float(part_purchase[i]) if i < len(part_purchase) else None,
             "note": (part_note[i].strip() if i < len(part_note) else "") or None,
             "image_path": img,
         })
@@ -61,27 +62,41 @@ def _make_set(db, *, name, total, sale_price, image_path, rpath, members, src_ex
     """Create a PartSet + its member parts (full products; cost split
     value-weighted). If a receipt path is given, one warehouse expense is
     created for the whole set."""
+    # Explicit per-part purchase prices win; parts left blank share the
+    # remainder of the set total, value-weighted by their sale value.
+    explicit_sum = sum(m["purchase"] for m in members if m.get("purchase") is not None)
+    set_total = total if (total and total >= explicit_sum) else explicit_sum
+    remainder = max(0.0, set_total - explicit_sum)
+    blank = [m for m in members if m.get("purchase") is None]
+    rem_alloc = _allocate(remainder, [(m["sale"] or 0.0) for m in blank])
+    ai = 0
+    for m in members:
+        if m.get("purchase") is not None:
+            m["_cost"] = m["purchase"]
+        else:
+            m["_cost"] = rem_alloc[ai] if ai < len(rem_alloc) else 0.0
+            ai += 1
+
     exp_id = src_expense_id
     if rpath:
         exp = exp_service.create(
-            db, amount=total, expense_date=date.today(), vendor="",
+            db, amount=set_total, expense_date=date.today(), vendor="",
             description=f"Set: {name}", category="Parts",
             project_id=None, receipt_path=rpath, bucket="warehouse",
         )
         exp_id = exp.id
     ps = PartSet(
-        name=name, purchase_price=total, sale_price=sale_price,
+        name=name, purchase_price=set_total, sale_price=sale_price,
         image_path=image_path, expense_id=exp_id,
     )
     db.add(ps)
     db.flush()
-    sales = [(m["sale"] or 0.0) for m in members]
-    for m, cost in zip(members, _allocate(total, sales)):
+    for m in members:
         db.add(Part(
             name=m["name"], notes=m["note"], project_id=None, device_id=None,
             set_id=ps.id, image_path=m["image_path"],
-            origin=PartOrigin.purchased if cost else PartOrigin.harvested,
-            purchase_price=cost or None, sale_price=m["sale"] or 0.0,
+            origin=PartOrigin.purchased if m["_cost"] else PartOrigin.harvested,
+            purchase_price=m["_cost"] or None, sale_price=m["sale"] or 0.0,
             source_expense_id=exp_id,
         ))
     db.commit()
@@ -158,6 +173,7 @@ async def create_part(
     free: str = Form(""),
     part_name: list[str] = Form(default=[]),
     part_sale: list[str] = Form(default=[]),
+    part_purchase: list[str] = Form(default=[]),
     part_note: list[str] = Form(default=[]),
     part_image: list[UploadFile] = File(default=[]),
     image: UploadFile | None = File(None),
@@ -168,7 +184,7 @@ async def create_part(
     """Create one warehouse part — or, if set-parts are supplied, a set: the top
     fields become the set (name + total price + optional own sale price +
     receipt) and the total is split across the set-parts (each a full product)."""
-    members = _set_members(part_name, part_sale, part_note, part_image)
+    members = _set_members(part_name, part_sale, part_purchase, part_note, part_image)
     is_free = free.strip().lower() in ("1", "on", "true", "yes")
     img_url, img_err = save_image_or_error(image, "part")
 
@@ -225,6 +241,7 @@ async def split_part(
     total_price: str = Form(""),
     part_name: list[str] = Form(default=[]),
     part_sale: list[str] = Form(default=[]),
+    part_purchase: list[str] = Form(default=[]),
     part_note: list[str] = Form(default=[]),
     part_image: list[UploadFile] = File(default=[]),
     db: Session = Depends(get_db),
@@ -235,7 +252,7 @@ async def split_part(
     part = db.get(Part, part_id)
     if not part or part.project_id is not None:
         return RedirectResponse("/warehouse", status_code=303)
-    members = _set_members(part_name, part_sale, part_note, part_image)
+    members = _set_members(part_name, part_sale, part_purchase, part_note, part_image)
     if not members:
         return RedirectResponse("/warehouse?msg=No parts given", status_code=303)
     total = _parse_float(total_price)

@@ -525,8 +525,9 @@ table.grid td.thumb-cell { width: 52px; padding-right: .3rem; }
 .btn.set-toggle { background: var(--blue-deep); border-color: var(--blue-deep); color: #fff; flex: 0 0 auto; }
 .btn.set-toggle:hover { background: color-mix(in srgb, var(--blue-deep), black 12%); border-color: var(--blue-deep); color: #fff; }
 .btn.set-toggle.on { background: var(--accent-2); border-color: var(--accent-2); }
-.subprod-list { display: flex; flex-direction: column; gap: .7rem; }
-.subprod { display: flex; gap: .9rem; align-items: flex-start; background: rgba(0,0,0,.14); border: 1px solid rgba(255,255,255,.08); border-radius: 12px; padding: .8rem; }
+.subprod-list { display: flex; flex-direction: column; gap: 1.15rem; counter-reset: sp; }
+.subprod { position: relative; display: flex; gap: .9rem; align-items: flex-start; background: rgba(0,0,0,.22); border: 1px solid rgba(255,255,255,.14); border-radius: 12px; padding: 1rem .9rem .9rem; box-shadow: 0 3px 12px rgba(0,0,0,.25); counter-increment: sp; }
+.subprod::before { content: counter(sp); position: absolute; top: -10px; left: -10px; width: 24px; height: 24px; border-radius: 50%; background: var(--blue-deep); color: #fff; font-size: .74rem; font-weight: 700; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,.35); }
 .subprod .img-square { width: 92px; height: 92px; }
 .subprod .pf-fields { flex: 1; min-width: 0; gap: .55rem; }
 .subprod > .act-btn { flex: 0 0 auto; }

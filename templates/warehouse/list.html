@@ -151,6 +151,7 @@
                 <input name="part_sale" placeholder="{{ _('Sale value') }}" inputmode="decimal">
                 {% if ebay_enabled %}<button type="button" class="btn small" onclick="stSuggestPrice(this)" title="{{ _('Suggest price from eBay') }}">🔍</button>{% endif %}
               </div>
+              <input name="part_purchase" placeholder="{{ _('Purchase price (optional)') }}" inputmode="decimal">
               <input name="part_note" placeholder="{{ _('Note (optional)') }}">
             </div>
             <button type="button" class="act-btn danger" onclick="stRemoveSubprod(this)" title="{{ _('Remove') }}">✕</button>

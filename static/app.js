@@ -109,17 +109,18 @@ function stToggleSidebar() {
 
 // ---- Warehouse set/lot modal ----
 function stSubprodHtml() {
-  var sug = window.ST_EBAY ? '<button type="button" class="btn small" onclick="stSuggestPrice(this)" title="Preis von eBay">🔍</button>' : '';
+  var sug = window.ST_EBAY ? '<button type="button" class="btn small" onclick="stSuggestPrice(this)" title="Suggest price from eBay">🔍</button>' : '';
   return '<div class="subprod">' +
-    '<label class="img-square" title="Bild">' +
+    '<label class="img-square" title="Choose image">' +
       '<input type="file" name="part_image" accept="image/*" onchange="stImgSquare(this)">' +
       '<span class="is-ph">🖼️</span></label>' +
     '<div class="pf-fields">' +
-      '<input name="part_name" placeholder="Produktname">' +
-      '<div class="row-form"><input name="part_sale" placeholder="VK €" inputmode="decimal">' + sug + '</div>' +
-      '<input name="part_note" placeholder="Notiz (optional)">' +
+      '<input name="part_name" placeholder="Product name">' +
+      '<div class="row-form"><input name="part_sale" placeholder="Sale value" inputmode="decimal">' + sug + '</div>' +
+      '<input name="part_purchase" placeholder="Purchase price (optional)" inputmode="decimal">' +
+      '<input name="part_note" placeholder="Note (optional)">' +
     '</div>' +
-    '<button type="button" class="act-btn danger" onclick="stRemoveSubprod(this)" title="Entfernen">✕</button>' +
+    '<button type="button" class="act-btn danger" onclick="stRemoveSubprod(this)" title="Remove">✕</button>' +
   '</div>';
 }
 function stAddSubprod(id) {
