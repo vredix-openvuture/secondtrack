@@ -135,6 +135,10 @@ class Part(Base):
     device_id: Mapped[int | None] = mapped_column(
         ForeignKey("devices.id"), nullable=True, index=True
     )
+    # The purchase this part came from (a set/lot buy → one expense, N parts).
+    source_expense_id: Mapped[int | None] = mapped_column(
+        ForeignKey("expenses.id"), nullable=True, index=True
+    )
 
     origin: Mapped[PartOrigin] = mapped_column(
         Enum(PartOrigin), default=PartOrigin.purchased

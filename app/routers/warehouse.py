@@ -3,13 +3,14 @@ from __future__ import annotations
 from datetime import date
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from ..auth import require_login
 from ..db import get_db
 from ..models import Part, PartOrigin, Project, ProjectStatus
 from ..services import expenses as exp_service
+from ..services.integrations import ebay
 from ..services.uploads import delete_image, save_image_or_error, save_receipt
 from ..templating import ctx, templates
 
@@ -40,7 +41,7 @@ async def warehouse_list(
     # Active projects to offer "install into…".
     projects = (
         db.query(Project)
-        .filter(Project.status == ProjectStatus.in_production)
+        .filter(Project.status.in_([ProjectStatus.open, ProjectStatus.in_progress]))
         .order_by(Project.name)
         .all()
     )
@@ -60,8 +61,78 @@ async def warehouse_list(
             projects=projects,
             stock_value=stock_value,
             stock_cost=stock_cost,
+            ebay_enabled=ebay.is_enabled(),
         ),
     )
+
+
+@router.get("/price-suggest")
+async def price_suggest(
+    q: str,
+    db: Session = Depends(get_db),
+    user=Depends(require_login),
+):
+    """Rough market-price suggestion for a part name (eBay Browse API)."""
+    if not ebay.is_enabled():
+        return JSONResponse({"suggested": None, "count": 0, "error": "ebay disabled"})
+    try:
+        return JSONResponse(ebay.suggest_price(q.strip()))
+    except Exception as e:  # noqa: BLE001
+        return JSONResponse({"suggested": None, "count": 0, "error": str(e)[:200]})
+
+
+@router.post("/lot")
+async def create_lot(
+    total_price: str = Form(""),
+    vendor: str = Form(""),
+    part_name: list[str] = Form(default=[]),
+    part_sale: list[str] = Form(default=[]),
+    receipt: UploadFile | None = File(None),
+    db: Session = Depends(get_db),
+    user=Depends(require_login),
+):
+    """Set/lot buy: one price + one receipt -> N warehouse parts with the cost
+    split across them proportional to their sale value (relative-sales-value
+    method; equal split if no sale values given)."""
+    total = _parse_float(total_price) or 0.0
+    pairs = [
+        (part_name[i].strip(),
+         _parse_float(part_sale[i]) if i < len(part_sale) else None)
+        for i in range(len(part_name)) if part_name[i].strip()
+    ]
+    if not pairs:
+        return RedirectResponse("/warehouse?msg=No parts given", status_code=303)
+
+    # One expense for the whole purchase (the single cash-out + receipt).
+    rpath = save_receipt(receipt, "receipt")
+    exp = None
+    if total > 0:
+        exp = exp_service.create(
+            db, amount=total, expense_date=date.today(), vendor=vendor.strip(),
+            description=f"Set-Ankauf ({len(pairs)} Teile)", category="Parts",
+            project_id=None, receipt_path=rpath, bucket="warehouse",
+        )
+
+    sales = [s or 0.0 for _, s in pairs]
+    total_sale = sum(sales)
+    n = len(pairs)
+    if total_sale > 0:
+        alloc = [round(total * s / total_sale, 2) for s in sales]
+    else:
+        alloc = [round(total / n, 2)] * n
+    # Absorb rounding drift on the last part so the split sums to the total.
+    if alloc:
+        alloc[-1] = round(alloc[-1] + (total - sum(alloc)), 2)
+
+    for (name, sale), cost in zip(pairs, alloc):
+        db.add(Part(
+            name=name, project_id=None, device_id=None,
+            origin=PartOrigin.purchased if cost else PartOrigin.harvested,
+            purchase_price=cost or None, sale_price=sale or 0.0,
+            source_expense_id=exp.id if exp else None,
+        ))
+    db.commit()
+    return RedirectResponse(f"/warehouse?msg=Set mit {n} Teilen angelegt", status_code=303)
 
 
 @router.post("")

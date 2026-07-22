@@ -106,6 +106,45 @@ function stSetSidebar(state) {
 function stToggleSidebar() {
   stSetSidebar(document.documentElement.getAttribute('data-sidebar') === 'open' ? 'closed' : 'open');
 }
+
+// ---- Warehouse set/lot modal ----
+function stSetRowHtml() {
+  var sug = window.ST_EBAY ? '<button type="button" class="link" onclick="stSuggestPrice(this)" title="Preis von eBay">🔍</button>' : '';
+  return '<tr>' +
+    '<td><input name="part_name" placeholder="Teil"></td>' +
+    '<td><input name="part_sale" class="num" placeholder="VK €" inputmode="decimal" style="max-width:120px"></td>' +
+    '<td class="actions">' + sug +
+    '<button type="button" class="link danger" onclick="stRemoveSetRow(this)">✕</button></td></tr>';
+}
+function stAddSetRow() {
+  var tb = document.querySelector('#setRows tbody');
+  if (tb) tb.insertAdjacentHTML('beforeend', stSetRowHtml());
+}
+function stRemoveSetRow(btn) {
+  var tb = document.querySelector('#setRows tbody');
+  var tr = btn.closest('tr');
+  if (tb && tb.rows.length > 1) { tr.remove(); }
+  else { tr.querySelectorAll('input').forEach(function (i) { i.value = ''; }); }
+}
+async function stSuggestPrice(btn) {
+  var tr = btn.closest('tr');
+  var nameEl = tr.querySelector('input[name="part_name"]');
+  var saleEl = tr.querySelector('input[name="part_sale"]');
+  var q = (nameEl.value || '').trim();
+  if (!q) { nameEl.focus(); return; }
+  btn.textContent = '…';
+  try {
+    var res = await fetch('/warehouse/price-suggest?q=' + encodeURIComponent(q));
+    var d = await res.json();
+    if (d.suggested != null) {
+      saleEl.value = d.suggested;
+      btn.title = 'eBay: ' + d.count + ' Angebote · ' + d.min + '–' + d.max + ' ' + d.currency;
+    } else {
+      btn.title = d.error ? ('Fehler: ' + d.error) : 'Keine Angebote gefunden';
+    }
+  } catch (e) { btn.title = 'Fehler beim Abruf'; }
+  btn.textContent = '🔍';
+}
 function stInitSidebar() {
   let s = (window.ST_SIDEBAR_DEFAULT === 'open') ? 'open' : 'closed';
   try { s = localStorage.getItem('st-sidebar') || s; } catch (e) {}

@@ -80,6 +80,7 @@ def _ensure_columns() -> None:
         "parts": [
             ("image_path", "VARCHAR(255)"),
             ("device_id", "INTEGER"),
+            ("source_expense_id", "INTEGER"),
         ],
         "users": [("display_name", "VARCHAR(120)")],
         "work_sessions": [("hourly_rate", "FLOAT")],
