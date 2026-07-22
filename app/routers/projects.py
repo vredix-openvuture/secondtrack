@@ -57,8 +57,36 @@ def _resolve_customer(
     """Return a Customer id for a project: an existing one (customer_id), or a
     newly created one (new_name). An 'invoiceninja' customer also gets/creates a
     matching InvoiceNinja client so invoices can be raised against it."""
-    if customer_id and customer_id.strip().isdigit():
-        return int(customer_id.strip())
+    cid = (customer_id or "").strip()
+    # Picked an existing InvoiceNinja client (value "in:<id>") → find/create the
+    # matching secondtrack customer linked to it.
+    if cid.startswith("in:"):
+        in_id = cid[3:].strip()
+        if in_id:
+            existing = (
+                db.query(Customer)
+                .filter(Customer.invoiceninja_client_id == in_id)
+                .first()
+            )
+            if existing:
+                return existing.id
+            name = in_id
+            try:
+                for c in invoiceninja.list_clients():
+                    if str(c.get("id")) == in_id:
+                        name = c.get("name") or in_id
+                        break
+            except Exception:  # noqa: BLE001
+                pass
+            cust = Customer(
+                name=name, kind=CustomerKind.invoiceninja,
+                invoiceninja_client_id=in_id,
+            )
+            db.add(cust)
+            db.commit()
+            return cust.id
+    if cid.isdigit():
+        return int(cid)
     if not new_name.strip():
         return None
     k = CustomerKind(kind) if kind in CustomerKind._value2member_map_ else CustomerKind.internal
@@ -99,9 +127,16 @@ async def list_projects(
 
     rows = [compute_project(db, p) for p in projects]
     customers = db.query(Customer).order_by(Customer.name).all()
+    in_clients = []
+    if invoiceninja.is_enabled():
+        try:
+            in_clients = invoiceninja.list_clients()
+        except Exception:  # noqa: BLE001
+            in_clients = []
     return templates.TemplateResponse(
         "projects/list.html",
-        ctx(request, db, active="projects", rows=rows, status=status, customers=customers),
+        ctx(request, db, active="projects", rows=rows, status=status,
+            customers=customers, in_clients=in_clients),
     )
 
 
@@ -187,7 +222,7 @@ async def project_detail(
         .first()
     )
     in_clients = []
-    if invoiceninja.is_enabled() and not project_invoice:
+    if invoiceninja.is_enabled():
         try:
             in_clients = invoiceninja.list_clients()
         except Exception:  # noqa: BLE001
@@ -276,12 +311,13 @@ async def update_project(
     project.hourly_rate = _parse_float(hourly_rate)
     # Customer: assign an existing one or create a new one (only when provided,
     # so an untouched dropdown leaves the current customer in place).
-    if new_customer_name.strip() or customer_id.strip().isdigit():
+    _cid = customer_id.strip()
+    if new_customer_name.strip() or _cid.isdigit() or _cid.startswith("in:"):
         project.customer_id = _resolve_customer(
             db, customer_id, new_customer_name, customer_kind,
             customer_email, customer_company,
         )
-    elif customer_id.strip() == "none":
+    elif _cid == "none":
         project.customer_id = None
     db.commit()
     dest = f"/projects/{project.id}"

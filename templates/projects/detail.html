@@ -40,6 +40,7 @@
         <select name="customer_id">
           <option value="none" {{ 'selected' if not project.customer_id }}>— {{ _('none / internal') }} —</option>
           {% for c in customers %}<option value="{{ c.id }}" {{ 'selected' if project.customer_id == c.id }}>{{ c.name }}{% if c.kind.value == 'invoiceninja' %} (IN){% endif %}</option>{% endfor %}
+          {% if in_clients %}<optgroup label="InvoiceNinja">{% for ic in in_clients %}<option value="in:{{ ic.id }}">{{ ic.name }}</option>{% endfor %}</optgroup>{% endif %}
         </select>
       </label>
     </div>
