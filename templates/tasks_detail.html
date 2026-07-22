@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}{{ task.title if task else _('Task') }} · secondtrack{% endblock %}
+{% block content %}
+<p class="crumb"><a href="{{ back or '/tasks' }}">← {{ _('Tasks') }}</a></p>
+
+{% if not enabled %}
+  <div class="card"><p class="muted">{{ _('Vikunja is not connected.') }}</p></div>
+{% elif error or not task %}
+  <div class="card"><p class="error">{{ _('Could not load task:') }} {{ error or _('not found') }}</p></div>
+{% else %}
+{% set prio = {1: _('Low'), 2: _('Medium'), 3: _('High'), 4: _('Urgent'), 5: _('DO NOW')} %}
+
+<section class="card">
+  <div class="ph-top">
+    <h1 style="margin:0">{{ task.title }}</h1>
+    <span class="badge {{ 'sold' if task.done else 'in_production' }}">{{ _('Done') if task.done else _('Open') }}</span>
+  </div>
+
+  <div class="row-form" style="margin:.7rem 0 0">
+    <form method="post" action="/tasks/{{ task.id }}/toggle">
+      <input type="hidden" name="next" value="/tasks/{{ task.id }}?back={{ (back or '/tasks') | urlencode }}">
+      <button class="primary" type="submit">{{ _('Mark as open') if task.done else _('Mark as done') }}</button>
+    </form>
+    {% if vikunja_url %}<a class="btn" href="{{ vikunja_url }}/tasks/{{ task.id }}" target="_blank">{{ _('Open in Vikunja ↗') }}</a>{% endif %}
+  </div>
+
+  {% if task.description and task.description|trim and task.description|trim not in ['<p></p>', '<p></p>\n'] %}
+  <h3>{{ _('Description') }}</h3>
+  <div class="md-content">{{ task.description | safe }}</div>
+  {% endif %}
+
+  <div class="statement" style="margin-top:1rem">
+    {% if task.due_date and task.due_date[:4] != '0001' %}
+      <div class="line"><span>{{ _('Due date') }}</span><span>{{ task.due_date[:10] }}</span></div>
+    {% endif %}
+    {% if task.priority %}
+      <div class="line"><span>{{ _('Priority') }}</span><span>{{ prio.get(task.priority, task.priority) }}</span></div>
+    {% endif %}
+    {% if task.percent_done %}
+      <div class="line"><span>{{ _('Progress') }}</span><span>{{ (task.percent_done * 100) | round | int }}%</span></div>
+    {% endif %}
+    {% if task.done_at and task.done_at[:4] != '0001' %}
+      <div class="line"><span>{{ _('Done at') }}</span><span>{{ task.done_at[:10] }}</span></div>
+    {% endif %}
+    {% if task.created %}<div class="line"><span>{{ _('Created') }}</span><span>{{ task.created[:10] }}</span></div>{% endif %}
+    {% if task.updated %}<div class="line"><span>{{ _('Updated') }}</span><span>{{ task.updated[:10] }}</span></div>{% endif %}
+    {% if task.identifier %}<div class="line"><span>{{ _('Identifier') }}</span><span>{{ task.identifier }}</span></div>{% endif %}
+  </div>
+
+  {% if task.labels %}
+  <h3>{{ _('Labels') }}</h3>
+  <div class="row-form">
+    {% for l in task.labels %}{% set hc = l.hex_color or '888888' %}<span class="badge" style="background:#{{ hc }}2e;color:#{{ hc }};border:1px solid #{{ hc }}55">{{ l.title }}</span>{% endfor %}
+  </div>
+  {% endif %}
+
+  {% if task.assignees %}
+  <h3>{{ _('Assignees') }}</h3>
+  <p>{% for a in task.assignees %}{{ a.name or a.username }}{% if not loop.last %}, {% endif %}{% endfor %}</p>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

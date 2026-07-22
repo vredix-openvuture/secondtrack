@@ -21,6 +21,7 @@
   </div>
   {% endif %}
 
+  {% set board_url = ('/tasks?project=' ~ selected) if selected else '/tasks' %}
   {% if board %}
   <div class="kanban">
     {% for col in board %}
@@ -28,7 +29,13 @@
       <h3>{{ col.title }} <span class="count">{{ col.tasks|length }}</span></h3>
       <div class="kanban-tasks">
         {% for t in col.tasks %}
-          <div class="task-card {{ 'done' if t.done }}"><a href="{{ vikunja_url }}/tasks/{{ t.id }}" target="_blank">{{ t.title }}</a></div>
+          <div class="task-card {{ 'done' if t.done }}">
+            <form method="post" action="/tasks/{{ t.id }}/toggle" class="task-check">
+              <input type="hidden" name="next" value="{{ board_url }}">
+              <input type="checkbox" onchange="this.form.submit()" {{ 'checked' if t.done }} title="{{ _('Mark done') }}">
+            </form>
+            <a class="task-link" href="/tasks/{{ t.id }}?back={{ board_url | urlencode }}">{{ t.title }}</a>
+          </div>
         {% else %}
           <p class="muted small">—</p>
         {% endfor %}

@@ -199,6 +199,28 @@ def create_task(
         return resp.json()
 
 
+def get_task(task_id: int) -> dict:
+    """Full task object from Vikunja (title, description, due_date, priority,
+    labels, assignees, timestamps, …)."""
+    _require()
+    with _client() as c:
+        r = c.get(f"/tasks/{int(task_id)}")
+        r.raise_for_status()
+        return r.json() or {}
+
+
+def toggle_task_done(task_id: int) -> dict:
+    """Flip a task's done state (fetch, invert, POST the whole task back —
+    Vikunja updates tasks via POST /tasks/{id})."""
+    _require()
+    with _client() as c:
+        task = c.get(f"/tasks/{int(task_id)}").json() or {}
+        task["done"] = not task.get("done")
+        r = c.post(f"/tasks/{int(task_id)}", json=task)
+        r.raise_for_status()
+        return r.json()
+
+
 def parent_project_id() -> int | None:
     """id of the configured parent project (SECONDTRACK_VIKUNJA_PARENT_PROJECT)."""
     _require()

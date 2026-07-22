@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Form, Request
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from ..auth import require_login
@@ -53,5 +54,47 @@ async def tasks_page(
             request, db, active="tasks",
             enabled=enabled, subprojects=subprojects, board=board,
             selected=selected, error=error, vikunja_url=vikunja.web_url() if enabled else "",
+        ),
+    )
+
+
+@router.post("/{task_id}/toggle")
+async def toggle_task(
+    task_id: int,
+    next: str = Form("/tasks"),
+    db: Session = Depends(get_db),
+    user=Depends(require_login),
+):
+    """Check/uncheck a task's done state directly from secondtrack."""
+    if vikunja.is_enabled():
+        try:
+            vikunja.toggle_task_done(task_id)
+        except Exception:  # noqa: BLE001
+            pass
+    return RedirectResponse(next or "/tasks", status_code=303)
+
+
+@router.get("/{task_id}")
+async def task_detail(
+    task_id: int,
+    request: Request,
+    back: str = "/tasks",
+    db: Session = Depends(get_db),
+    user=Depends(require_login),
+):
+    """Full task detail (everything Vikunja exposes for the task)."""
+    enabled = vikunja.is_enabled()
+    task, error = None, None
+    if enabled:
+        try:
+            task = vikunja.get_task(task_id)
+        except Exception as e:  # noqa: BLE001
+            error = str(e)
+    return templates.TemplateResponse(
+        "tasks_detail.html",
+        ctx(
+            request, db, active="tasks",
+            enabled=enabled, task=task, error=error, back=back,
+            vikunja_url=vikunja.web_url() if enabled else "",
         ),
     )
