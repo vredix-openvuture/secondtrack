@@ -104,7 +104,7 @@ function stSetSidebar(state) {
   try { localStorage.setItem('st-sidebar', state); } catch (e) {}
 }
 function stToggleSidebar() {
-  stSetSidebar(document.body.getAttribute('data-sidebar') === 'open' ? 'closed' : 'open');
+  stSetSidebar(document.documentElement.getAttribute('data-sidebar') === 'open' ? 'closed' : 'open');
 }
 function stInitSidebar() {
   let s = (window.ST_SIDEBAR_DEFAULT === 'open') ? 'open' : 'closed';

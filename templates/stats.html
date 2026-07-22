@@ -13,33 +13,30 @@
   </div>
 </div>
 
-<section class="card">
-  <h2>{{ _('Profit & loss') }} <span class="muted small">({{ _('income from paid InvoiceNinja invoices') }})</span></h2>
-  <div class="summary-row">
-    <div class="sumitem"><span>{{ _('Income') }}</span><strong class="pos">{{ pl.income|money }} {{ currency }}</strong></div>
-    <div class="sumitem"><span>{{ _('Expenses') }}</span><strong class="neg">{{ pl.expenses|money }} {{ currency }}</strong></div>
-    <div class="sumitem accent"><span>{{ _('Profit / loss') }}</span><strong class="{{ 'pos' if pl.profit >= 0 else 'neg' }}">{{ pl.profit|money }} {{ currency }}</strong></div>
-  </div>
-</section>
+<h2 class="section-h">{{ _('Profit & loss') }} <span class="muted small">({{ _('income from paid InvoiceNinja invoices') }})</span></h2>
+<div class="kpis">
+  <div class="kpi big hero"><span class="k">{{ _('Income') }}</span><span class="v pos">{{ pl.income|money }} {{ currency }}</span></div>
+  <div class="kpi big hero"><span class="k">{{ _('Expenses') }}</span><span class="v neg">{{ pl.expenses|money }} {{ currency }}</span></div>
+  <div class="kpi big hero"><span class="k">{{ _('Profit / loss') }}</span><span class="v {{ 'pos' if pl.profit >= 0 else 'neg' }}">{{ pl.profit|money }} {{ currency }}</span></div>
+</div>
 
+<h2 class="section-h">{{ _('Overview') }}</h2>
 <div class="kpis">
   <div class="kpi"><span class="k">{{ _('Projects active') }}</span><span class="v">{{ s.active_count }}</span></div>
   <div class="kpi"><span class="k">{{ _('Done') }}</span><span class="v">{{ s.archived_count }}</span></div>
   <div class="kpi"><span class="k">{{ _('Invoiced') }}</span><span class="v">{{ s.sold_count }}</span></div>
   <div class="kpi"><span class="k">{{ _('Total work time') }}</span><span class="v">{{ s.total_hours|hours }} h</span></div>
-</div>
-
-<div class="kpis six">
   <div class="kpi"><span class="k">{{ _('Material expenses') }}</span><span class="v">{{ s.material_expenses|money }} {{ currency }}</span></div>
   <div class="kpi"><span class="k">{{ _('Stock value (cost)') }}</span><span class="v">{{ s.warehouse_stock_cost|money }} {{ currency }}</span></div>
   <div class="kpi"><span class="k">{{ _('Labor value') }} ({{ rate|money }} {{ currency }}/h)</span><span class="v">{{ s.total_labor_value|money }} {{ currency }}</span></div>
-  <div class="kpi big"><span class="k">{{ _('Expected revenue') }}</span><span class="v">{{ s.projected_sale_value|money }} {{ currency }}</span></div>
-  <div class="kpi big"><span class="k">{{ _('Expected gross profit') }}</span><span class="v {{ 'pos' if s.projected_gross_profit >= 0 else 'neg' }}">{{ s.projected_gross_profit|money }} {{ currency }}</span></div>
-  <div class="kpi big"><span class="k">{{ _('Profit after labor') }}</span><span class="v {{ 'pos' if s.projected_net_profit >= 0 else 'neg' }}">{{ s.projected_net_profit|money }} {{ currency }}</span></div>
+  <div class="kpi"><span class="k">{{ _('Expected revenue') }}</span><span class="v">{{ s.projected_sale_value|money }} {{ currency }}</span></div>
+  <div class="kpi"><span class="k">{{ _('Expected gross profit') }}</span><span class="v {{ 'pos' if s.projected_gross_profit >= 0 else 'neg' }}">{{ s.projected_gross_profit|money }} {{ currency }}</span></div>
+  <div class="kpi"><span class="k">{{ _('Profit after labor') }}</span><span class="v {{ 'pos' if s.projected_net_profit >= 0 else 'neg' }}">{{ s.projected_net_profit|money }} {{ currency }}</span></div>
 </div>
 
 <section class="card">
   <h2>{{ _('Per project') }}</h2>
+  {% if s.per_project %}
   <table class="grid">
     <thead>
       <tr><th>{{ _('Device') }}</th><th>{{ _('Status') }}</th><th class="num">{{ _('Hrs') }}</th><th class="num">{{ _('Material') }}</th>
@@ -59,5 +56,8 @@
     {% endfor %}
     </tbody>
   </table>
+  {% else %}
+  <p class="muted empty">{{ _('No projects yet.') }}</p>
+  {% endif %}
 </section>
 {% endblock %}

@@ -158,7 +158,7 @@ kbd {
 .logo-drop:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
 
 /* modal wide variant (customize) */
-.modal.modal-wide { width: min(620px, 100%); }
+.modal.modal-wide { width: min(940px, 96vw); }
 
 /* GridStack dashboard */
 .grid-stack { margin: 0 -8px; }
@@ -218,9 +218,9 @@ textarea.md-field { font-family: inherit; resize: vertical; }
 /* Cards */
 .card {
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 1.1rem 1.2rem;
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 16px;
+  padding: 1.2rem 1.35rem;
   margin-bottom: 1.25rem;
 }
 
@@ -343,14 +343,21 @@ hr { border: none; border-top: 1px solid var(--border); margin: .9rem 0; }
 .empty { padding: 2rem 0; text-align: center; }
 
 /* KPIs */
-.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .8rem; margin-bottom: 1rem; }
-.kpis.six { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-@media (max-width: 980px) { .kpis, .kpis.six { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 560px) { .kpis, .kpis.six { grid-template-columns: 1fr; } }
-.kpi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: .9rem 1rem; display: flex; flex-direction: column; gap: .25rem; min-width: 0; }
-.kpi .k { color: var(--muted); font-size: .8rem; overflow-wrap: anywhere; }
-.kpi .v { font-size: 1.35rem; font-weight: 700; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.kpi.big .v { font-size: 1.5rem; }
+.section-h { font-size: 1rem; font-weight: 700; margin: .4rem 0 .75rem; display: flex; align-items: baseline; gap: .5rem; flex-wrap: wrap; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 1rem; margin-bottom: 1rem; }
+.kpis.six { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+.kpi {
+  background: var(--surface); border: 1px solid rgba(255,255,255,.07);
+  border-radius: 16px; padding: 1.15rem 1.25rem;
+  display: flex; flex-direction: column; gap: .4rem; min-width: 0;
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.kpi:hover { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(0,0,0,.30); }
+.kpi .k { color: var(--muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; overflow-wrap: anywhere; }
+.kpi .v { font-size: 1.7rem; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -.02em; overflow-wrap: anywhere; }
+.kpi.big .v { font-size: 2.1rem; }
+.kpi.hero { position: relative; overflow: hidden; }
+.kpi.hero::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 3px; background: linear-gradient(90deg, var(--accent), var(--accent-2) 70%, transparent); }
 .kpi-inline { display: flex; gap: 1.2rem; margin-left: auto; color: var(--muted); flex-wrap: wrap; }
 .kpi-inline strong { color: var(--text); }
 
@@ -397,15 +404,26 @@ body.glass .widget { background: color-mix(in srgb, var(--surface) calc(var(--ca
 .modal-backdrop {
   position: fixed; inset: 0; z-index: 50;
   background: rgba(0,0,0,.6); backdrop-filter: blur(2px);
-  display: none; align-items: flex-start; justify-content: center;
-  padding: 6vh 1rem; overflow-y: auto;
+  display: none; align-items: center; justify-content: center;
+  padding: 2rem 1rem; overflow-y: auto;
 }
 .modal-backdrop.open { display: flex; }
 .modal {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 1.3rem 1.4rem;
-  width: min(520px, 100%); box-shadow: 0 20px 60px rgba(0,0,0,.5);
+  background: var(--surface); border: 1px solid rgba(255,255,255,.08);
+  border-radius: 16px; padding: 1.6rem 1.8rem;
+  width: min(760px, 96vw); box-shadow: 0 24px 70px rgba(0,0,0,.55);
 }
+/* Modal forms lay out wide (2 columns) so popups are wider than tall. */
+.modal .stack { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem 1.1rem; }
+.modal .stack > .row-form,
+.modal .stack > textarea,
+.modal .stack > .file-field,
+.modal .stack > details,
+.modal .stack > button,
+.modal .stack > hr,
+.modal .stack > p,
+.modal .stack > label { grid-column: 1 / -1; }
+@media (max-width: 620px) { .modal .stack { grid-template-columns: 1fr; } }
 .modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
 .modal-head h2 { margin: 0; }
 .modal-close { background: none; border: none; color: var(--muted); font-size: 1.4rem; cursor: pointer; padding: 0 .3rem; }
