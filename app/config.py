@@ -9,7 +9,14 @@ class Settings(BaseSettings):
     All variables are prefixed with SECONDTRACK_ (see .env.example).
     """
 
-    model_config = SettingsConfigDict(env_prefix="SECONDTRACK_", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_prefix="SECONDTRACK_",
+        # Read a local .env when present (dev). In Docker the real env vars
+        # injected via compose `env_file:` take precedence; a missing file is fine.
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     # Core
     secret_key: str = "dev-insecure-secret-change-me"
