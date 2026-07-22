@@ -219,6 +219,35 @@ async def conn_nextcloud_test(
     return RedirectResponse(f"/settings?tab=connections&sub=nextcloud&msg={msg}", status_code=303)
 
 
+@router.post("/connection/ebay")
+async def conn_ebay(
+    enabled: str = Form(""), client_id: str = Form(""),
+    client_secret: str = Form(""), marketplace: str = Form("EBAY_DE"),
+    db: Session = Depends(get_db), user: User = Depends(require_login),
+):
+    runtime.save(db, {
+        "ebay_enabled": _bx(enabled), "ebay_client_id": client_id.strip(),
+        "ebay_client_secret": client_secret.strip(),
+        "ebay_marketplace": marketplace.strip() or "EBAY_DE",
+    })
+    return RedirectResponse("/settings?tab=connections&sub=ebay&msg=Saved", status_code=303)
+
+
+@router.post("/connection/ebay/test")
+async def conn_ebay_test(
+    db: Session = Depends(get_db), user: User = Depends(require_login),
+):
+    from ..services.integrations import ebay
+
+    try:
+        r = ebay.suggest_price("Intel Core i5")
+        msg = (f"eBay OK — {r['count']} Angebote, Median {r['suggested']} {r['currency']}."
+               if r.get("count") else "eBay verbunden, aber keine Angebote gefunden.")
+    except Exception as e:  # noqa: BLE001
+        msg = f"Error: {e}"
+    return RedirectResponse(f"/settings?tab=connections&sub=ebay&msg={msg}", status_code=303)
+
+
 @router.post("/connection/email")
 async def conn_email(
     email_provider: str = Form("secondtrack"),

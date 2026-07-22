@@ -33,6 +33,7 @@
   <a href="/settings?tab=connections&sub=in" class="{{ 'on' if sub == 'in' }}">InvoiceNinja</a>
   <a href="/settings?tab=connections&sub=vikunja" class="{{ 'on' if sub == 'vikunja' }}">Vikunja</a>
   <a href="/settings?tab=connections&sub=nextcloud" class="{{ 'on' if sub == 'nextcloud' }}">Nextcloud</a>
+  <a href="/settings?tab=connections&sub=ebay" class="{{ 'on' if sub == 'ebay' }}">eBay</a>
   <a href="/settings?tab=connections&sub=email" class="{{ 'on' if sub == 'email' }}">{{ _('Email & sending') }}</a>
 </div>
 
@@ -97,6 +98,21 @@
     <button type="submit" class="primary">{{ _('Save') }}</button>
   </form>
   <form method="post" action="/settings/connection/nextcloud/test" style="margin-top:.5rem">
+    <button type="submit">{{ _('Test connection') }}</button>
+  </form>
+</section>
+{% elif sub == 'ebay' %}
+<section class="card" style="max-width:620px">
+  <h2>eBay</h2>
+  <p class="muted small">{{ _('Market-price suggestions for warehouse pricing. Developer keys from developer.ebay.com (App ID = Client ID, Cert ID = Client Secret).') }}</p>
+  <form method="post" action="/settings/connection/ebay" class="stack">
+    <label class="chk"><input type="checkbox" name="enabled" {{ 'checked' if rt_bool['ebay_enabled'] }}> {{ _('Enabled') }}</label>
+    <label>{{ _('Client ID (App ID)') }}<input name="client_id" value="{{ rt['ebay_client_id'] }}"></label>
+    <label>{{ _('Client Secret (Cert ID)') }}<input type="password" name="client_secret" value="{{ rt['ebay_client_secret'] }}"></label>
+    <label>{{ _('Marketplace') }}<input name="marketplace" value="{{ rt['ebay_marketplace'] }}" placeholder="EBAY_DE"></label>
+    <button type="submit" class="primary">{{ _('Save') }}</button>
+  </form>
+  <form method="post" action="/settings/connection/ebay/test" style="margin-top:.5rem">
     <button type="submit">{{ _('Test connection') }}</button>
   </form>
 </section>

@@ -66,6 +66,12 @@ class Settings(BaseSettings):
     # Auto-archive the invoice PDF to Nextcloud when an invoice is sent.
     nextcloud_auto_archive: bool = False
 
+    # eBay (market-price suggestions for warehouse pricing)
+    ebay_enabled: bool = False
+    ebay_client_id: str = ""       # eBay developer App ID (Client ID)
+    ebay_client_secret: str = ""   # eBay developer Cert ID (Client Secret)
+    ebay_marketplace: str = "EBAY_DE"
+
     @property
     def woo_status_list(self) -> list[str]:
         return [s.strip() for s in self.woo_order_statuses.split(",") if s.strip()]

@@ -41,6 +41,11 @@ DEFAULTS: dict[str, str] = {
     "nc_pass": _env.nextcloud_pass,
     "nc_base_path": _env.nextcloud_base_path,
     "nc_auto_archive": "1" if _env.nextcloud_auto_archive else "0",
+    # eBay (price suggestions)
+    "ebay_enabled": "1" if _env.ebay_enabled else "0",
+    "ebay_client_id": _env.ebay_client_id,
+    "ebay_client_secret": _env.ebay_client_secret,
+    "ebay_marketplace": _env.ebay_marketplace,
     # Email — provider: "secondtrack" (own SMTP) or "invoiceninja" (IN sends)
     "email_provider": "secondtrack",
     "email_enabled": "0",
