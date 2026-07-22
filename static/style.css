@@ -1,18 +1,19 @@
 :root {
-  /* Palette (exact hex): Aubergine / Claret / Madder Lake / Rain Boots / Prussian Blue */
-  --bg: #26121b;             /* Aubergine — page background */
-  --surface: #6b1a34;        /* Claret — cards (bold, solid blocks) */
-  --surface-2: #4e1428;      /* deeper claret — nested surfaces / inputs */
-  --border: #8a2145;         /* claret border */
-  --text: #f7ece8;           /* warm near-white */
-  --muted: #d6a9b6;          /* light rose — readable on claret */
-  --accent: #fb6734;         /* Rain Boots (orange) — primary */
-  --accent-d: color-mix(in srgb, var(--accent), black 18%);
-  --accent-2: #ce3737;       /* Madder Lake (red) — secondary */
-  --blue: #3f74a6;           /* brightened Prussian — nav/link accents */
-  --blue-deep: #1b3854;      /* Prussian Blue */
-  --pos: #46c98b;            /* green — profit/positive */
-  --neg: #ce3737;            /* Madder Lake — loss/danger */
+  /* ONLY the 5 palette colours (exact hex) + neutral white for text/structure.
+     Aubergine / Claret / Madder Lake / Rain Boots / Prussian Blue. */
+  --bg: #26121b;                     /* Aubergine — page */
+  --surface: #6b1a34;                /* Claret — cards */
+  --surface-2: #26121b;              /* Aubergine — nested surfaces / inputs */
+  --border: rgba(255,255,255,.14);   /* neutral hairline (no invented hue) */
+  --text: #ffffff;                   /* white */
+  --muted: rgba(255,255,255,.62);    /* dimmed white */
+  --accent: #fb6734;                 /* Rain Boots (orange) */
+  --accent-d: color-mix(in srgb, var(--accent), black 15%);
+  --accent-2: #ce3737;               /* Madder Lake (red) */
+  --blue: #1b3854;                   /* Prussian Blue */
+  --blue-deep: #1b3854;              /* Prussian Blue */
+  --pos: #46c98b;                    /* green — money figures only (functional) */
+  --neg: #ce3737;                    /* Madder Lake — loss/danger */
   --radius: 10px;
 }
 
@@ -46,8 +47,8 @@ h2 { font-size: 1.05rem; margin: 0 0 .75rem; }
 .sidebar {
   position: fixed; top: 0; left: 0; bottom: 0; z-index: 30;
   width: var(--side-w);
-  background: #1c0c13;
-  border-right: 1px solid var(--border);
+  background: #1b3854;  /* Prussian Blue — the palette's cool block */
+  border-right: 1px solid rgba(255,255,255,.10);
   display: flex; flex-direction: column;
   transition: width .15s ease;
   overflow: hidden;
@@ -77,8 +78,8 @@ body[data-sidebar="open"] .brand-text { opacity: 1; }
   padding: .6rem .65rem; border-radius: 8px; color: var(--muted);
   white-space: nowrap; font-weight: 500;
 }
-.sidebar nav a:hover { background: var(--surface-2); color: var(--text); text-decoration: none; }
-.sidebar nav a.on { background: color-mix(in srgb, var(--blue) 34%, transparent); color: #c3d8ec; box-shadow: inset 2px 0 0 var(--blue); }
+.sidebar nav a:hover { background: rgba(255,255,255,.08); color: var(--text); text-decoration: none; }
+.sidebar nav a.on { background: color-mix(in srgb, var(--accent) 24%, transparent); color: #fff; box-shadow: inset 3px 0 0 var(--accent); }
 .sidebar .ico { width: 22px; display: flex; justify-content: center; flex: 0 0 auto; }
 .sidebar .lbl { opacity: 0; transition: opacity .12s; }
 body[data-sidebar="open"] .sidebar .lbl { opacity: 1; }
@@ -90,7 +91,7 @@ body[data-sidebar="open"] .sidebar .lbl { opacity: 1; }
   background: none; border: none; color: var(--muted); cursor: pointer;
   padding: .6rem .65rem; border-radius: 8px; white-space: nowrap; font: inherit; text-align: left;
 }
-.side-act:hover { background: var(--surface-2); color: var(--text); }
+.side-act:hover { background: rgba(255,255,255,.08); color: var(--text); }
 
 .content-wrap { margin-left: var(--side-w); transition: margin-left .15s ease; }
 body[data-sidebar="open"] .content-wrap { margin-left: var(--side-w-open); }
@@ -279,10 +280,10 @@ td.actions > * + * { margin-left: .3rem; }
 
 /* Badges */
 .badge { display: inline-block; padding: .15rem .55rem; border-radius: 999px; font-size: .75rem; font-weight: 600; }
-.badge.in_production { background: var(--blue-deep); color: #cfe0f0; }    /* Prussian Blue — open/active */
-.badge.archived { background: rgba(0,0,0,.30); color: var(--muted); }     /* muted — done/stored */
-.badge.sold { background: rgba(70,201,139,.22); color: #7ee0ac; }          /* green — invoiced/sold */
-.badge.neg-badge { background: rgba(239,106,106,.18); color: var(--neg); }
+.badge.in_production { background: var(--blue-deep); color: #fff; }                        /* Prussian Blue — open/active */
+.badge.archived { background: rgba(0,0,0,.30); color: var(--muted); }                       /* neutral — done/stored */
+.badge.sold { background: color-mix(in srgb, var(--pos) 26%, transparent); color: #fff; }   /* green — invoiced/sold */
+.badge.neg-badge { background: color-mix(in srgb, var(--accent-2) 22%, transparent); color: #fff; }
 
 /* Forms */
 input, select, textarea {
