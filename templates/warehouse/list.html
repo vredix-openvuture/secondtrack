@@ -9,13 +9,37 @@
     <button type="button" data-mode="list" onclick="stSetView('warehouse','list')">☰ {{ _('List') }}</button>
     <button type="button" data-mode="cards" onclick="stSetView('warehouse','cards')">▦ {{ _('Cards') }}</button>
   </div>
-  <button class="btn small" onclick="stOpenSet()" style="margin-left:.5rem">⧉ {{ _('Add set') }}</button>
   <div class="kpi-inline">
     <span>{{ _('Stock (cost)') }}: <strong>{{ stock_cost|money }} {{ currency }}</strong></span>
     <span>{{ _('Stock (sale)') }}: <strong>{{ stock_value|money }} {{ currency }}</strong></span>
   </div>
 </div>
 <script>window.ST_EBAY = {{ 'true' if ebay_enabled else 'false' }};</script>
+
+{% if sets %}
+<section class="card">
+  <h2>{{ _('Sets') }}</h2>
+  {% for s in sets %}
+  <div class="set-block">
+    <div class="set-head">
+      <div class="row-thumb {{ 'placeholder' if not s.image_path }}"{% if s.image_path %} style="background-image:url('{{ s.image_path }}')"{% endif %}></div>
+      <div class="set-meta">
+        <strong>{{ s.name }}</strong>
+        <div class="muted small">{{ _('Purchase') }} {{ s.purchase_price|money }} {{ currency }} · {{ s.parts|length }} {{ _('parts') }}{% if s.sale_price %} · {{ _('Set price') }} {{ s.sale_price|money }} {{ currency }}{% endif %}</div>
+      </div>
+    </div>
+    <ul class="set-parts">
+      {% for p in s.parts %}
+      <li>
+        <span class="sp-name">{{ p.name }}{% if p.project_id %} <span class="badge sold">{{ _('installed') }}</span>{% endif %}</span>
+        <span class="muted small">{{ p.purchase_price|money }} → {{ p.sale_price|money }} {{ currency }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
 
 <section class="card">
 {% if parts %}
@@ -29,7 +53,7 @@
       <td class="thumb-cell"><div class="row-thumb {{ 'placeholder' if not p.image_path }}"{% if p.image_path %} style="background-image:url('{{ p.image_path }}')"{% endif %}></div></td>
       <td>
         <details class="inline-edit">
-          <summary><strong>{{ p.name }}</strong>{% if p.notes %} <span class="muted small">· {{ p.notes }}</span>{% endif %}</summary>
+          <summary><strong>{{ p.name }}</strong>{% if p.part_set %} <span class="muted small">· {{ _('Set') }}: {{ p.part_set.name }}</span>{% elif p.notes %} <span class="muted small">· {{ p.notes }}</span>{% endif %}</summary>
           <form method="post" action="/warehouse/{{ p.id }}/update" enctype="multipart/form-data" class="stack mt">
             <input name="name" value="{{ p.name }}" required>
             <div class="row-form">
@@ -55,7 +79,8 @@
           <button type="submit" class="act-btn" title="{{ _('Install into project') }}">→</button>
         </form>
         {% endif %}
-        <button type="button" class="act-btn" onclick="stOpenSplit({{ p.id }}, {{ p.purchase_price or 0 }})" title="{{ _('Split into sub-parts') }}">⧉</button>
+        <button type="button" class="act-btn" onclick="stEditPart(this)" title="{{ _('Edit') }}">✎</button>
+        <button type="button" class="act-btn" onclick="stOpenSplit({{ p.id }}, {{ p.purchase_price or 0 }})" title="{{ _('Split into a set') }}">⧉</button>
         <form method="post" action="/warehouse/{{ p.id }}/delete" onsubmit="return confirm('{{ _('Delete part?') }}')"><button class="act-btn danger" title="{{ _('Delete part?') }}">✕</button></form>
       </td>
     </tr>
@@ -94,8 +119,8 @@
 
 <button class="fab" onclick="stOpenModal('newPart')" title="{{ _('Add part') }}">+</button>
 <div class="modal-backdrop" id="newPart">
-  <div class="modal">
-    <div class="modal-head"><h2>{{ _('Create part manually') }}</h2><button class="modal-close" onclick="stCloseModal(this)">×</button></div>
+  <div class="modal modal-wide">
+    <div class="modal-head"><h2>{{ _('Create part') }}</h2><button class="modal-close" onclick="stCloseModal(this)">×</button></div>
     <form method="post" action="/warehouse" enctype="multipart/form-data">
       <div class="pf-top">
         <label class="img-square" title="{{ _('Choose image') }}">
@@ -111,21 +136,38 @@
       <input name="notes" placeholder="{{ _('Note (optional)') }}" style="margin-top:.7rem">
       <label class="chk" style="margin-top:.85rem"><input type="checkbox" name="free" id="wpFree" onchange="stToggleFree(this)"> {{ _('Free / gift — no receipt needed') }}</label>
       <label class="file-field" id="wpReceiptWrap" style="margin-top:.6rem">{{ _('Purchase receipt (required)') }}<input type="file" name="receipt" id="wpReceipt" accept="application/pdf,image/*" required></label>
+
+      <details class="adder" style="margin-top:.85rem">
+        <summary>⧉ {{ _('This is a set — add its parts') }}</summary>
+        <p class="muted small">{{ _('The fields above become the set (name, total price, receipt). The price is split across the parts below by their sale value.') }}</p>
+        <table class="grid tight set-rows" id="setRows">
+          <thead><tr><th>{{ _('Part') }}</th><th class="num">{{ _('Sale value') }}</th><th></th></tr></thead>
+          <tbody>
+            <tr>
+              <td><input name="part_name" placeholder="z.B. Intel i5-8400"></td>
+              <td><input name="part_sale" class="num" placeholder="{{ _('Sale €') }}" inputmode="decimal" style="max-width:120px"></td>
+              <td class="actions">
+                {% if ebay_enabled %}<button type="button" class="link" onclick="stSuggestPrice(this)" title="{{ _('Suggest price from eBay') }}">🔍</button>{% endif %}
+                <button type="button" class="link danger" onclick="stRemoveSetRow(this)">✕</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <button type="button" class="btn small" onclick="stAddSetRow('setRows')">+ {{ _('Part') }}</button>
+      </details>
+
       <button type="submit" class="primary" style="margin-top:.9rem">{{ _('Create') }}</button>
     </form>
   </div>
 </div>
 
-<div class="modal-backdrop" id="newSet">
+<div class="modal-backdrop" id="splitSet">
   <div class="modal modal-wide">
-    <div class="modal-head"><h2 id="setModalTitle">{{ _('Add a set / lot buy') }}</h2><button class="modal-close" onclick="stCloseModal(this)">×</button></div>
-    <p class="muted small">{{ _('One purchase (one price + one receipt) split into several parts. The price is shared across the parts by their sale value.') }}</p>
-    <form method="post" action="/warehouse/lot" enctype="multipart/form-data">
-      <div class="row-form">
-        <input name="total_price" placeholder="{{ _('Total price of the set') }}" inputmode="decimal" required>
-        <input name="vendor" placeholder="{{ _('Vendor (optional)') }}">
-      </div>
-      <table class="grid tight" id="setRows" style="margin:.8rem 0">
+    <div class="modal-head"><h2>{{ _('Split part into a set') }}</h2><button class="modal-close" onclick="stCloseModal(this)">×</button></div>
+    <p class="muted small">{{ _('The part becomes a set; its price is split across the parts below by their sale value.') }}</p>
+    <form method="post" action="/warehouse/0/split" id="splitForm">
+      <input name="total_price" id="splitTotal" placeholder="{{ _('Total price') }}" inputmode="decimal">
+      <table class="grid tight set-rows" id="splitRows" style="margin:.8rem 0">
         <thead><tr><th>{{ _('Part') }}</th><th class="num">{{ _('Sale value') }}</th><th></th></tr></thead>
         <tbody>
           <tr>
@@ -138,9 +180,8 @@
           </tr>
         </tbody>
       </table>
-      <button type="button" class="btn small" onclick="stAddSetRow()">+ {{ _('Part') }}</button>
-      <label class="file-field" style="margin-top:.7rem">{{ _('Purchase receipt (optional → one expense)') }}<input type="file" name="receipt" accept="application/pdf,image/*"></label>
-      <div style="margin-top:.9rem"><button type="submit" class="primary">{{ _('Create set') }}</button></div>
+      <button type="button" class="btn small" onclick="stAddSetRow('splitRows')">+ {{ _('Part') }}</button>
+      <div style="margin-top:.9rem"><button type="submit" class="primary">{{ _('Split') }}</button></div>
     </form>
   </div>
 </div>

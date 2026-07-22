@@ -116,12 +116,13 @@ function stSetRowHtml() {
     '<td class="actions">' + sug +
     '<button type="button" class="link danger" onclick="stRemoveSetRow(this)">✕</button></td></tr>';
 }
-function stAddSetRow() {
-  var tb = document.querySelector('#setRows tbody');
-  if (tb) tb.insertAdjacentHTML('beforeend', stSetRowHtml());
+function stAddSetRow(id) {
+  var t = document.getElementById(id || 'setRows');
+  if (t && t.tBodies[0]) t.tBodies[0].insertAdjacentHTML('beforeend', stSetRowHtml());
 }
 function stRemoveSetRow(btn) {
-  var tb = document.querySelector('#setRows tbody');
+  var table = btn.closest('table');
+  var tb = table && table.tBodies[0];
   var tr = btn.closest('tr');
   if (tb && tb.rows.length > 1) { tr.remove(); }
   else { tr.querySelectorAll('input').forEach(function (i) { i.value = ''; }); }
@@ -145,27 +146,23 @@ async function stSuggestPrice(btn) {
   } catch (e) { btn.title = 'Fehler beim Abruf'; }
   btn.textContent = '🔍';
 }
-function stOpenSet() {
-  var f = document.querySelector('#newSet form');
-  if (f) {
-    f.action = '/warehouse/lot';
-    var t = f.querySelector('[name=total_price]');
-    if (t) { t.value = ''; t.readOnly = false; }
-  }
-  var h = document.getElementById('setModalTitle');
-  if (h) h.textContent = 'Set anlegen';
-  stOpenModal('newSet');
-}
 function stOpenSplit(id, cost) {
-  var f = document.querySelector('#newSet form');
+  var f = document.getElementById('splitForm');
   if (f) {
     f.action = '/warehouse/' + id + '/split';
-    var t = f.querySelector('[name=total_price]');
-    if (t) { t.value = cost || ''; t.readOnly = false; }
+    var t = document.getElementById('splitTotal');
+    if (t) t.value = cost || '';
   }
-  var h = document.getElementById('setModalTitle');
-  if (h) h.textContent = 'Teil in Sub-Teile aufteilen';
-  stOpenModal('newSet');
+  stOpenModal('splitSet');
+}
+function stEditPart(btn) {
+  var d = btn.closest('tr').querySelector('details.inline-edit');
+  if (d) {
+    d.open = true;
+    d.scrollIntoView({ block: 'nearest' });
+    var i = d.querySelector('form input[name=name]');
+    if (i) i.focus();
+  }
 }
 function stImgSquare(input) {
   var f = input.files && input.files[0];

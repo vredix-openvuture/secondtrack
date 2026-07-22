@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from ..auth import require_login
 from ..db import get_db
-from ..models import Part, PartOrigin, Project, ProjectStatus
+from ..models import Part, PartOrigin, PartSet, Project, ProjectStatus
 from ..services import expenses as exp_service
 from ..services.integrations import ebay
 from ..services.uploads import delete_image, save_image_or_error, save_receipt
@@ -24,6 +24,54 @@ def _parse_float(value: str | None) -> float | None:
         return float(value.replace(",", ".").strip())
     except ValueError:
         return None
+
+
+def _pairs_from_form(part_name: list[str], part_sale: list[str]) -> list[tuple[str, float | None]]:
+    return [
+        (part_name[i].strip(),
+         _parse_float(part_sale[i]) if i < len(part_sale) else None)
+        for i in range(len(part_name)) if part_name[i].strip()
+    ]
+
+
+def _allocate(total: float, sales: list[float]) -> list[float]:
+    """Split `total` across items proportional to their sale value (equal split
+    if no sale values); the last item absorbs rounding drift."""
+    n = len(sales)
+    if n == 0:
+        return []
+    ts = sum(sales)
+    alloc = [round(total * s / ts, 2) for s in sales] if ts > 0 else [round(total / n, 2)] * n
+    alloc[-1] = round(alloc[-1] + (total - sum(alloc)), 2)
+    return alloc
+
+
+def _make_set(db, *, name, total, sale_price, image_path, rpath, pairs, src_expense_id=None) -> PartSet:
+    """Create a PartSet + its member parts (cost split value-weighted). If a
+    receipt path is given, one warehouse expense is created for the whole set."""
+    exp_id = src_expense_id
+    if rpath:
+        exp = exp_service.create(
+            db, amount=total, expense_date=date.today(), vendor="",
+            description=f"Set: {name}", category="Parts",
+            project_id=None, receipt_path=rpath, bucket="warehouse",
+        )
+        exp_id = exp.id
+    ps = PartSet(
+        name=name, purchase_price=total, sale_price=sale_price,
+        image_path=image_path, expense_id=exp_id,
+    )
+    db.add(ps)
+    db.flush()
+    for (pname, psale), cost in zip(pairs, _allocate(total, [s or 0.0 for _, s in pairs])):
+        db.add(Part(
+            name=pname, project_id=None, device_id=None, set_id=ps.id,
+            origin=PartOrigin.purchased if cost else PartOrigin.harvested,
+            purchase_price=cost or None, sale_price=psale or 0.0,
+            source_expense_id=exp_id,
+        ))
+    db.commit()
+    return ps
 
 
 @router.get("")
@@ -51,6 +99,11 @@ async def warehouse_list(
         for p in parts
         if p.origin == PartOrigin.purchased
     )
+    # Sets that still have at least one part in the warehouse.
+    sets = [
+        s for s in db.query(PartSet).order_by(PartSet.created_at.desc()).all()
+        if any(p.project_id is None for p in s.parts)
+    ]
     return templates.TemplateResponse(
         "warehouse/list.html",
         ctx(
@@ -58,6 +111,7 @@ async def warehouse_list(
             db,
             active="warehouse",
             parts=parts,
+            sets=sets,
             projects=projects,
             stock_value=stock_value,
             stock_cost=stock_cost,
@@ -81,60 +135,6 @@ async def price_suggest(
         return JSONResponse({"suggested": None, "count": 0, "error": str(e)[:200]})
 
 
-@router.post("/lot")
-async def create_lot(
-    total_price: str = Form(""),
-    vendor: str = Form(""),
-    part_name: list[str] = Form(default=[]),
-    part_sale: list[str] = Form(default=[]),
-    receipt: UploadFile | None = File(None),
-    db: Session = Depends(get_db),
-    user=Depends(require_login),
-):
-    """Set/lot buy: one price + one receipt -> N warehouse parts with the cost
-    split across them proportional to their sale value (relative-sales-value
-    method; equal split if no sale values given)."""
-    total = _parse_float(total_price) or 0.0
-    pairs = [
-        (part_name[i].strip(),
-         _parse_float(part_sale[i]) if i < len(part_sale) else None)
-        for i in range(len(part_name)) if part_name[i].strip()
-    ]
-    if not pairs:
-        return RedirectResponse("/warehouse?msg=No parts given", status_code=303)
-
-    # One expense for the whole purchase (the single cash-out + receipt).
-    rpath = save_receipt(receipt, "receipt")
-    exp = None
-    if total > 0:
-        exp = exp_service.create(
-            db, amount=total, expense_date=date.today(), vendor=vendor.strip(),
-            description=f"Set-Ankauf ({len(pairs)} Teile)", category="Parts",
-            project_id=None, receipt_path=rpath, bucket="warehouse",
-        )
-
-    sales = [s or 0.0 for _, s in pairs]
-    total_sale = sum(sales)
-    n = len(pairs)
-    if total_sale > 0:
-        alloc = [round(total * s / total_sale, 2) for s in sales]
-    else:
-        alloc = [round(total / n, 2)] * n
-    # Absorb rounding drift on the last part so the split sums to the total.
-    if alloc:
-        alloc[-1] = round(alloc[-1] + (total - sum(alloc)), 2)
-
-    for (name, sale), cost in zip(pairs, alloc):
-        db.add(Part(
-            name=name, project_id=None, device_id=None,
-            origin=PartOrigin.purchased if cost else PartOrigin.harvested,
-            purchase_price=cost or None, sale_price=sale or 0.0,
-            source_expense_id=exp.id if exp else None,
-        ))
-    db.commit()
-    return RedirectResponse(f"/warehouse?msg=Set mit {n} Teilen angelegt", status_code=303)
-
-
 @router.post("")
 async def create_part(
     name: str = Form(...),
@@ -142,16 +142,21 @@ async def create_part(
     sale_price: str = Form(""),
     notes: str = Form(""),
     free: str = Form(""),
+    part_name: list[str] = Form(default=[]),
+    part_sale: list[str] = Form(default=[]),
     image: UploadFile | None = File(None),
     receipt: UploadFile | None = File(None),
     db: Session = Depends(get_db),
     user=Depends(require_login),
 ):
+    """Create one warehouse part — or, if set-parts are supplied, a set: the top
+    fields become the set (name + total price + optional own sale price +
+    receipt) and the total is split across the set-parts."""
+    set_pairs = _pairs_from_form(part_name, part_sale)
     is_free = free.strip().lower() in ("1", "on", "true", "yes")
-    pp = None if is_free else _parse_float(purchase_price)
     img_url, img_err = save_image_or_error(image, "part")
 
-    # A paid part must be documented with a receipt; only "free/gift" is exempt.
+    # A paid purchase must be documented with a receipt; only "free/gift" is exempt.
     rpath = None
     if not is_free:
         rpath = save_receipt(receipt, "receipt")
@@ -161,6 +166,19 @@ async def create_part(
                 status_code=303,
             )
 
+    if set_pairs:
+        total = _parse_float(purchase_price) or 0.0
+        _make_set(
+            db, name=name.strip(), total=total,
+            sale_price=_parse_float(sale_price), image_path=img_url,
+            rpath=rpath, pairs=set_pairs,
+        )
+        return RedirectResponse(
+            "/warehouse?msg=Set angelegt" + (f" — {img_err}" if img_err else ""),
+            status_code=303,
+        )
+
+    pp = None if is_free else _parse_float(purchase_price)
     part = Part(
         name=name.strip(),
         notes=notes.strip() or None,
@@ -172,7 +190,6 @@ async def create_part(
     )
     db.add(part)
     db.commit()
-
     if rpath:
         exp = exp_service.create(
             db, amount=pp or 0.0, expense_date=date.today(), vendor="",
@@ -181,7 +198,6 @@ async def create_part(
         )
         part.source_expense_id = exp.id
         db.commit()
-
     return RedirectResponse(
         "/warehouse" + (f"?msg={img_err}" if img_err else ""), status_code=303
     )
@@ -196,43 +212,27 @@ async def split_part(
     db: Session = Depends(get_db),
     user=Depends(require_login),
 ):
-    """Split an existing warehouse part into N sub-parts, distributing its
-    purchase cost across them (value-weighted). Replaces the original part."""
+    """Turn an existing warehouse part into a set: its cost is split across the
+    new set-parts and the original part is replaced by the set."""
     part = db.get(Part, part_id)
     if not part or part.project_id is not None:
         return RedirectResponse("/warehouse", status_code=303)
+    pairs = _pairs_from_form(part_name, part_sale)
+    if not pairs:
+        return RedirectResponse("/warehouse?msg=No parts given", status_code=303)
     total = _parse_float(total_price)
     if total is None:
         total = part.purchase_price or 0.0
-    pairs = [
-        (part_name[i].strip(),
-         _parse_float(part_sale[i]) if i < len(part_sale) else None)
-        for i in range(len(part_name)) if part_name[i].strip()
-    ]
-    if not pairs:
-        return RedirectResponse("/warehouse?msg=No parts given", status_code=303)
-
-    sales = [s or 0.0 for _, s in pairs]
-    total_sale = sum(sales)
-    n = len(pairs)
-    if total_sale > 0:
-        alloc = [round(total * s / total_sale, 2) for s in sales]
-    else:
-        alloc = [round(total / n, 2)] * n
-    if alloc:
-        alloc[-1] = round(alloc[-1] + (total - sum(alloc)), 2)
-
-    src = part.source_expense_id  # keep the link to the original purchase
-    for (name, sale), cost in zip(pairs, alloc):
-        db.add(Part(
-            name=name, project_id=None, device_id=None,
-            origin=PartOrigin.purchased if cost else PartOrigin.harvested,
-            purchase_price=cost or None, sale_price=sale or 0.0,
-            source_expense_id=src,
-        ))
-    db.delete(part)  # the original part is replaced by its sub-parts
+    _make_set(
+        db, name=part.name, total=total, sale_price=part.sale_price or None,
+        image_path=part.image_path, rpath=None, pairs=pairs,
+        src_expense_id=part.source_expense_id,
+    )
+    db.delete(part)
     db.commit()
-    return RedirectResponse(f"/warehouse?msg=In {n} Teile aufgeteilt", status_code=303)
+    return RedirectResponse(
+        f"/warehouse?msg=In Set mit {len(pairs)} Teilen aufgeteilt", status_code=303
+    )
 
 
 @router.post("/{part_id}/update")

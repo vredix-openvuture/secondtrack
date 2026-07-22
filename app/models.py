@@ -139,6 +139,10 @@ class Part(Base):
     source_expense_id: Mapped[int | None] = mapped_column(
         ForeignKey("expenses.id"), nullable=True, index=True
     )
+    # The set (grouping) this part belongs to, if any.
+    set_id: Mapped[int | None] = mapped_column(
+        ForeignKey("sets.id"), nullable=True, index=True
+    )
 
     origin: Mapped[PartOrigin] = mapped_column(
         Enum(PartOrigin), default=PartOrigin.purchased
@@ -159,10 +163,35 @@ class Part(Base):
     device: Mapped["Device | None"] = relationship(
         back_populates="parts", foreign_keys=[device_id]
     )
+    part_set: Mapped["PartSet | None"] = relationship(
+        back_populates="parts", foreign_keys=[set_id]
+    )
 
     @property
     def in_warehouse(self) -> bool:
         return self.project_id is None and self.device_id is None
+
+
+class PartSet(Base):
+    """A purchase grouping (a bought set/lot): one price + one receipt, split
+    across its member parts. The set's value is the sum of its parts; an own
+    sale price is optional."""
+
+    __tablename__ = "sets"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(200), index=True)
+    purchase_price: Mapped[float] = mapped_column(Float, default=0.0)
+    sale_price: Mapped[float | None] = mapped_column(Float, nullable=True)
+    image_path: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    expense_id: Mapped[int | None] = mapped_column(
+        ForeignKey("expenses.id"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    parts: Mapped[list["Part"]] = relationship(
+        back_populates="part_set", foreign_keys="Part.set_id"
+    )
 
 
 class Customer(Base):
