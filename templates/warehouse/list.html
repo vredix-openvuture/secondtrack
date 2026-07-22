@@ -21,14 +21,15 @@
 {% if parts %}
 <table class="grid view-list card-rows">
   <thead>
-    <tr><th>{{ _('Part') }}</th><th>{{ _('Origin') }}</th><th class="num">{{ _('Purchase') }}</th><th class="num">{{ _('Sale') }}</th><th>{{ _('Actions') }}</th></tr>
+    <tr><th class="thumb-col"></th><th>{{ _('Part') }}</th><th>{{ _('Origin') }}</th><th class="num">{{ _('Purchase') }}</th><th class="num">{{ _('Sale') }}</th><th>{{ _('Actions') }}</th></tr>
   </thead>
   <tbody>
   {% for p in parts %}
     <tr>
+      <td class="thumb-cell"><div class="row-thumb {{ 'placeholder' if not p.image_path }}"{% if p.image_path %} style="background-image:url('{{ p.image_path }}')"{% endif %}></div></td>
       <td>
         <details class="inline-edit">
-          <summary>{% if p.image_path %}<img src="{{ p.image_path }}" class="row-img" alt="" onerror="this.style.display='none'">{% endif %}<strong>{{ p.name }}</strong>{% if p.notes %} <span class="muted small">· {{ p.notes }}</span>{% endif %}</summary>
+          <summary><strong>{{ p.name }}</strong>{% if p.notes %} <span class="muted small">· {{ p.notes }}</span>{% endif %}</summary>
           <form method="post" action="/warehouse/{{ p.id }}/update" enctype="multipart/form-data" class="stack mt">
             <input name="name" value="{{ p.name }}" required>
             <div class="row-form">

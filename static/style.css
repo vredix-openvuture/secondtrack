@@ -348,7 +348,7 @@ button.link.danger:hover { color: var(--neg); }
 
 details.adder, details.inline-edit { margin-top: .8rem; }
 details.adder > summary { cursor: pointer; color: var(--accent); font-weight: 600; list-style: none; }
-details.inline-edit > summary { cursor: pointer; list-style: none; }
+details.inline-edit > summary { cursor: pointer; list-style: none; display: inline-flex; align-items: center; gap: .4rem; }
 details > summary::-webkit-details-marker { display: none; }
 details.adder[open] > summary { margin-bottom: .7rem; }
 hr { border: none; border-top: 1px solid var(--border); margin: .9rem 0; }
@@ -438,17 +438,11 @@ body.glass .widget { background: color-mix(in srgb, var(--surface) calc(var(--ca
   border-radius: 16px; padding: 1.6rem 1.8rem;
   width: min(760px, 96vw); box-shadow: 0 24px 70px rgba(0,0,0,.55);
 }
-/* Modal forms lay out wide (2 columns) so popups are wider than tall. */
-.modal .stack { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem 1.1rem; }
-.modal .stack > .row-form,
-.modal .stack > textarea,
-.modal .stack > .file-field,
-.modal .stack > details,
-.modal .stack > button,
-.modal .stack > hr,
-.modal .stack > p,
-.modal .stack > label { grid-column: 1 / -1; }
-@media (max-width: 620px) { .modal .stack { grid-template-columns: 1fr; } }
+/* Modal forms: single, evenly-spaced column (wide modal, consistent rows). */
+.modal .stack { display: flex; flex-direction: column; gap: .8rem; }
+.modal .stack > * { margin-top: 0; }
+/* side-by-side only for explicit paired fields */
+.modal .stack > .row-form { display: flex; gap: .8rem; }
 .modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
 .modal-head h2 { margin: 0; }
 .modal-close { background: none; border: none; color: var(--muted); font-size: 1.4rem; cursor: pointer; padding: 0 .3rem; }
@@ -508,6 +502,11 @@ table.grid.card-rows tbody tr:hover td { background: color-mix(in srgb, var(--ac
 .img-square:hover { border-color: var(--accent); color: var(--accent); }
 .img-square input[type=file] { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
 .img-square img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+
+/* Leading product-image thumbnail in table rows */
+table.grid td.thumb-cell { width: 52px; padding-right: .3rem; }
+.row-thumb { width: 44px; height: 44px; border-radius: 9px; background: var(--surface-2) center/cover no-repeat; border: 1px solid rgba(255,255,255,.10); }
+.row-thumb.placeholder { background: rgba(255,255,255,.04); }
 
 .file-field { font-size: .85rem; }
 .file-field img.preview { display: block; margin-top: .5rem; max-height: 120px; border-radius: 8px; border: 1px solid var(--border); }
