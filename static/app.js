@@ -145,6 +145,28 @@ async function stSuggestPrice(btn) {
   } catch (e) { btn.title = 'Fehler beim Abruf'; }
   btn.textContent = '🔍';
 }
+function stOpenSet() {
+  var f = document.querySelector('#newSet form');
+  if (f) {
+    f.action = '/warehouse/lot';
+    var t = f.querySelector('[name=total_price]');
+    if (t) { t.value = ''; t.readOnly = false; }
+  }
+  var h = document.getElementById('setModalTitle');
+  if (h) h.textContent = 'Set anlegen';
+  stOpenModal('newSet');
+}
+function stOpenSplit(id, cost) {
+  var f = document.querySelector('#newSet form');
+  if (f) {
+    f.action = '/warehouse/' + id + '/split';
+    var t = f.querySelector('[name=total_price]');
+    if (t) { t.value = cost || ''; t.readOnly = false; }
+  }
+  var h = document.getElementById('setModalTitle');
+  if (h) h.textContent = 'Teil in Sub-Teile aufteilen';
+  stOpenModal('newSet');
+}
 function stInitSidebar() {
   let s = (window.ST_SIDEBAR_DEFAULT === 'open') ? 'open' : 'closed';
   try { s = localStorage.getItem('st-sidebar') || s; } catch (e) {}

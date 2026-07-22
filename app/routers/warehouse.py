@@ -171,6 +171,54 @@ async def create_part(
     )
 
 
+@router.post("/{part_id}/split")
+async def split_part(
+    part_id: int,
+    total_price: str = Form(""),
+    part_name: list[str] = Form(default=[]),
+    part_sale: list[str] = Form(default=[]),
+    db: Session = Depends(get_db),
+    user=Depends(require_login),
+):
+    """Split an existing warehouse part into N sub-parts, distributing its
+    purchase cost across them (value-weighted). Replaces the original part."""
+    part = db.get(Part, part_id)
+    if not part or part.project_id is not None:
+        return RedirectResponse("/warehouse", status_code=303)
+    total = _parse_float(total_price)
+    if total is None:
+        total = part.purchase_price or 0.0
+    pairs = [
+        (part_name[i].strip(),
+         _parse_float(part_sale[i]) if i < len(part_sale) else None)
+        for i in range(len(part_name)) if part_name[i].strip()
+    ]
+    if not pairs:
+        return RedirectResponse("/warehouse?msg=No parts given", status_code=303)
+
+    sales = [s or 0.0 for _, s in pairs]
+    total_sale = sum(sales)
+    n = len(pairs)
+    if total_sale > 0:
+        alloc = [round(total * s / total_sale, 2) for s in sales]
+    else:
+        alloc = [round(total / n, 2)] * n
+    if alloc:
+        alloc[-1] = round(alloc[-1] + (total - sum(alloc)), 2)
+
+    src = part.source_expense_id  # keep the link to the original purchase
+    for (name, sale), cost in zip(pairs, alloc):
+        db.add(Part(
+            name=name, project_id=None, device_id=None,
+            origin=PartOrigin.purchased if cost else PartOrigin.harvested,
+            purchase_price=cost or None, sale_price=sale or 0.0,
+            source_expense_id=src,
+        ))
+    db.delete(part)  # the original part is replaced by its sub-parts
+    db.commit()
+    return RedirectResponse(f"/warehouse?msg=In {n} Teile aufgeteilt", status_code=303)
+
+
 @router.post("/{part_id}/update")
 async def update_part(
     part_id: int,

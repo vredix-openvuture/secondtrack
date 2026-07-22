@@ -9,7 +9,7 @@
     <button type="button" data-mode="list" onclick="stSetView('warehouse','list')">☰ {{ _('List') }}</button>
     <button type="button" data-mode="cards" onclick="stSetView('warehouse','cards')">▦ {{ _('Cards') }}</button>
   </div>
-  <button class="btn small" onclick="stOpenModal('newSet')" style="margin-left:.5rem">⧉ {{ _('Add set') }}</button>
+  <button class="btn small" onclick="stOpenSet()" style="margin-left:.5rem">⧉ {{ _('Add set') }}</button>
   <div class="kpi-inline">
     <span>{{ _('Stock (cost)') }}: <strong>{{ stock_cost|money }} {{ currency }}</strong></span>
     <span>{{ _('Stock (sale)') }}: <strong>{{ stock_value|money }} {{ currency }}</strong></span>
@@ -54,6 +54,7 @@
           <button type="submit">→</button>
         </form>
         {% endif %}
+        <button type="button" class="link" onclick="stOpenSplit({{ p.id }}, {{ p.purchase_price or 0 }})" title="{{ _('Split into sub-parts') }}">⧉</button>
         <form method="post" action="/warehouse/{{ p.id }}/delete" onsubmit="return confirm('{{ _('Delete part?') }}')"><button class="link danger">✕</button></form>
       </td>
     </tr>
@@ -110,7 +111,7 @@
 
 <div class="modal-backdrop" id="newSet">
   <div class="modal modal-wide">
-    <div class="modal-head"><h2>{{ _('Add a set / lot buy') }}</h2><button class="modal-close" onclick="stCloseModal(this)">×</button></div>
+    <div class="modal-head"><h2 id="setModalTitle">{{ _('Add a set / lot buy') }}</h2><button class="modal-close" onclick="stCloseModal(this)">×</button></div>
     <p class="muted small">{{ _('One purchase (one price + one receipt) split into several parts. The price is shared across the parts by their sale value.') }}</p>
     <form method="post" action="/warehouse/lot" enctype="multipart/form-data">
       <div class="row-form">
