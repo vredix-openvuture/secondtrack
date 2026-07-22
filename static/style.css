@@ -519,6 +519,18 @@ table.grid td.thumb-cell { width: 52px; padding-right: .3rem; }
 .set-parts li { display: flex; justify-content: space-between; gap: 1rem; align-items: center; }
 .sp-name { min-width: 0; }
 
+/* Set create: full sub-product cards + toggle button */
+.pf-actions { display: flex; gap: .7rem; }
+.pf-actions .primary { flex: 1; }
+.btn.set-toggle { background: var(--blue-deep); border-color: var(--blue-deep); color: #fff; flex: 0 0 auto; }
+.btn.set-toggle:hover { background: color-mix(in srgb, var(--blue-deep), black 12%); border-color: var(--blue-deep); color: #fff; }
+.btn.set-toggle.on { background: var(--accent-2); border-color: var(--accent-2); }
+.subprod-list { display: flex; flex-direction: column; gap: .7rem; }
+.subprod { display: flex; gap: .9rem; align-items: flex-start; background: rgba(0,0,0,.14); border: 1px solid rgba(255,255,255,.08); border-radius: 12px; padding: .8rem; }
+.subprod .img-square { width: 92px; height: 92px; }
+.subprod .pf-fields { flex: 1; min-width: 0; gap: .55rem; }
+.subprod > .act-btn { flex: 0 0 auto; }
+
 .file-field { font-size: .85rem; }
 .file-field img.preview { display: block; margin-top: .5rem; max-height: 120px; border-radius: 8px; border: 1px solid var(--border); }
 

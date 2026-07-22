@@ -137,26 +137,32 @@
       <label class="chk" style="margin-top:.85rem"><input type="checkbox" name="free" id="wpFree" onchange="stToggleFree(this)"> {{ _('Free / gift — no receipt needed') }}</label>
       <label class="file-field" id="wpReceiptWrap" style="margin-top:.6rem">{{ _('Purchase receipt (required)') }}<input type="file" name="receipt" id="wpReceipt" accept="application/pdf,image/*" required></label>
 
-      <details class="adder" style="margin-top:.85rem">
-        <summary>⧉ {{ _('This is a set — add its parts') }}</summary>
-        <p class="muted small">{{ _('The fields above become the set (name, total price, receipt). The price is split across the parts below by their sale value.') }}</p>
-        <table class="grid tight set-rows" id="setRows">
-          <thead><tr><th>{{ _('Part') }}</th><th class="num">{{ _('Sale value') }}</th><th></th></tr></thead>
-          <tbody>
-            <tr>
-              <td><input name="part_name" placeholder="z.B. Intel i5-8400"></td>
-              <td><input name="part_sale" class="num" placeholder="{{ _('Sale €') }}" inputmode="decimal" style="max-width:120px"></td>
-              <td class="actions">
-                {% if ebay_enabled %}<button type="button" class="link" onclick="stSuggestPrice(this)" title="{{ _('Suggest price from eBay') }}">🔍</button>{% endif %}
-                <button type="button" class="link danger" onclick="stRemoveSetRow(this)">✕</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <button type="button" class="btn small" onclick="stAddSetRow('setRows')">+ {{ _('Part') }}</button>
-      </details>
+      <div id="setPanel" hidden style="margin-top:.85rem">
+        <p class="muted small">{{ _('The fields above become the set (name, total price, receipt). The total is split across these products by their sale value.') }}</p>
+        <div class="subprod-list" id="setParts">
+          <div class="subprod">
+            <label class="img-square" title="{{ _('Choose image') }}">
+              <input type="file" name="part_image" accept="image/*" onchange="stImgSquare(this)">
+              <span class="is-ph">🖼️</span>
+            </label>
+            <div class="pf-fields">
+              <input name="part_name" placeholder="{{ _('Product name') }}">
+              <div class="row-form">
+                <input name="part_sale" placeholder="{{ _('Sale value') }}" inputmode="decimal">
+                {% if ebay_enabled %}<button type="button" class="btn small" onclick="stSuggestPrice(this)" title="{{ _('Suggest price from eBay') }}">🔍</button>{% endif %}
+              </div>
+              <input name="part_note" placeholder="{{ _('Note (optional)') }}">
+            </div>
+            <button type="button" class="act-btn danger" onclick="stRemoveSubprod(this)" title="{{ _('Remove') }}">✕</button>
+          </div>
+        </div>
+        <button type="button" class="btn small" onclick="stAddSubprod('setParts')" style="margin-top:.6rem">+ {{ _('Product') }}</button>
+      </div>
 
-      <button type="submit" class="primary" style="margin-top:.9rem">{{ _('Create') }}</button>
+      <div class="pf-actions" style="margin-top:.95rem">
+        <button type="button" class="btn set-toggle" onclick="stToggleSet(this)">⧉ {{ _('Set parts') }}</button>
+        <button type="submit" class="primary">{{ _('Create') }}</button>
+      </div>
     </form>
   </div>
 </div>
@@ -165,22 +171,26 @@
   <div class="modal modal-wide">
     <div class="modal-head"><h2>{{ _('Split part into a set') }}</h2><button class="modal-close" onclick="stCloseModal(this)">×</button></div>
     <p class="muted small">{{ _('The part becomes a set; its price is split across the parts below by their sale value.') }}</p>
-    <form method="post" action="/warehouse/0/split" id="splitForm">
+    <form method="post" action="/warehouse/0/split" id="splitForm" enctype="multipart/form-data">
       <input name="total_price" id="splitTotal" placeholder="{{ _('Total price') }}" inputmode="decimal">
-      <table class="grid tight set-rows" id="splitRows" style="margin:.8rem 0">
-        <thead><tr><th>{{ _('Part') }}</th><th class="num">{{ _('Sale value') }}</th><th></th></tr></thead>
-        <tbody>
-          <tr>
-            <td><input name="part_name" placeholder="z.B. Intel i5-8400"></td>
-            <td><input name="part_sale" class="num" placeholder="{{ _('Sale €') }}" inputmode="decimal" style="max-width:120px"></td>
-            <td class="actions">
-              {% if ebay_enabled %}<button type="button" class="link" onclick="stSuggestPrice(this)" title="{{ _('Suggest price from eBay') }}">🔍</button>{% endif %}
-              <button type="button" class="link danger" onclick="stRemoveSetRow(this)">✕</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-      <button type="button" class="btn small" onclick="stAddSetRow('splitRows')">+ {{ _('Part') }}</button>
+      <div class="subprod-list" id="splitParts" style="margin-top:.8rem">
+        <div class="subprod">
+          <label class="img-square" title="{{ _('Choose image') }}">
+            <input type="file" name="part_image" accept="image/*" onchange="stImgSquare(this)">
+            <span class="is-ph">🖼️</span>
+          </label>
+          <div class="pf-fields">
+            <input name="part_name" placeholder="{{ _('Product name') }}">
+            <div class="row-form">
+              <input name="part_sale" placeholder="{{ _('Sale value') }}" inputmode="decimal">
+              {% if ebay_enabled %}<button type="button" class="btn small" onclick="stSuggestPrice(this)" title="{{ _('Suggest price from eBay') }}">🔍</button>{% endif %}
+            </div>
+            <input name="part_note" placeholder="{{ _('Note (optional)') }}">
+          </div>
+          <button type="button" class="act-btn danger" onclick="stRemoveSubprod(this)" title="{{ _('Remove') }}">✕</button>
+        </div>
+      </div>
+      <button type="button" class="btn small" onclick="stAddSubprod('splitParts')" style="margin-top:.6rem">+ {{ _('Product') }}</button>
       <div style="margin-top:.9rem"><button type="submit" class="primary">{{ _('Split') }}</button></div>
     </form>
   </div>

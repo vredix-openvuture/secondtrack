@@ -108,29 +108,42 @@ function stToggleSidebar() {
 }
 
 // ---- Warehouse set/lot modal ----
-function stSetRowHtml() {
-  var sug = window.ST_EBAY ? '<button type="button" class="link" onclick="stSuggestPrice(this)" title="Preis von eBay">🔍</button>' : '';
-  return '<tr>' +
-    '<td><input name="part_name" placeholder="Teil"></td>' +
-    '<td><input name="part_sale" class="num" placeholder="VK €" inputmode="decimal" style="max-width:120px"></td>' +
-    '<td class="actions">' + sug +
-    '<button type="button" class="link danger" onclick="stRemoveSetRow(this)">✕</button></td></tr>';
+function stSubprodHtml() {
+  var sug = window.ST_EBAY ? '<button type="button" class="btn small" onclick="stSuggestPrice(this)" title="Preis von eBay">🔍</button>' : '';
+  return '<div class="subprod">' +
+    '<label class="img-square" title="Bild">' +
+      '<input type="file" name="part_image" accept="image/*" onchange="stImgSquare(this)">' +
+      '<span class="is-ph">🖼️</span></label>' +
+    '<div class="pf-fields">' +
+      '<input name="part_name" placeholder="Produktname">' +
+      '<div class="row-form"><input name="part_sale" placeholder="VK €" inputmode="decimal">' + sug + '</div>' +
+      '<input name="part_note" placeholder="Notiz (optional)">' +
+    '</div>' +
+    '<button type="button" class="act-btn danger" onclick="stRemoveSubprod(this)" title="Entfernen">✕</button>' +
+  '</div>';
 }
-function stAddSetRow(id) {
-  var t = document.getElementById(id || 'setRows');
-  if (t && t.tBodies[0]) t.tBodies[0].insertAdjacentHTML('beforeend', stSetRowHtml());
+function stAddSubprod(id) {
+  var c = document.getElementById(id || 'setParts');
+  if (c) c.insertAdjacentHTML('beforeend', stSubprodHtml());
 }
-function stRemoveSetRow(btn) {
-  var table = btn.closest('table');
-  var tb = table && table.tBodies[0];
-  var tr = btn.closest('tr');
-  if (tb && tb.rows.length > 1) { tr.remove(); }
-  else { tr.querySelectorAll('input').forEach(function (i) { i.value = ''; }); }
+function stRemoveSubprod(btn) {
+  var list = btn.closest('.subprod-list');
+  var card = btn.closest('.subprod');
+  if (list && list.querySelectorAll('.subprod').length > 1) { card.remove(); return; }
+  card.querySelectorAll('input').forEach(function (i) { i.value = ''; });
+  var img = card.querySelector('img.is-preview'); if (img) img.remove();
+  var ph = card.querySelector('.is-ph'); if (ph) ph.style.display = '';
+}
+function stToggleSet(btn) {
+  var p = document.getElementById('setPanel');
+  if (!p) return;
+  if (p.hasAttribute('hidden')) { p.removeAttribute('hidden'); btn.classList.add('on'); }
+  else { p.setAttribute('hidden', ''); btn.classList.remove('on'); }
 }
 async function stSuggestPrice(btn) {
-  var tr = btn.closest('tr');
-  var nameEl = tr.querySelector('input[name="part_name"]');
-  var saleEl = tr.querySelector('input[name="part_sale"]');
+  var box = btn.closest('.subprod, tr');
+  var nameEl = box.querySelector('input[name="part_name"]');
+  var saleEl = box.querySelector('input[name="part_sale"]');
   var q = (nameEl.value || '').trim();
   if (!q) { nameEl.focus(); return; }
   btn.textContent = '…';
