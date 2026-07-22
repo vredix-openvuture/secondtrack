@@ -349,6 +349,8 @@ button.link.danger:hover { color: var(--neg); }
 details.adder, details.inline-edit { margin-top: .8rem; }
 details.adder > summary { cursor: pointer; color: var(--accent); font-weight: 600; list-style: none; }
 details.inline-edit > summary { cursor: pointer; list-style: none; display: inline-flex; align-items: center; gap: .4rem; }
+/* inside a table row the inline-edit must not add top margin / must align middle */
+table.grid td details.inline-edit { margin: 0; display: inline-block; vertical-align: middle; }
 details > summary::-webkit-details-marker { display: none; }
 details.adder[open] > summary { margin-bottom: .7rem; }
 hr { border: none; border-top: 1px solid var(--border); margin: .9rem 0; }
