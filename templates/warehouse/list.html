@@ -19,7 +19,7 @@
 
 <section class="card">
 {% if parts %}
-<table class="grid view-list">
+<table class="grid view-list card-rows">
   <thead>
     <tr><th>{{ _('Part') }}</th><th>{{ _('Origin') }}</th><th class="num">{{ _('Purchase') }}</th><th class="num">{{ _('Sale') }}</th><th>{{ _('Actions') }}</th></tr>
   </thead>
@@ -51,11 +51,11 @@
             <option value="" disabled selected>{{ _('install into…') }}</option>
             {% for pr in projects %}<option value="{{ pr.id }}">{{ pr.name }}</option>{% endfor %}
           </select>
-          <button type="submit">→</button>
+          <button type="submit" class="act-btn" title="{{ _('Install into project') }}">→</button>
         </form>
         {% endif %}
-        <button type="button" class="link" onclick="stOpenSplit({{ p.id }}, {{ p.purchase_price or 0 }})" title="{{ _('Split into sub-parts') }}">⧉</button>
-        <form method="post" action="/warehouse/{{ p.id }}/delete" onsubmit="return confirm('{{ _('Delete part?') }}')"><button class="link danger">✕</button></form>
+        <button type="button" class="act-btn" onclick="stOpenSplit({{ p.id }}, {{ p.purchase_price or 0 }})" title="{{ _('Split into sub-parts') }}">⧉</button>
+        <form method="post" action="/warehouse/{{ p.id }}/delete" onsubmit="return confirm('{{ _('Delete part?') }}')"><button class="act-btn danger" title="{{ _('Delete part?') }}">✕</button></form>
       </td>
     </tr>
   {% endfor %}
@@ -95,16 +95,22 @@
 <div class="modal-backdrop" id="newPart">
   <div class="modal">
     <div class="modal-head"><h2>{{ _('Create part manually') }}</h2><button class="modal-close" onclick="stCloseModal(this)">×</button></div>
-    <form method="post" action="/warehouse" enctype="multipart/form-data" class="stack">
-      <input name="name" placeholder="z.B. GTX 1060 6GB" required autofocus>
-      <div class="row-form">
-        <input name="purchase_price" placeholder="{{ _('Purchase price (empty = harvested)') }}" inputmode="decimal">
-        <input name="sale_price" placeholder="{{ _('Sale price') }}" inputmode="decimal">
+    <form method="post" action="/warehouse" enctype="multipart/form-data">
+      <div class="pf-top">
+        <label class="img-square" title="{{ _('Choose image') }}">
+          <input type="file" name="image" accept="image/*" onchange="stImgSquare(this)">
+          <span class="is-ph">🖼️<br>{{ _('Image') }}</span>
+        </label>
+        <div class="pf-fields">
+          <input name="name" placeholder="z.B. GTX 1060 6GB" required autofocus>
+          <input name="sale_price" placeholder="{{ _('Sale price') }}" inputmode="decimal">
+          <input name="purchase_price" id="wpPurchase" placeholder="{{ _('Purchase price') }}" inputmode="decimal">
+        </div>
       </div>
-      <input name="notes" placeholder="{{ _('Note (optional)') }}">
-      <label class="file-field">{{ _('Image (optional)') }}<input type="file" name="image" accept="image/*" onchange="stPreview(this)"></label>
-      <label class="file-field">{{ _('Purchase receipt (optional → expense)') }}<input type="file" name="receipt" accept="application/pdf,image/*"></label>
-      <button type="submit" class="primary">{{ _('Create') }}</button>
+      <input name="notes" placeholder="{{ _('Note (optional)') }}" style="margin-top:.7rem">
+      <label class="chk" style="margin-top:.85rem"><input type="checkbox" name="free" id="wpFree" onchange="stToggleFree(this)"> {{ _('Free / gift — no receipt needed') }}</label>
+      <label class="file-field" id="wpReceiptWrap" style="margin-top:.6rem">{{ _('Purchase receipt (required)') }}<input type="file" name="receipt" id="wpReceipt" accept="application/pdf,image/*" required></label>
+      <button type="submit" class="primary" style="margin-top:.9rem">{{ _('Create') }}</button>
     </form>
   </div>
 </div>

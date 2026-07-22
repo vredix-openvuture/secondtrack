@@ -167,6 +167,30 @@ function stOpenSplit(id, cost) {
   if (h) h.textContent = 'Teil in Sub-Teile aufteilen';
   stOpenModal('newSet');
 }
+function stImgSquare(input) {
+  var f = input.files && input.files[0];
+  if (!f) return;
+  var box = input.closest('.img-square');
+  if (!box) return;
+  var img = box.querySelector('img.is-preview');
+  if (!img) { img = document.createElement('img'); img.className = 'is-preview'; box.insertBefore(img, input); }
+  img.src = URL.createObjectURL(f);
+  var ph = box.querySelector('.is-ph'); if (ph) ph.style.display = 'none';
+}
+function stToggleFree(cb) {
+  var wrap = document.getElementById('wpReceiptWrap');
+  var rec = document.getElementById('wpReceipt');
+  var pp = document.getElementById('wpPurchase');
+  if (cb.checked) {
+    if (rec) { rec.required = false; rec.value = ''; }
+    if (wrap) wrap.style.display = 'none';
+    if (pp) { pp.value = ''; pp.disabled = true; }
+  } else {
+    if (rec) rec.required = true;
+    if (wrap) wrap.style.display = '';
+    if (pp) pp.disabled = false;
+  }
+}
 function stInitSidebar() {
   let s = (window.ST_SIDEBAR_DEFAULT === 'open') ? 'open' : 'closed';
   try { s = localStorage.getItem('st-sidebar') || s; } catch (e) {}

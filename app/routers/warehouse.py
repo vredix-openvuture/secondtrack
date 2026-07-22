@@ -141,13 +141,26 @@ async def create_part(
     purchase_price: str = Form(""),
     sale_price: str = Form(""),
     notes: str = Form(""),
+    free: str = Form(""),
     image: UploadFile | None = File(None),
     receipt: UploadFile | None = File(None),
     db: Session = Depends(get_db),
     user=Depends(require_login),
 ):
-    pp = _parse_float(purchase_price)
+    is_free = free.strip().lower() in ("1", "on", "true", "yes")
+    pp = None if is_free else _parse_float(purchase_price)
     img_url, img_err = save_image_or_error(image, "part")
+
+    # A paid part must be documented with a receipt; only "free/gift" is exempt.
+    rpath = None
+    if not is_free:
+        rpath = save_receipt(receipt, "receipt")
+        if not rpath:
+            return RedirectResponse(
+                "/warehouse?msg=Beleg erforderlich (oder als 'gratis' markieren)",
+                status_code=303,
+            )
+
     part = Part(
         name=name.strip(),
         notes=notes.strip() or None,
@@ -159,13 +172,16 @@ async def create_part(
     )
     db.add(part)
     db.commit()
-    rpath = save_receipt(receipt, "receipt")
-    if rpath and pp and pp > 0:
-        exp_service.create(
-            db, amount=pp, expense_date=date.today(), vendor="",
+
+    if rpath:
+        exp = exp_service.create(
+            db, amount=pp or 0.0, expense_date=date.today(), vendor="",
             description=f"Part: {part.name}", category="Parts",
-            project_id=None, receipt_path=rpath,
+            project_id=None, receipt_path=rpath, bucket="warehouse",
         )
+        part.source_expense_id = exp.id
+        db.commit()
+
     return RedirectResponse(
         "/warehouse" + (f"?msg={img_err}" if img_err else ""), status_code=303
     )

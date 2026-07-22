@@ -485,6 +485,30 @@ body:not([data-view]) .view-cards { display: none; }
 /* ---- Image thumbnails / upload preview ---- */
 .detail-image { width: 100%; border-radius: var(--radius); border: 1px solid var(--border); margin-bottom: 1rem; object-fit: cover; max-height: 280px; }
 .row-img { width: 40px; height: 40px; border-radius: 6px; object-fit: cover; vertical-align: middle; margin-right: .5rem; }
+/* Card-style table rows */
+table.grid.card-rows { border-collapse: separate; border-spacing: 0 .55rem; }
+table.grid.card-rows thead th { border-bottom: none; padding-bottom: .1rem; }
+table.grid.card-rows tbody tr td { background: var(--surface-2); border-top: 1px solid rgba(255,255,255,.06); border-bottom: 1px solid rgba(255,255,255,.06); }
+table.grid.card-rows tbody tr td:first-child { border-left: 1px solid rgba(255,255,255,.06); border-radius: 12px 0 0 12px; }
+table.grid.card-rows tbody tr td:last-child { border-right: 1px solid rgba(255,255,255,.06); border-radius: 0 12px 12px 0; }
+table.grid.card-rows tbody tr:hover td { background: color-mix(in srgb, var(--accent) 9%, var(--surface-2)); }
+
+/* Standout icon action buttons */
+.act-btn { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; padding: 0; border-radius: 9px; background: var(--surface); border: 1px solid rgba(255,255,255,.14); color: var(--text); line-height: 1; font-size: 1rem; }
+.act-btn:hover { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--surface)); text-decoration: none; }
+.act-btn.danger:hover { border-color: var(--neg); color: var(--neg); background: color-mix(in srgb, var(--neg) 14%, var(--surface)); }
+
+/* Square image picker at the top of a form */
+.pf-top { display: flex; gap: 1.1rem; align-items: stretch; }
+.pf-fields { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .7rem; }
+.img-square { position: relative; flex: 0 0 auto; width: 118px; height: 118px; border-radius: 14px;
+  border: 2px dashed rgba(255,255,255,.20); background: rgba(0,0,0,.20);
+  display: flex; align-items: center; justify-content: center; cursor: pointer; overflow: hidden;
+  text-align: center; color: var(--muted); font-size: .78rem; }
+.img-square:hover { border-color: var(--accent); color: var(--accent); }
+.img-square input[type=file] { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.img-square img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+
 .file-field { font-size: .85rem; }
 .file-field img.preview { display: block; margin-top: .5rem; max-height: 120px; border-radius: 8px; border: 1px solid var(--border); }
 
