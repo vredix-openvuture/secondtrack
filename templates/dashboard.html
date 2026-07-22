@@ -83,13 +83,13 @@
       </div>
 
       {% elif w.key == "quick" %}
-      <div class="card widget">
+      <div class="card widget qa-widget">
         <h2><span class="wico">⚡</span> {{ _('Quick access') }}</h2>
         <div class="quick-actions">
-          <a class="btn" href="/projects">+ {{ _('Projects') }}</a>
-          <a class="btn" href="/warehouse">+ {{ _('Part') }}</a>
-          <a class="btn" href="/hub">{{ _('Hub') }}</a>
-          <a class="btn" href="/tasks">{{ _('Tasks') }}</a>
+          <a class="qa" href="/projects"><span class="qa-ico">🖥️</span><span>+ {{ _('Projects') }}</span></a>
+          <a class="qa" href="/warehouse"><span class="qa-ico">📦</span><span>+ {{ _('Part') }}</span></a>
+          <a class="qa" href="/hub"><span class="qa-ico">🧾</span><span>{{ _('Hub') }}</span></a>
+          <a class="qa" href="/tasks"><span class="qa-ico">✅</span><span>{{ _('Tasks') }}</span></a>
         </div>
       </div>
 

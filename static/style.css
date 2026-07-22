@@ -138,7 +138,17 @@ kbd {
 .wlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .35rem; }
 .wlist li { padding: .15rem 0; }
 .wlink { display: inline-block; margin-top: .8rem; font-size: .9rem; }
-.quick-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.qa-widget { display: flex; flex-direction: column; }
+.quick-actions { display: grid; grid-template-columns: 1fr 1fr; gap: .7rem; grid-auto-rows: 1fr; flex: 1; min-height: 132px; margin-top: .2rem; }
+.qa {
+  display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: .35rem;
+  padding: .9rem 1rem; min-height: 60px;
+  background: var(--surface-2); border: 1px solid rgba(255,255,255,.07); border-radius: 12px;
+  color: var(--text); font-weight: 600; line-height: 1.1;
+  transition: transform .12s ease, border-color .12s ease, background .12s ease;
+}
+.qa:hover { transform: translateY(-2px); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--surface-2)); text-decoration: none; }
+.qa .qa-ico { font-size: 1.35rem; line-height: 1; }
 
 /* Logo widget */
 .widget-logo { display: flex; align-items: center; justify-content: center; padding: .8rem; }
