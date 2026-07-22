@@ -439,8 +439,8 @@ input[type="range"] { width: 100%; accent-color: var(--accent); padding: 0; }
 .range-row output { color: var(--text); font-variant-numeric: tabular-nums; min-width: 3ch; text-align: right; }
 
 /* ---- Kanban (Vikunja) ---- */
-.kanban { display: flex; gap: 1rem; overflow-x: auto; padding-bottom: 1rem; align-items: flex-start; }
-.kanban-col { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); min-width: 260px; max-width: 300px; flex: 0 0 auto; }
+.kanban { display: flex; flex-direction: column; gap: 1rem; padding-bottom: 1rem; }
+.kanban-col { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); width: 100%; }
 .kanban-col h3 { font-size: .9rem; margin: 0; padding: .7rem .9rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; }
 .kanban-col h3 .count { color: var(--muted); font-weight: 500; }
 .kanban-tasks { padding: .7rem; display: flex; flex-direction: column; gap: .6rem; }

@@ -31,7 +31,13 @@ async def tasks_page(
                 ids = [s["id"] for s in subprojects]
                 selected = project if project in ids else (ids[0] if ids else None)
                 if selected:
-                    board = vikunja.get_board(selected)
+                    title = next(
+                        (s.get("title", "—") for s in subprojects if s["id"] == selected),
+                        "—",
+                    )
+                    # Flat open-task list for this subproject (buckets don't
+                    # reliably embed tasks in this Vikunja version).
+                    board = [{"title": title, "tasks": vikunja.open_tasks_for(selected)}]
             else:
                 # Default "All open": aggregate open tasks across all subprojects
                 # (the old behaviour showed only the first subproject, which was

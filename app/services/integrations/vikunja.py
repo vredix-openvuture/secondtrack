@@ -143,6 +143,15 @@ def open_tasks_by_subproject() -> list[dict]:
     return out
 
 
+def open_tasks_for(project_id: int) -> list[dict]:
+    """Open (not-done) tasks of a single project — reliable across Vikunja
+    versions (the kanban buckets endpoint doesn't always embed tasks)."""
+    _require()
+    with _client() as c:
+        tasks = c.get(f"/projects/{int(project_id)}/tasks").json() or []
+    return [t for t in tasks if not t.get("done")]
+
+
 # ── Write path (create tasks/projects; see ARCHITEKTUR-SOLL.md) ──────────────
 # Vikunja creates via PUT: `PUT /projects` and `PUT /projects/{id}/tasks`.
 
