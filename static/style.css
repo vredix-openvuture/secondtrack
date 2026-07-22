@@ -53,10 +53,10 @@ h2 { font-size: 1.05rem; margin: 0 0 .75rem; }
   transition: width .15s ease;
   overflow: hidden;
 }
-body[data-sidebar="open"] .sidebar { width: var(--side-w-open); }
+:root[data-sidebar="open"] .sidebar { width: var(--side-w-open); }
 
 .side-toggle svg { transition: transform .15s ease; }
-body[data-sidebar="open"] .side-toggle svg { transform: rotate(180deg); }
+:root[data-sidebar="open"] .side-toggle svg { transform: rotate(180deg); }
 
 .brand { display: flex; align-items: center; gap: .6rem; padding: .8rem .8rem .7rem; white-space: nowrap; }
 .brand:hover { text-decoration: none; }
@@ -67,7 +67,7 @@ body[data-sidebar="open"] .side-toggle svg { transform: rotate(180deg); }
 .logo-box.noimg::after { content: "st"; }
 .brand-text { font-weight: 700; font-size: 1.05rem; opacity: 0; transition: opacity .12s; }
 .brand-text span { color: var(--accent); }
-body[data-sidebar="open"] .brand-text { opacity: 1; }
+:root[data-sidebar="open"] .brand-text { opacity: 1; }
 
 /* monochrome line icons */
 .sidebar svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; display: block; }
@@ -79,10 +79,10 @@ body[data-sidebar="open"] .brand-text { opacity: 1; }
   white-space: nowrap; font-weight: 500;
 }
 .sidebar nav a:hover { background: rgba(255,255,255,.08); color: var(--text); text-decoration: none; }
-.sidebar nav a.on { background: color-mix(in srgb, var(--accent) 24%, transparent); color: #fff; box-shadow: inset 3px 0 0 var(--accent); }
+.sidebar nav a.on { background: var(--accent); color: #fff; font-weight: 600; }
 .sidebar .ico { width: 22px; display: flex; justify-content: center; flex: 0 0 auto; }
 .sidebar .lbl { opacity: 0; transition: opacity .12s; }
-body[data-sidebar="open"] .sidebar .lbl { opacity: 1; }
+:root[data-sidebar="open"] .sidebar .lbl { opacity: 1; }
 
 .side-bottom { padding: .5rem; display: flex; flex-direction: column; gap: .15rem; border-top: 1px solid var(--border); }
 .side-bottom form { margin: 0; }
@@ -94,7 +94,7 @@ body[data-sidebar="open"] .sidebar .lbl { opacity: 1; }
 .side-act:hover { background: rgba(255,255,255,.08); color: var(--text); }
 
 .content-wrap { margin-left: var(--side-w); transition: margin-left .15s ease; }
-body[data-sidebar="open"] .content-wrap { margin-left: var(--side-w-open); }
+:root[data-sidebar="open"] .content-wrap { margin-left: var(--side-w-open); }
 
 main { max-width: 1100px; margin: 0 auto; padding: 1.5rem 1.5rem 5rem; }
 
@@ -291,6 +291,10 @@ input, select, textarea {
   border: 1px solid var(--border); border-radius: 8px;
   padding: .55rem .65rem; font: inherit; width: 100%;
 }
+/* checkboxes/radios must not stretch to full width */
+input[type=checkbox], input[type=radio] {
+  width: auto; padding: 0; accent-color: var(--accent); cursor: pointer;
+}
 input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
 label { display: block; font-size: .85rem; color: var(--muted); margin-bottom: .15rem; }
 label input, label select, label textarea { margin-top: .25rem; }
@@ -310,6 +314,9 @@ button, .btn {
 button:hover, .btn:hover { border-color: var(--accent); text-decoration: none; }
 button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
 button.primary:hover { background: var(--accent-d); }
+/* .btn (top actions, deep links) = Rain Boots too */
+.btn { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+.btn:hover { background: var(--accent-d); border-color: var(--accent-d); color: #fff; }
 button.link { background: none; border: none; color: var(--muted); padding: .2rem .35rem; }
 button.link:hover { color: var(--text); }
 button.link.danger:hover { color: var(--neg); }
@@ -448,6 +455,8 @@ input[type="range"] { width: 100%; accent-color: var(--accent); padding: 0; }
 .kanban-col { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); width: 100%; }
 .kanban-col h3 { font-size: .9rem; margin: 0; padding: .7rem .9rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; }
 .kanban-col h3 .count { color: var(--muted); font-weight: 500; }
+.kanban-col h3 .col-title { display: flex; align-items: center; gap: .6rem; min-width: 0; }
+.proj-thumb { width: 30px; height: 30px; border-radius: 6px; object-fit: cover; flex: 0 0 auto; }
 .kanban-tasks { padding: .7rem; display: flex; flex-direction: column; gap: .6rem; }
 .task-card { background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: .6rem .7rem; font-size: .9rem; }
 .task-card { display: flex; align-items: center; gap: .65rem; }

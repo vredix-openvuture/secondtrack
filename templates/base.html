@@ -16,7 +16,9 @@
     }
     body{ font-family: {{ fonts.get(style.font, fonts['system']) }}; }
   </style>{% endif %}
-  <script>window.ST_SIDEBAR_DEFAULT = "{{ style.sidebar if style else 'closed' }}";</script>
+  <script>window.ST_SIDEBAR_DEFAULT = "{{ style.sidebar if style else 'closed' }}";
+  // Set the sidebar state before first paint so it never flickers on navigation.
+  (function(){var s;try{s=localStorage.getItem('st-sidebar');}catch(e){}document.documentElement.setAttribute('data-sidebar', s || window.ST_SIDEBAR_DEFAULT || 'closed');})();</script>
   <script src="https://unpkg.com/htmx.org@2.0.4" defer></script>
   <script src="/static/app.js" defer></script>
 </head>

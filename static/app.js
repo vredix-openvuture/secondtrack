@@ -100,7 +100,7 @@ function stRange(input) {
 
 // Sidebar collapse/expand (persisted)
 function stSetSidebar(state) {
-  document.body.setAttribute('data-sidebar', state);
+  document.documentElement.setAttribute('data-sidebar', state);
   try { localStorage.setItem('st-sidebar', state); } catch (e) {}
 }
 function stToggleSidebar() {
