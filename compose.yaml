@@ -13,9 +13,6 @@ services:
       SECONDTRACK_EXPORT_DIR: /data/exports
     volumes:
       - /server/secondtrack/data:/data
-      # Mounted so you can drop a custom logo at static/secondtrack.png
-      # (and tweak assets) without rebuilding the image.
-      - /server/secondtrack/static:/app/static:ro
       # Optional: mount your Obsidian vault for direct Markdown export.
       # Adjust the host path to your vault, keep the container path.
       # - /path/to/Obsidian-Vault/secondtrack:/obsidian
