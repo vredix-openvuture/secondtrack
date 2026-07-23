@@ -28,6 +28,14 @@ def _bx(v: str) -> str:
     return "1" if str(v).strip().lower() in ("1", "true", "yes", "on") else "0"
 
 
+def _secret(new: str, key: str) -> str:
+    """Keep the stored secret when the field is submitted blank. We never render
+    the real value into the page (only a masked placeholder), so an empty submit
+    means 'leave unchanged' rather than 'clear it'."""
+    new = (new or "").strip()
+    return new if new else (runtime.get(key) or "")
+
+
 def _qr_data_uri(uri: str) -> str:
     img = qrcode.make(uri)
     buf = io.BytesIO()
@@ -143,6 +151,7 @@ async def conn_woo(
     secret: str = Form(""), order_statuses: str = Form(""),
     webhook_enabled: str = Form(""), webhook_secret: str = Form(""),
     poll_enabled: str = Form(""), poll_interval: str = Form("5"),
+    task_enabled: str = Form(""), order_board: str = Form("customers"),
     db: Session = Depends(get_db), user: User = Depends(require_login),
 ):
     try:
@@ -151,10 +160,14 @@ async def conn_woo(
         interval = "5"
     poll_en = _bx(poll_enabled)
     runtime.save(db, {
-        "woo_enabled": _bx(enabled), "woo_url": url.strip(), "woo_key": key.strip(),
-        "woo_secret": secret.strip(), "woo_order_statuses": order_statuses.strip(),
-        "woo_webhook_enabled": _bx(webhook_enabled), "woo_webhook_secret": webhook_secret.strip(),
+        "woo_enabled": _bx(enabled), "woo_url": url.strip(),
+        "woo_key": _secret(key, "woo_key"), "woo_secret": _secret(secret, "woo_secret"),
+        "woo_order_statuses": order_statuses.strip(),
+        "woo_webhook_enabled": _bx(webhook_enabled),
+        "woo_webhook_secret": _secret(webhook_secret, "woo_webhook_secret"),
         "woo_poll_enabled": poll_en, "woo_poll_interval": interval,
+        "woo_task_enabled": _bx(task_enabled),
+        "vikunja_order_board": order_board.strip() or "customers",
     })
     # Set the watermark when polling is first enabled, so we don't retroactively
     # send receipts for all historical orders.
@@ -171,7 +184,7 @@ async def conn_in(
 ):
     runtime.save(db, {
         "in_enabled": _bx(enabled), "in_url": url.strip(),
-        "in_token": token.strip(), "in_auto_send": _bx(auto_send),
+        "in_token": _secret(token, "in_token"), "in_auto_send": _bx(auto_send),
     })
     return RedirectResponse("/settings?tab=connections&sub=in&msg=Saved", status_code=303)
 
@@ -184,7 +197,8 @@ async def conn_vikunja(
 ):
     runtime.save(db, {
         "vikunja_enabled": _bx(enabled), "vikunja_url": url.strip(),
-        "vikunja_token": token.strip(), "vikunja_parent": parent.strip() or "OpenVuture",
+        "vikunja_token": _secret(token, "vikunja_token"),
+        "vikunja_parent": parent.strip() or "OpenVuture",
     })
     return RedirectResponse("/settings?tab=connections&sub=vikunja&msg=Saved", status_code=303)
 
@@ -198,7 +212,7 @@ async def conn_nextcloud(
 ):
     runtime.save(db, {
         "nc_enabled": _bx(enabled), "nc_url": url.strip(),
-        "nc_user": user_name.strip(), "nc_pass": password,
+        "nc_user": user_name.strip(), "nc_pass": _secret(password, "nc_pass"),
         "nc_base_path": base_path.strip() or "/OpenVuture/Belege",
         "nc_auto_archive": _bx(auto_archive),
     })
@@ -227,7 +241,7 @@ async def conn_ebay(
 ):
     runtime.save(db, {
         "ebay_enabled": _bx(enabled), "ebay_client_id": client_id.strip(),
-        "ebay_client_secret": client_secret.strip(),
+        "ebay_client_secret": _secret(client_secret, "ebay_client_secret"),
         "ebay_marketplace": marketplace.strip() or "EBAY_DE",
     })
     return RedirectResponse("/settings?tab=connections&sub=ebay&msg=Saved", status_code=303)
@@ -270,7 +284,7 @@ async def conn_email(
         "email_provider": email_provider if email_provider in ("secondtrack", "invoiceninja") else "secondtrack",
         "email_enabled": _bx(email_enabled), "smtp_host": smtp_host.strip(),
         "smtp_port": num(smtp_port, 587), "smtp_user": smtp_user.strip(),
-        "smtp_pass": smtp_pass, "smtp_security": smtp_security if smtp_security in ("tls", "ssl", "none") else "tls",
+        "smtp_pass": _secret(smtp_pass, "smtp_pass"), "smtp_security": smtp_security if smtp_security in ("tls", "ssl", "none") else "tls",
         "mail_from_name": mail_from_name.strip() or "secondtrack",
         "mail_from_email": mail_from_email.strip(),
         "email_auto": _bx(email_auto), "reminder_days": num(reminder_days, 0),

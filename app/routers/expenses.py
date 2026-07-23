@@ -58,11 +58,26 @@ async def list_expenses(
         .all()
     )
     total = sum((e.amount or 0.0) for e in rows)
+    # Map each expense to its single linked warehouse product (if exactly one),
+    # so the editor can pre-fill / update it instead of creating a duplicate.
+    from collections import defaultdict
+
+    from ..models import Part
+
+    by_exp: dict[int, list] = defaultdict(list)
+    for p in (
+        db.query(Part)
+        .filter(Part.source_expense_id.isnot(None), Part.project_id.is_(None))
+        .all()
+    ):
+        by_exp[p.source_expense_id].append(p)
+    linked_parts = {eid: ps[0] for eid, ps in by_exp.items() if len(ps) == 1}
     return templates.TemplateResponse(
         "expenses/list.html",
         ctx(
             request, db, active="expenses",
             rows=rows, projects=projects, total=total,
+            linked_parts=linked_parts,
             in_enabled=invoiceninja.is_enabled(),
             today=date.today().isoformat(),
         ),
@@ -80,6 +95,9 @@ async def create_expense(
     project_id: str = Form(""),
     receipt: UploadFile | None = File(None),
     image: UploadFile | None = File(None),
+    product_name: str = Form(""),
+    product_sale: str = Form(""),
+    product_note: str = Form(""),
     db: Session = Depends(get_db),
     user=Depends(require_login),
 ):
@@ -92,14 +110,31 @@ async def create_expense(
             status_code=303,
         )
     pid, bucket = _parse_allocation(project_id)
-    exp_service.create(
+    img_path = save_image(image, "expense")
+    exp = exp_service.create(
         db, name=name.strip(), amount=_parse_float(amount),
         expense_date=_parse_date(expense_date),
         vendor=vendor.strip(), description=description.strip(), category=category.strip(),
         project_id=pid, bucket=bucket,
-        receipt_path=receipt_path, image_path=save_image(image, "expense"),
+        receipt_path=receipt_path, image_path=img_path,
     )
-    return RedirectResponse("/expenses?msg=Expense saved", status_code=303)
+    msg = "Expense saved"
+    # Optionally spin up a warehouse product from this purchase, linked to the
+    # expense (which documents the receipt); the amount is its purchase cost.
+    if product_name.strip():
+        from ..models import Part, PartOrigin
+
+        cost = _parse_float(amount)
+        db.add(Part(
+            name=product_name.strip(), notes=product_note.strip() or None,
+            project_id=None, device_id=None,
+            origin=PartOrigin.purchased if cost else PartOrigin.harvested,
+            purchase_price=cost or None, sale_price=_parse_float(product_sale) or 0.0,
+            image_path=img_path, source_expense_id=exp.id,
+        ))
+        db.commit()
+        msg = "Expense + product saved"
+    return RedirectResponse(f"/expenses?msg={msg}", status_code=303)
 
 
 @router.post("/{expense_id}/update")
@@ -114,6 +149,9 @@ async def update_expense(
     project_id: str = Form(""),
     receipt: UploadFile | None = File(None),
     image: UploadFile | None = File(None),
+    product_name: str = Form(""),
+    product_sale: str = Form(""),
+    product_note: str = Form(""),
     db: Session = Depends(get_db),
     user=Depends(require_login),
 ):
@@ -131,7 +169,31 @@ async def update_expense(
         project_id=pid, bucket=bucket,
         receipt_path=receipt_path, image_path=save_image(image, "expense"),
     )
-    return RedirectResponse("/expenses?msg=Expense updated", status_code=303)
+    msg = "Expense updated"
+    # Link/refresh a warehouse product for this expense (upsert its single
+    # linked part — create if none, update if exactly one, skip if it's a set).
+    if product_name.strip():
+        from ..models import Part, PartOrigin
+
+        cost = _parse_float(amount)
+        parts = (
+            db.query(Part)
+            .filter(Part.source_expense_id == exp.id, Part.project_id.is_(None))
+            .all()
+        )
+        part = parts[0] if len(parts) == 1 else None
+        if part is None:
+            part = Part(project_id=None, device_id=None, source_expense_id=exp.id)
+            db.add(part)
+        part.name = product_name.strip()
+        part.notes = product_note.strip() or None
+        part.purchase_price = cost or None
+        part.sale_price = _parse_float(product_sale) or 0.0
+        part.origin = PartOrigin.purchased if cost else PartOrigin.harvested
+        part.image_path = exp.image_path
+        db.commit()
+        msg = "Expense + product saved"
+    return RedirectResponse(f"/expenses?msg={msg}", status_code=303)
 
 
 @router.post("/{expense_id}/delete")

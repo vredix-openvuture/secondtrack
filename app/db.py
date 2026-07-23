@@ -82,12 +82,15 @@ def _ensure_columns() -> None:
             ("device_id", "INTEGER"),
             ("source_expense_id", "INTEGER"),
             ("set_id", "INTEGER"),
+            ("quantity", "INTEGER DEFAULT 1"),
         ],
         "users": [("display_name", "VARCHAR(120)")],
         "work_sessions": [("hourly_rate", "FLOAT")],
         "order_invoices": [
             ("reminder_sent_at", "DATETIME"),
             ("dunning_sent_at", "DATETIME"),
+            ("customer_id", "INTEGER"),
+            ("vikunja_task_id", "VARCHAR(64)"),
         ],
         "expenses": [
             ("image_path", "VARCHAR(255)"),

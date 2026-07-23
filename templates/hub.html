@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block title %}{{ _('Hub') }} · secondtrack{% endblock %}
+{% block title %}{{ _('Finances') }} · secondtrack{% endblock %}
 {% block content %}
 {% set inv_labels = {"1": _('Draft'), "2": _('Sent'), "3": _('Partial'), "4": _('Paid'), "5": _('Cancelled')} %}
 
-<div class="page-head"><h1>{{ _('Business hub') }}</h1></div>
+<div class="page-head"><h1>{{ _('Finances') }}</h1></div>
 {% if msg %}<p class="notice">{{ _(msg) }}</p>{% endif %}
 
 {% if view.in_enabled %}
@@ -41,7 +41,7 @@
     <p class="error">{{ _('Could not load orders:') }} {{ view.woo_error }}</p>
   {% elif view.orders %}
   <table class="grid">
-    <thead><tr><th>#</th><th>{{ _('Date') }}</th><th>{{ _('Customer') }}</th><th>{{ _('Status') }}</th><th class="num">{{ _('Total') }}</th><th>{{ _('Invoice') }}</th></tr></thead>
+    <thead><tr><th>#</th><th>{{ _('Date') }}</th><th>{{ _('Customer') }}</th><th>{{ _('Status') }}</th><th class="num">{{ _('Total') }}</th><th>{{ _('Task') }}</th><th>{{ _('Invoice') }}</th></tr></thead>
     <tbody>
     {% for o in view.orders %}
       <tr>
@@ -50,6 +50,11 @@
         <td>{{ o.customer }}<br><span class="muted small">{{ o.email }}</span></td>
         <td><span class="badge in_production">{{ o.status }}</span></td>
         <td class="num">{{ o.total|money }} {{ o.currency }}</td>
+        <td>
+          {% if o.task_id and vikunja_url %}<a class="btn ghost" href="{{ vikunja_url }}/tasks/{{ o.task_id }}" target="_blank" title="{{ _('Open fulfillment task') }}">📦 ↗</a>
+          {% elif o.task_id %}<span class="muted small">📦</span>
+          {% else %}<span class="muted small">—</span>{% endif %}
+        </td>
         <td class="actions">
           {% if o.invoice %}
             <a class="btn" href="{{ in_url }}/invoices/{{ o.invoice.invoiceninja_id }}/edit" target="_blank">{{ _('No.') }} {{ o.invoice.invoice_number or '↗' }}</a>
@@ -68,14 +73,15 @@
 </section>
 
 <section class="card">
-  <h2>{{ _('Invoices (InvoiceNinja)') }}
-    <span style="float:right;display:flex;gap:.4rem">
-      {% if email_on %}<form method="post" action="/hub/process-due"><button class="btn" style="font-size:.8rem">{{ _('Process overdue') }}</button></form>{% endif %}
-      {% if nc_enabled %}<form method="post" action="/hub/archive-paid"><button class="btn" style="font-size:.8rem" title="{{ _('Store paid invoices in Nextcloud') }}">☁ {{ _('Sync paid') }}</button></form>{% endif %}
-      <a class="btn" style="font-size:.8rem" href="/hub?drafts={{ 0 if include_drafts else 1 }}&archived={{ 1 if include_archived else 0 }}&period={{ period }}">{{ _('Hide drafts') if include_drafts else _('Show drafts') }}</a>
-      <a class="btn" style="font-size:.8rem" href="/hub?archived={{ 0 if include_archived else 1 }}&drafts={{ 1 if include_drafts else 0 }}&period={{ period }}">{{ _('Hide archive') if include_archived else _('Show archive') }}</a>
-    </span>
-  </h2>
+  <div class="card-head">
+    <h2>{{ _('Invoices (InvoiceNinja)') }}</h2>
+    <div class="card-tools">
+      {% if email_on %}<form method="post" action="/hub/process-due"><button class="btn ghost">{{ _('Process overdue') }}</button></form>{% endif %}
+      {% if nc_enabled %}<form method="post" action="/hub/archive-paid"><button class="btn ghost" title="{{ _('Store paid invoices in Nextcloud') }}">☁ {{ _('Sync paid') }}</button></form>{% endif %}
+      <a class="btn ghost" href="/hub?drafts={{ 0 if include_drafts else 1 }}&archived={{ 1 if include_archived else 0 }}&period={{ period }}">{{ _('Hide drafts') if include_drafts else _('Show drafts') }}</a>
+      <a class="btn ghost" href="/hub?archived={{ 0 if include_archived else 1 }}&drafts={{ 1 if include_drafts else 0 }}&period={{ period }}">{{ _('Hide archive') if include_archived else _('Show archive') }}</a>
+    </div>
+  </div>
   {% if not view.in_enabled %}
     <p class="muted">{{ _('InvoiceNinja integration disabled.') }}</p>
   {% elif view.in_error %}
@@ -93,11 +99,12 @@
         <td>
           <span class="badge {{ 'sold' if inv.status_id|string == '4' else 'in_production' if inv.status_id|string == '2' else 'archived' }}">{{ inv_labels.get(inv.status_id|string, inv.status) }}</span>
           {% if inv.archived %}<span class="badge archived" title="{{ _('Archived') }}">{{ _('Archived') }}</span>{% endif %}
+          {% if nc_enabled %}<span class="nc-ind {{ 'on' if inv.nc_synced }}" title="{{ _('Synced to Nextcloud') if inv.nc_synced else _('Not synced to Nextcloud yet') }}">☁</span>{% endif %}
         </td>
         <td class="num">{{ inv.amount|money }} {{ currency }}</td>
         <td class="num {{ 'neg' if inv.balance > 0 }}">{{ inv.balance|money }} {{ currency }}</td>
         <td class="actions">
-          <a class="btn" href="{{ in_url }}/invoices/{{ inv.id }}/edit" target="_blank" title="InvoiceNinja ↗">↗</a>
+          <a class="btn ghost" href="{{ in_url }}/invoices/{{ inv.id }}/edit" target="_blank" title="InvoiceNinja ↗">↗</a>
           {% if email_on %}
           <form method="post" action="/hub/in/{{ inv.id }}/mail?kind=invoice"><button title="{{ _('Send invoice') }}">✉</button></form>
           {% if inv.overdue %}

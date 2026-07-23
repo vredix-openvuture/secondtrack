@@ -1,6 +1,18 @@
 {% extends "base.html" %}
 {% block title %}{{ _('Tasks') }} · secondtrack{% endblock %}
 {% block content %}
+{% macro task_row(t, board_url, depth, kanban=false) %}
+  <div class="task-card {{ 'done' if t.done }}{{ ' subtask' if depth }}"{% if kanban %} draggable="true" data-task-id="{{ t.id }}"{% endif %}{% if depth %} style="margin-left:{{ depth * 1.6 }}rem"{% endif %}>
+    {% if not kanban %}
+    <form method="post" action="/tasks/{{ t.id }}/toggle" class="task-check">
+      <input type="hidden" name="next" value="{{ board_url }}">
+      <input type="checkbox" onchange="this.form.submit()" {{ 'checked' if t.done }} title="{{ _('Mark done') }}">
+    </form>
+    {% endif %}
+    <a class="task-link" href="/tasks/{{ t.id }}?back={{ board_url | urlencode }}"{% if kanban %} draggable="false"{% endif %}>{{ t.title }}</a>
+  </div>
+  {% for c in t._children %}{{ task_row(c, board_url, depth + 1, kanban) }}{% endfor %}
+{% endmacro %}
 
 <div class="page-head"><h1>{{ _('Tasks') }}</h1>
   {% if enabled and vikunja_url %}<a class="btn" style="margin-left:auto" href="{{ vikunja_url }}" target="_blank">{{ _('Open Vikunja ↗') }}</a>{% endif %}
@@ -14,40 +26,61 @@
   <div class="card"><p class="error">{{ _('Could not load tasks:') }} {{ error }}</p></div>
 {% else %}
 
+  <script>
+  // Keep the chosen view: if a project is opened without one, honour the stored preference.
+  (function(){try{var p=new URLSearchParams(location.search);
+    if(p.get('project')&&!p.get('view')&&localStorage.getItem('st-tasks-view')==='kanban'){p.set('view','kanban');location.replace(location.pathname+'?'+p.toString());}
+  }catch(e){}})();
+  </script>
+
   {% if subprojects %}
   <div class="subproject-tabs">
     <a href="/tasks" class="{{ 'on' if not selected }}">{{ _('All open') }}</a>
-    {% for s in subprojects %}<a href="/tasks?project={{ s.id }}" class="{{ 'on' if s.id == selected }}">{{ s.title }}</a>{% endfor %}
+    {% for s in subprojects %}<a href="/tasks?project={{ s.id }}{% if view == 'kanban' %}&view=kanban{% endif %}" class="{{ 'on' if s.id == selected }}">{{ s.title }}</a>{% endfor %}
   </div>
   {% endif %}
 
+  {% if selected %}
+  <div class="subproject-tabs view-switch">
+    <a href="/tasks?project={{ selected }}" class="{{ 'on' if view != 'kanban' }}" onclick="try{localStorage.setItem('st-tasks-view','list')}catch(e){}">☰ {{ _('List') }}</a>
+    <a href="/tasks?project={{ selected }}&view=kanban" class="{{ 'on' if view == 'kanban' }}" onclick="try{localStorage.setItem('st-tasks-view','kanban')}catch(e){}">▦ {{ _('Kanban') }}</a>
+    {% if view == 'kanban' and kanban_cols %}<button type="button" id="doneToggle" onclick="stToggleDone(this)" data-hide="{{ _('Hide done') }}" data-show="{{ _('Show done') }}">{{ _('Hide done') }}</button>{% endif %}
+  </div>
+  {% endif %}
+
+  {% if selected and view == 'kanban' %}
+    {% set board_url = '/tasks?project=' ~ selected ~ '&view=kanban' %}
+    {% if kanban_cols %}
+    <div class="kanban-board" data-project-id="{{ selected }}">
+      {% for col in kanban_cols %}
+      <div class="kanban-col" data-bucket-id="{{ col.id }}"{% if col.done %} data-done="1"{% endif %}>
+        <h3><span class="col-title">{{ col.title }}</span><span class="count">{{ col.tasks|length }}</span></h3>
+        <div class="kanban-tasks">
+          {% for t in col.tasks %}{{ task_row(t, board_url, 0, true) }}{% else %}<p class="muted small">—</p>{% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}<p class="muted empty">{{ _('No buckets/tasks found.') }}</p>{% endif %}
+  {% else %}
   {% set board_url = ('/tasks?project=' ~ selected) if selected else '/tasks' %}
   {% if board %}
   <div class="kanban">
     {% for col in board %}
     <div class="kanban-col">
       <h3>
-        <span class="col-title">{% if col.has_bg and col.id %}<img class="proj-thumb" src="/tasks/project/{{ col.id }}/background" alt="" onerror="this.remove()">{% endif %}{{ col.title }}</span>
-        <span class="count">{{ col.tasks|length }}</span>
+        <span class="col-title">{% if col.id %}<a class="proj-thumb-link" href="{{ vikunja_url }}/projects/{{ col.id }}" target="_blank" title="{{ _('Open project in Vikunja') }}">{% if col.has_bg %}<img class="proj-thumb" src="/tasks/project/{{ col.id }}/background" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex'"><span class="proj-thumb placeholder" style="display:none">📋</span>{% else %}<span class="proj-thumb placeholder">📋</span>{% endif %}</a>{% endif %}{{ col.title }}</span>
+        <span class="count">{{ col.count if col.count is defined else col.tasks|length }}</span>
       </h3>
       <div class="kanban-tasks">
-        {% for t in col.tasks %}
-          <div class="task-card {{ 'done' if t.done }}">
-            <form method="post" action="/tasks/{{ t.id }}/toggle" class="task-check">
-              <input type="hidden" name="next" value="{{ board_url }}">
-              <input type="checkbox" onchange="this.form.submit()" {{ 'checked' if t.done }} title="{{ _('Mark done') }}">
-            </form>
-            <a class="task-link" href="/tasks/{{ t.id }}?back={{ board_url | urlencode }}">{{ t.title }}</a>
-          </div>
-        {% else %}
-          <p class="muted small">—</p>
-        {% endfor %}
+        {% for t in col.tasks %}{{ task_row(t, board_url, 0) }}{% else %}<p class="muted small">—</p>{% endfor %}
       </div>
     </div>
     {% endfor %}
   </div>
   {% else %}
   <p class="muted empty">{{ _('No buckets/tasks found.') }}</p>
+  {% endif %}
   {% endif %}
 
   <button class="fab" onclick="window.open('{{ vikunja_url }}', '_blank')" title="{{ _('New task in Vikunja') }}">+</button>

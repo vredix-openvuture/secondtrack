@@ -61,7 +61,9 @@ def list_projects() -> list[dict]:
 
 
 def get_subprojects() -> list[dict]:
-    """Subprojects of the configured parent (e.g. shop, customers, website)."""
+    """The configured parent project *and* its subprojects (shop, customers,
+    website, …). The parent is surfaced first: it is a task list of its own and
+    its tasks would otherwise be invisible in the Tasks view."""
     projects = list_projects()
     parent = _find_parent(projects)
     if not parent:
@@ -69,7 +71,7 @@ def get_subprojects() -> list[dict]:
         return [p for p in projects if not p.get("parent_project_id")]
     pid = parent.get("id")
     subs = [p for p in projects if p.get("parent_project_id") == pid]
-    return subs or [parent]
+    return [parent, *subs]
 
 
 def get_board(project_id: int) -> list[dict]:
@@ -110,6 +112,89 @@ def get_board(project_id: int) -> list[dict]:
     return out
 
 
+def get_kanban(project_id: int) -> list[dict]:
+    """Kanban columns for one project as [{id, title, tasks:[...]}]. Vikunja's
+    kanban buckets are view-specific and embed their tasks, so we use those
+    directly; only if none are embedded do we fall back to grouping the flat
+    task list by bucket_id."""
+    _require()
+    default_bid = done_bid = None
+    with _client() as c:
+        buckets = []
+        try:
+            views = c.get(f"/projects/{int(project_id)}/views").json() or []
+            kanban = next(
+                (v for v in views if str(v.get("view_kind")).lower() in ("kanban", "3")),
+                None,
+            ) or (views[0] if views else None)
+            if kanban:
+                default_bid = kanban.get("default_bucket_id")
+                done_bid = kanban.get("done_bucket_id")
+                r = c.get(f"/projects/{int(project_id)}/views/{kanban['id']}/buckets")
+                if r.status_code == 200:
+                    buckets = r.json() or []
+        except Exception:  # noqa: BLE001
+            buckets = []
+        tasks = c.get(f"/projects/{int(project_id)}/tasks").json() or []
+
+    if not buckets:
+        return [{"id": 0, "title": "Tasks", "tasks": tasks}]
+
+    # Preferred: tasks embedded in the view's buckets (some Vikunja versions).
+    if sum(len(b.get("tasks") or []) for b in buckets):
+        return [
+            {"id": b.get("id"), "title": b.get("title", "—"),
+             "tasks": b.get("tasks") or [], "done": b.get("id") == done_bid}
+            for b in buckets
+        ]
+
+    # Vikunja v2.x: buckets don't embed tasks and task.bucket_id is 0. Respect a
+    # real bucket_id when present; otherwise put done tasks in the view's done
+    # bucket and everything else in its default bucket.
+    ids = {b.get("id") for b in buckets}
+    fallback_bid = default_bid if default_bid in ids else next(iter(ids), None)
+    done_col = done_bid if done_bid in ids else None
+    by_bucket: dict = {b.get("id"): [] for b in buckets}
+    for t in tasks:
+        bid = t.get("bucket_id") or 0
+        if bid not in ids:
+            bid = done_col if (t.get("done") and done_col) else fallback_bid
+        by_bucket.setdefault(bid, []).append(t)
+    return [
+        {"id": b.get("id"), "title": b.get("title", "—"),
+         "tasks": by_bucket.get(b.get("id"), []), "done": b.get("id") == done_bid}
+        for b in buckets
+    ]
+
+
+def move_task_to_bucket(project_id: int, bucket_id: int, task_id: int) -> None:
+    """Move a task into a kanban bucket of the project's kanban view, and keep
+    its done-status in sync with the bucket (the view's done bucket ⇒ done).
+    Because we can't read view-specific bucket assignments back, syncing the
+    done flag is what makes the To-Do ↔ Done placement survive a reload."""
+    _require()
+    with _client() as c:
+        views = c.get(f"/projects/{int(project_id)}/views").json() or []
+        kb = next(
+            (v for v in views if str(v.get("view_kind")).lower() in ("kanban", "3")),
+            None,
+        ) or (views[0] if views else None)
+        if not kb:
+            raise RuntimeError("no kanban view")
+        vid = kb["id"]
+        done_bid = kb.get("done_bucket_id")
+        r = c.post(
+            f"/projects/{int(project_id)}/views/{vid}/buckets/{int(bucket_id)}/tasks",
+            json={"task_id": int(task_id)},
+        )
+        r.raise_for_status()
+        want_done = done_bid is not None and int(bucket_id) == int(done_bid)
+        task = c.get(f"/tasks/{int(task_id)}").json() or {}
+        if bool(task.get("done")) != want_done:
+            task["done"] = want_done
+            c.post(f"/tasks/{int(task_id)}", json=task)
+
+
 def open_task_count() -> int:
     """Total not-done tasks across the surfaced subprojects."""
     _require()
@@ -122,6 +207,28 @@ def open_task_count() -> int:
             except Exception:  # noqa: BLE001
                 continue
     return total
+
+
+def nest_tasks(tasks: list[dict]) -> list[dict]:
+    """Turn a flat task list into a parent→child tree via Vikunja's
+    related_tasks. Each task gains a '_children' list; only roots are returned.
+    Nesting stays within the given set (a subtask whose parent isn't in the set
+    — e.g. a done or cross-project parent — is treated as a root)."""
+    by_id = {t["id"]: t for t in tasks}
+    for t in tasks:
+        t["_children"] = []
+    roots = []
+    for t in tasks:
+        parents = (t.get("related_tasks") or {}).get("parenttask") or []
+        parent = next(
+            (by_id[p["id"]] for p in parents if p.get("id") in by_id and p.get("id") != t["id"]),
+            None,
+        )
+        if parent is not None:
+            parent["_children"].append(t)
+        else:
+            roots.append(t)
+    return roots or tasks  # fall back to flat if a cycle ate every root
 
 
 def open_tasks_by_subproject() -> list[dict]:
@@ -143,7 +250,8 @@ def open_tasks_by_subproject() -> list[dict]:
                     "title": sub.get("title", "—"),
                     "id": sub.get("id"),
                     "has_bg": bool(sub.get("background_blur_hash")),
-                    "tasks": open_tasks,
+                    "count": len(open_tasks),
+                    "tasks": nest_tasks(open_tasks),
                 })
     return out
 
@@ -238,6 +346,56 @@ def toggle_task_done(task_id: int) -> dict:
         r = c.post(f"/tasks/{int(task_id)}", json=task)
         r.raise_for_status()
         return r.json()
+
+
+def update_task(task_id: int, fields: dict) -> dict:
+    """Merge `fields` (title, description, priority, due_date, …) into the task
+    and save it. Vikunja updates a task via POST with the whole object, so we
+    fetch-merge-post to avoid clobbering fields we're not editing."""
+    _require()
+    with _client() as c:
+        task = c.get(f"/tasks/{int(task_id)}").json() or {}
+        task.update(fields)
+        r = c.post(f"/tasks/{int(task_id)}", json=task)
+        r.raise_for_status()
+        return r.json()
+
+
+def list_labels() -> list[dict]:
+    """All labels available to the user (for the tag picker)."""
+    _require()
+    with _client() as c:
+        r = c.get("/labels")
+        r.raise_for_status()
+        return r.json() or []
+
+
+def create_label(title: str, hex_color: str = "") -> dict:
+    """Create a new label and return it (Vikunja creates via PUT /labels)."""
+    _require()
+    body: dict = {"title": title.strip()}
+    if hex_color:
+        body["hex_color"] = hex_color.lstrip("#")
+    with _client() as c:
+        r = c.put("/labels", json=body)
+        r.raise_for_status()
+        return r.json()
+
+
+def add_label(task_id: int, label_id: int) -> None:
+    """Attach an existing label to a task (PUT /tasks/{id}/labels)."""
+    _require()
+    with _client() as c:
+        r = c.put(f"/tasks/{int(task_id)}/labels", json={"label_id": int(label_id)})
+        r.raise_for_status()
+
+
+def remove_label(task_id: int, label_id: int) -> None:
+    """Detach a label from a task (DELETE /tasks/{id}/labels/{label_id})."""
+    _require()
+    with _client() as c:
+        r = c.delete(f"/tasks/{int(task_id)}/labels/{int(label_id)}")
+        r.raise_for_status()
 
 
 def parent_project_id() -> int | None:

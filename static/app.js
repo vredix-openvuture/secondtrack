@@ -1,7 +1,11 @@
 // Modal overlays (FAB → create forms)
 function stOpenModal(id) {
   const m = document.getElementById(id);
-  if (m) { m.classList.add('open'); const f = m.querySelector('input,select,textarea'); if (f) f.focus(); }
+  if (!m) return;
+  if (id === 'newPart') stResetPartModal();  // always open on a clean slate
+  m.classList.add('open');
+  const f = m.querySelector('input,select,textarea');
+  if (f) f.focus();
 }
 function stCloseModal(el) {
   const m = el.closest ? el.closest('.modal-backdrop') : document.getElementById(el);
@@ -92,6 +96,12 @@ function stToggleNewClient(sel) {
   if (box) box.style.display = sel.value ? 'none' : '';
 }
 
+// Email settings: hide the SMTP/template block when sending via InvoiceNinja
+function stEmailProvider(sel) {
+  const box = document.getElementById('smtpBlock');
+  if (box) box.style.display = sel.value === 'invoiceninja' ? 'none' : '';
+}
+
 // Wallpaper slider live output
 function stRange(input) {
   const out = document.getElementById(input.dataset.output);
@@ -108,8 +118,10 @@ function stToggleSidebar() {
 }
 
 // ---- Warehouse set/lot modal ----
-function stSubprodHtml() {
+function stSubprodHtml(opts) {
+  opts = opts || {};
   var sug = window.ST_EBAY ? '<button type="button" class="btn small" onclick="stSuggestPrice(this)" title="Suggest price from eBay">🔍</button>' : '';
+  var rec = opts.receipt ? '<label class="file-field small">Own receipt (optional)<input type="file" name="part_receipt" accept="application/pdf,image/*"></label>' : '';
   return '<div class="subprod">' +
     '<label class="img-square" title="Choose image">' +
       '<input type="file" name="part_image" accept="image/*" onchange="stImgSquare(this)">' +
@@ -118,14 +130,32 @@ function stSubprodHtml() {
       '<input name="part_name" placeholder="Product name">' +
       '<div class="row-form"><input name="part_sale" placeholder="Sale value" inputmode="decimal">' + sug + '</div>' +
       '<input name="part_purchase" placeholder="Purchase price (optional)" inputmode="decimal">' +
-      '<input name="part_note" placeholder="Note (optional)">' +
+      '<input name="part_note" placeholder="Note (optional)">' + rec +
     '</div>' +
     '<button type="button" class="act-btn danger" onclick="stRemoveSubprod(this)" title="Remove">✕</button>' +
   '</div>';
 }
-function stAddSubprod(id) {
+function stAddSubprod(id, opts) {
   var c = document.getElementById(id || 'setParts');
-  if (c) c.insertAdjacentHTML('beforeend', stSubprodHtml());
+  if (!c) return;
+  c.insertAdjacentHTML('beforeend', stSubprodHtml(opts));
+  var card = c.lastElementChild;
+  if (card) stWrapPricesIn(card);
+}
+function stResetPartModal() {
+  var m = document.getElementById('newPart');
+  if (!m) return;
+  var f = m.querySelector('form');
+  if (f) f.reset();
+  var sp = document.getElementById('setParts'); if (sp) sp.innerHTML = '';
+  var panel = document.getElementById('setPanel'); if (panel) panel.setAttribute('hidden', '');
+  // undo the free-toggle side effects (form.reset unchecks it without firing onchange)
+  var pp = document.getElementById('wpPurchase'); if (pp) pp.disabled = false;
+  var rw = document.getElementById('wpReceiptWrap'); if (rw) rw.style.display = '';
+  var rc = document.getElementById('wpReceipt'); if (rc) rc.required = true;
+  // clear the image preview back to its placeholder
+  m.querySelectorAll('img.is-preview').forEach(function (i) { i.remove(); });
+  m.querySelectorAll('.img-square .is-ph').forEach(function (p) { p.style.display = ''; });
 }
 function stRemoveSubprod(btn) {
   var list = btn.closest('.subprod-list');
@@ -135,11 +165,10 @@ function stRemoveSubprod(btn) {
   var img = card.querySelector('img.is-preview'); if (img) img.remove();
   var ph = card.querySelector('.is-ph'); if (ph) ph.style.display = '';
 }
-function stToggleSet(btn) {
+function stAddPart() {
   var p = document.getElementById('setPanel');
-  if (!p) return;
-  if (p.hasAttribute('hidden')) { p.removeAttribute('hidden'); btn.classList.add('on'); }
-  else { p.setAttribute('hidden', ''); btn.classList.remove('on'); }
+  if (p) p.removeAttribute('hidden');
+  stAddSubprod('setParts', { receipt: true });
 }
 async function stSuggestPrice(btn) {
   var box = btn.closest('.subprod, tr');
@@ -202,6 +231,141 @@ function stToggleFree(cb) {
     if (pp) pp.disabled = false;
   }
 }
+// ---- Price fields: digits only, currency suffix, 2-decimal normalise ----
+function stIsMoney(inp) { return /price|amount|rate|sale|purchase|total/i.test(inp.name || ''); }
+function stWrapPrice(inp) {
+  if (!inp || inp.dataset.priced) return;
+  inp.dataset.priced = '1';
+  inp.classList.add('price-input');
+  var cur = window.ST_CURRENCY || '';
+  if (!cur || (inp.parentNode && inp.parentNode.classList.contains('price-field'))) return;
+  var span = document.createElement('span');
+  span.className = 'price-field';
+  span.setAttribute('data-cur', cur);
+  inp.parentNode.insertBefore(span, inp);
+  span.appendChild(inp);
+}
+function stWrapPricesIn(root) {
+  root.querySelectorAll('input[inputmode="decimal"]').forEach(function (inp) {
+    if (stIsMoney(inp)) stWrapPrice(inp);
+  });
+}
+function stPriceClean(el) {
+  // keep digits and a single decimal separator (either , or .)
+  var v = el.value.replace(/[^0-9.,]/g, '');
+  var i = v.search(/[.,]/);
+  if (i !== -1) v = v.slice(0, i + 1) + v.slice(i + 1).replace(/[.,]/g, '');
+  if (v !== el.value) el.value = v;
+}
+function stPriceNorm(el) {
+  var v = el.value.trim();
+  if (!v) return;                       // leave empty fields empty
+  var n = parseFloat(v.replace(',', '.'));
+  if (isNaN(n)) { el.value = ''; return; }
+  el.value = n.toFixed(2).replace('.', ',');   // 12 → "12,00", 12.5 → "12,50"
+}
+document.addEventListener('input', function (e) {
+  if (e.target.matches && e.target.matches('input[inputmode="decimal"]')) stPriceClean(e.target);
+});
+document.addEventListener('blur', function (e) {   // capture: blur doesn't bubble
+  if (e.target.matches && e.target.matches('input[inputmode="decimal"]')) stPriceNorm(e.target);
+}, true);
+
+// Warehouse create: live per-unit prices from lot totals ÷ quantity
+function stUnitPrices() {
+  var out = document.getElementById('wpUnit');
+  if (!out) return;
+  var num = function (id) {
+    var el = document.getElementById(id);
+    return el ? (parseFloat((el.value || '').replace(',', '.')) || 0) : 0;
+  };
+  var q = num('wpQty') || 1, pp = num('wpPurchase'), sp = num('wpSale');
+  var cur = window.ST_CURRENCY || '€';
+  var f = function (v) { return v.toFixed(2).replace('.', ',') + ' ' + cur; };
+  var parts = [];
+  if (pp > 0) parts.push('Einkauf/Stück: ' + f(pp / q));
+  if (sp > 0) parts.push('VK/Stück: ' + f(sp / q));
+  out.textContent = (q > 1 && parts.length) ? parts.join('  ·  ') : '';
+}
+
+// Kanban: show/hide done tasks (persisted), and keep column counts in sync
+function stKanbanCounts() {
+  var board = document.querySelector('.kanban-board');
+  if (!board) return;
+  var hide = board.classList.contains('hide-done');
+  board.querySelectorAll('.kanban-col').forEach(function (col) {
+    var n = 0;
+    col.querySelectorAll('.task-card').forEach(function (c) {
+      if (!(hide && c.classList.contains('done'))) n++;
+    });
+    var badge = col.querySelector('h3 .count');
+    if (badge) badge.textContent = n;
+  });
+}
+function stToggleDone(btn) {
+  var board = document.querySelector('.kanban-board');
+  if (!board) return;
+  var hide = board.classList.toggle('hide-done');
+  btn.textContent = hide ? btn.dataset.show : btn.dataset.hide;
+  btn.classList.toggle('on', hide);
+  try { localStorage.setItem('st-kanban-done', hide ? 'hide' : 'show'); } catch (e) {}
+  stKanbanCounts();
+}
+function stInitKanbanDone() {
+  var board = document.querySelector('.kanban-board');
+  if (!board) return;
+  var pref = 'show';
+  try { pref = localStorage.getItem('st-kanban-done') || 'show'; } catch (e) {}
+  var hide = pref === 'hide';
+  board.classList.toggle('hide-done', hide);
+  var btn = document.getElementById('doneToggle');
+  if (btn) { btn.textContent = hide ? btn.dataset.show : btn.dataset.hide; btn.classList.toggle('on', hide); }
+  stKanbanCounts();
+}
+// Kanban drag & drop: move cards between buckets and persist to Vikunja
+var stDragCard = null;
+document.addEventListener('dragstart', function (e) {
+  var card = e.target.closest ? e.target.closest('.kanban-board .task-card[draggable="true"]') : null;
+  if (!card) return;
+  stDragCard = card;
+  card.classList.add('dragging');
+  try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', card.dataset.taskId || ''); } catch (x) {}
+});
+document.addEventListener('dragend', function () {
+  if (stDragCard) stDragCard.classList.remove('dragging');
+  document.querySelectorAll('.kanban-col.drop-hover').forEach(function (c) { c.classList.remove('drop-hover'); });
+  stDragCard = null;
+});
+document.addEventListener('dragover', function (e) {
+  var col = e.target.closest ? e.target.closest('.kanban-board .kanban-col') : null;
+  if (col && stDragCard) { e.preventDefault(); try { e.dataTransfer.dropEffect = 'move'; } catch (x) {} col.classList.add('drop-hover'); }
+});
+document.addEventListener('dragleave', function (e) {
+  var col = e.target.closest ? e.target.closest('.kanban-board .kanban-col') : null;
+  if (col && !col.contains(e.relatedTarget)) col.classList.remove('drop-hover');
+});
+document.addEventListener('drop', function (e) {
+  var col = e.target.closest ? e.target.closest('.kanban-board .kanban-col') : null;
+  if (!col || !stDragCard) return;
+  e.preventDefault();
+  col.classList.remove('drop-hover');
+  var card = stDragCard; stDragCard = null;
+  var board = col.closest('.kanban-board');
+  var list = col.querySelector('.kanban-tasks');
+  var tid = card.dataset.taskId, bid = col.dataset.bucketId, pid = board ? board.dataset.projectId : '';
+  card.classList.remove('dragging');
+  if (!tid || !bid || !list || card.parentNode === list) return;
+  var ph = list.querySelector('p.muted'); if (ph) ph.remove();
+  list.appendChild(card);
+  card.classList.toggle('done', col.dataset.done === '1');
+  stKanbanCounts();
+  fetch('/tasks/' + encodeURIComponent(tid) + '/bucket', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'project_id=' + encodeURIComponent(pid) + '&bucket_id=' + encodeURIComponent(bid)
+  }).catch(function () {});
+});
+
 function stInitSidebar() {
   let s = (window.ST_SIDEBAR_DEFAULT === 'open') ? 'open' : 'closed';
   try { s = localStorage.getItem('st-sidebar') || s; } catch (e) {}
@@ -281,4 +445,8 @@ stInitSidebar();
   const vt = document.querySelector('[data-view-scope]');
   if (vt) stInitView(vt.getAttribute('data-view-scope'), vt.getAttribute('data-view-default') || 'list');
   if (document.getElementById('widgetSort')) stSortableInit('widgetSort', 'widgetOrder');
+  stWrapPricesIn(document);   // currency suffix + price behaviour on all money fields
+  var ep = document.querySelector('select[name="email_provider"]');
+  if (ep) stEmailProvider(ep);   // collapse SMTP block if IN is the sender
+  stInitKanbanDone();
 })();

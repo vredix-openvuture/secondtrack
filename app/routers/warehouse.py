@@ -26,9 +26,14 @@ def _parse_float(value: str | None) -> float | None:
         return None
 
 
-def _set_members(part_name, part_sale, part_purchase, part_note, part_image) -> list[dict]:
+def _set_members(
+    part_name, part_sale, part_purchase, part_note, part_image, part_receipt=None
+) -> list[dict]:
     """Parse the set-part sub-forms into member dicts (full products: name,
-    sale value, own purchase price, note, image), one per non-empty name."""
+    sale value, own purchase price, note, image, optional own receipt), one per
+    non-empty name. A part with its own receipt was bought separately and gets
+    its own expense; the rest share the set-level receipt."""
+    part_receipt = part_receipt or []
     members = []
     for i, nm in enumerate(part_name):
         if not nm.strip():
@@ -36,12 +41,16 @@ def _set_members(part_name, part_sale, part_purchase, part_note, part_image) -> 
         img = None
         if i < len(part_image) and part_image[i] is not None and part_image[i].filename:
             img, _ = save_image_or_error(part_image[i], "part")
+        rcpt = None
+        if i < len(part_receipt) and part_receipt[i] is not None and part_receipt[i].filename:
+            rcpt = save_receipt(part_receipt[i], "receipt")
         members.append({
             "name": nm.strip(),
             "sale": _parse_float(part_sale[i]) if i < len(part_sale) else None,
             "purchase": _parse_float(part_purchase[i]) if i < len(part_purchase) else None,
             "note": (part_note[i].strip() if i < len(part_note) else "") or None,
             "image_path": img,
+            "receipt_path": rcpt,
         })
     return members
 
@@ -77,17 +86,34 @@ def _make_set(db, *, name, total, sale_price, image_path, rpath, members, src_ex
             m["_cost"] = rem_alloc[ai] if ai < len(rem_alloc) else 0.0
             ai += 1
 
-    exp_id = src_expense_id
-    if rpath:
+    # A part bought separately (its own receipt) gets its own expense; the rest
+    # are the "lot" documented by the set-level receipt. Splitting the expense
+    # this way keeps the books exact — no double counting.
+    for m in members:
+        if m.get("receipt_path"):
+            e = exp_service.create(
+                db, amount=m["_cost"], expense_date=date.today(), vendor="",
+                description=f"Set part: {m['name']}", category="Parts",
+                project_id=None, receipt_path=m["receipt_path"], bucket="warehouse",
+            )
+            m["_exp_id"] = e.id
+        else:
+            m["_exp_id"] = None
+
+    lot_total = round(
+        sum(m["_cost"] for m in members if not m.get("receipt_path")), 2
+    )
+    set_exp_id = src_expense_id
+    if rpath and lot_total > 0:
         exp = exp_service.create(
-            db, amount=set_total, expense_date=date.today(), vendor="",
+            db, amount=lot_total, expense_date=date.today(), vendor="",
             description=f"Set: {name}", category="Parts",
             project_id=None, receipt_path=rpath, bucket="warehouse",
         )
-        exp_id = exp.id
+        set_exp_id = exp.id
     ps = PartSet(
         name=name, purchase_price=set_total, sale_price=sale_price,
-        image_path=image_path, expense_id=exp_id,
+        image_path=image_path, expense_id=set_exp_id,
     )
     db.add(ps)
     db.flush()
@@ -97,7 +123,7 @@ def _make_set(db, *, name, total, sale_price, image_path, rpath, members, src_ex
             set_id=ps.id, image_path=m["image_path"],
             origin=PartOrigin.purchased if m["_cost"] else PartOrigin.harvested,
             purchase_price=m["_cost"] or None, sale_price=m["sale"] or 0.0,
-            source_expense_id=exp_id,
+            source_expense_id=m["_exp_id"] or set_exp_id,
         ))
     db.commit()
     return ps
@@ -122,9 +148,9 @@ async def warehouse_list(
         .order_by(Project.name)
         .all()
     )
-    stock_value = sum((p.sale_price or 0.0) for p in parts)
+    stock_value = sum((p.sale_price or 0.0) * (p.quantity or 1) for p in parts)
     stock_cost = sum(
-        (p.purchase_price or 0.0)
+        (p.purchase_price or 0.0) * (p.quantity or 1)
         for p in parts
         if p.origin == PartOrigin.purchased
     )
@@ -171,11 +197,13 @@ async def create_part(
     sale_price: str = Form(""),
     notes: str = Form(""),
     free: str = Form(""),
+    quantity: str = Form("1"),
     part_name: list[str] = Form(default=[]),
     part_sale: list[str] = Form(default=[]),
     part_purchase: list[str] = Form(default=[]),
     part_note: list[str] = Form(default=[]),
     part_image: list[UploadFile] = File(default=[]),
+    part_receipt: list[UploadFile] = File(default=[]),
     image: UploadFile | None = File(None),
     receipt: UploadFile | None = File(None),
     db: Session = Depends(get_db),
@@ -183,23 +211,24 @@ async def create_part(
 ):
     """Create one warehouse part — or, if set-parts are supplied, a set: the top
     fields become the set (name + total price + optional own sale price +
-    receipt) and the total is split across the set-parts (each a full product)."""
-    members = _set_members(part_name, part_sale, part_purchase, part_note, part_image)
+    receipt) and the total is split across the set-parts (each a full product).
+    A set-part may carry its own receipt (bought separately)."""
+    members = _set_members(
+        part_name, part_sale, part_purchase, part_note, part_image, part_receipt
+    )
     is_free = free.strip().lower() in ("1", "on", "true", "yes")
     img_url, img_err = save_image_or_error(image, "part")
 
-    # A paid purchase must be documented with a receipt; only "free/gift" is exempt.
-    rpath = None
-    if not is_free:
-        rpath = save_receipt(receipt, "receipt")
-        if not rpath:
-            return RedirectResponse(
-                "/warehouse?msg=Beleg erforderlich (oder als 'gratis' markieren)",
-                status_code=303,
-            )
-
     if members:
         total = _parse_float(purchase_price) or 0.0
+        # A set is documented if it's free, has a set-level receipt, or every
+        # part brought its own receipt (assembled from separate purchases).
+        rpath = None if is_free else save_receipt(receipt, "receipt")
+        if not is_free and not rpath and not all(m["receipt_path"] for m in members):
+            return RedirectResponse(
+                "/warehouse?msg=Beleg erforderlich: ein Set-Beleg oder ein Beleg je Teil (oder 'gratis')",
+                status_code=303,
+            )
         _make_set(
             db, name=name.strip(), total=total,
             sale_price=_parse_float(sale_price), image_path=img_url,
@@ -210,21 +239,36 @@ async def create_part(
             status_code=303,
         )
 
-    pp = None if is_free else _parse_float(purchase_price)
+    # A single paid part must be documented with a receipt; only "free" is exempt.
+    rpath = None
+    if not is_free:
+        rpath = save_receipt(receipt, "receipt")
+        if not rpath:
+            return RedirectResponse(
+                "/warehouse?msg=Beleg erforderlich (oder als 'gratis' markieren)",
+                status_code=303,
+            )
+
+    qty = max(1, int(_parse_float(quantity) or 1))
+    # The form fields are the lot totals; prices are stored per unit so the
+    # stock math (per-unit × quantity) reproduces the total.
+    pp_total = None if is_free else _parse_float(purchase_price)
+    sale_total = _parse_float(sale_price) or 0.0
     part = Part(
         name=name.strip(),
         notes=notes.strip() or None,
         project_id=None,
-        origin=PartOrigin.purchased if pp else PartOrigin.harvested,
-        purchase_price=pp,
-        sale_price=_parse_float(sale_price) or 0.0,
+        origin=PartOrigin.purchased if pp_total else PartOrigin.harvested,
+        purchase_price=(pp_total / qty) if pp_total else None,
+        sale_price=sale_total / qty,
         image_path=img_url,
+        quantity=qty,
     )
     db.add(part)
     db.commit()
     if rpath:
         exp = exp_service.create(
-            db, amount=pp or 0.0, expense_date=date.today(), vendor="",
+            db, amount=pp_total or 0.0, expense_date=date.today(), vendor="",
             description=f"Part: {part.name}", category="Parts",
             project_id=None, receipt_path=rpath, bucket="warehouse",
         )
@@ -266,7 +310,7 @@ async def split_part(
     db.delete(part)
     db.commit()
     return RedirectResponse(
-        f"/warehouse?msg=In Set mit {len(pairs)} Teilen aufgeteilt", status_code=303
+        f"/warehouse?msg=In Set mit {len(members)} Teilen aufgeteilt", status_code=303
     )
 
 
@@ -277,6 +321,7 @@ async def update_part(
     purchase_price: str = Form(""),
     sale_price: str = Form(""),
     notes: str = Form(""),
+    quantity: str = Form("1"),
     image: UploadFile | None = File(None),
     db: Session = Depends(get_db),
     user=Depends(require_login),
@@ -292,6 +337,7 @@ async def update_part(
         part.notes = notes.strip() or None
         part.purchase_price = _parse_float(purchase_price)
         part.sale_price = _parse_float(sale_price) or 0.0
+        part.quantity = max(1, int(_parse_float(quantity) or 1))
         part.origin = (
             PartOrigin.purchased if part.purchase_price else PartOrigin.harvested
         )

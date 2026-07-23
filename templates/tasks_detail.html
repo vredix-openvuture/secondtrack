@@ -8,56 +8,91 @@
 {% elif error or not task %}
   <div class="card"><p class="error">{{ _('Could not load task:') }} {{ error or _('not found') }}</p></div>
 {% else %}
-{% set prio = {1: _('Low'), 2: _('Medium'), 3: _('High'), 4: _('Urgent'), 5: _('DO NOW')} %}
+{% set nexturl = '/tasks/' ~ task.id ~ '?back=' ~ ((back or '/tasks') | urlencode) %}
+{% set taskids = (task.labels or []) | map(attribute='id') | list %}
+{% set prio = [(0, _('None')), (1, _('Low')), (2, _('Medium')), (3, _('High')), (4, _('Urgent')), (5, _('DO NOW'))] %}
 
-<section class="card">
-  <div class="ph-top">
-    <h1 style="margin:0">{{ task.title }}</h1>
-    <span class="badge {{ 'sold' if task.done else 'in_production' }}">{{ _('Done') if task.done else _('Open') }}</span>
+<section class="card task-detail">
+  <div class="td-head">
+    <div class="ph-top">
+      <form method="post" action="/tasks/{{ task.id }}/toggle" class="td-check" title="{{ _('Mark as open') if task.done else _('Mark as done') }}">
+        <input type="hidden" name="next" value="{{ nexturl }}">
+        <input type="checkbox" onchange="this.form.submit()" {{ 'checked' if task.done }}>
+      </form>
+      <h1 style="margin:0" class="{{ 'task-done-title' if task.done }}">{{ task.title }}</h1>
+      <span class="badge {{ 'sold' if task.done else 'in_production' }}">{{ _('Done') if task.done else _('Open') }}</span>
+    </div>
+    <div class="td-actions">
+      {% if vikunja_url %}<a class="btn" href="{{ vikunja_url }}/tasks/{{ task.id }}" target="_blank">{{ _('Open in Vikunja ↗') }}</a>{% endif %}
+    </div>
   </div>
 
-  <div class="row-form" style="margin:.7rem 0 0">
-    <form method="post" action="/tasks/{{ task.id }}/toggle">
-      <input type="hidden" name="next" value="/tasks/{{ task.id }}?back={{ (back or '/tasks') | urlencode }}">
-      <button class="primary" type="submit">{{ _('Mark as open') if task.done else _('Mark as done') }}</button>
+  <form method="post" action="/tasks/{{ task.id }}/update" class="task-edit" onsubmit="document.getElementById('taskDescInput').value=document.getElementById('taskDesc').innerHTML">
+    <input type="hidden" name="back" value="{{ back or '/tasks' }}">
+    <label class="fld">{{ _('Title') }}
+      <input name="title" value="{{ task.title }}" required>
+    </label>
+    <div class="fld-row">
+      <label class="fld">{{ _('Priority') }}
+        <select name="priority">
+          {% for v, lbl in prio %}<option value="{{ v }}" {{ 'selected' if (task.priority or 0) == v }}>{{ lbl }}</option>{% endfor %}
+        </select>
+      </label>
+      <label class="fld">{{ _('Due date') }}
+        <input type="date" name="due_date" value="{{ task.due_date[:10] if task.due_date and task.due_date[:4] != '0001' else '' }}">
+      </label>
+    </div>
+    <div class="fld">
+      <label>{{ _('Description') }}</label>
+      <div class="rich-editor md-content" contenteditable="true" id="taskDesc" data-ph="{{ _('Description…') }}">{{ task.description | safe }}</div>
+    </div>
+    <input type="hidden" name="description" id="taskDescInput">
+    <div><button class="primary" type="submit">{{ _('Save changes') }}</button></div>
+  </form>
+
+  <div class="td-labels">
+    <h3>{{ _('Labels') }}</h3>
+    <div class="label-chips">
+      {% for l in (task.labels or []) %}{% set hc = l.hex_color or '888888' %}
+      <span class="tag-chip" style="background:#{{ hc }}2e;border:1px solid #{{ hc }}66">
+        <span class="tc-dot" style="background:#{{ hc }}"></span>{{ l.title }}
+        <form method="post" action="/tasks/{{ task.id }}/labels/{{ l.id }}/remove">
+          <input type="hidden" name="back" value="{{ back or '/tasks' }}">
+          <button type="submit" title="{{ _('Remove') }}">×</button>
+        </form>
+      </span>
+      {% else %}<span class="muted small">{{ _('No labels yet.') }}</span>{% endfor %}
+    </div>
+    <form method="post" action="/tasks/{{ task.id }}/labels/add" class="label-add">
+      <input type="hidden" name="back" value="{{ back or '/tasks' }}">
+      <input name="label" list="labelOptions" autocomplete="off" placeholder="{{ _('Choose a label or type a new one…') }}">
+      <datalist id="labelOptions">
+        {% for l in labels if l.id not in taskids %}<option value="{{ l.title }}"></option>{% endfor %}
+      </datalist>
+      <button type="submit" class="btn ghost">+ {{ _('Add') }}</button>
     </form>
-    {% if vikunja_url %}<a class="btn" href="{{ vikunja_url }}/tasks/{{ task.id }}" target="_blank">{{ _('Open in Vikunja ↗') }}</a>{% endif %}
   </div>
 
-  {% if task.description and task.description|trim and task.description|trim not in ['<p></p>', '<p></p>\n'] %}
-  <h3>{{ _('Description') }}</h3>
-  <div class="md-content">{{ task.description | safe }}</div>
-  {% endif %}
-
-  <div class="statement" style="margin-top:1rem">
-    {% if task.due_date and task.due_date[:4] != '0001' %}
-      <div class="line"><span>{{ _('Due date') }}</span><span>{{ task.due_date[:10] }}</span></div>
-    {% endif %}
-    {% if task.priority %}
-      <div class="line"><span>{{ _('Priority') }}</span><span>{{ prio.get(task.priority, task.priority) }}</span></div>
-    {% endif %}
-    {% if task.percent_done %}
-      <div class="line"><span>{{ _('Progress') }}</span><span>{{ (task.percent_done * 100) | round | int }}%</span></div>
-    {% endif %}
-    {% if task.done_at and task.done_at[:4] != '0001' %}
-      <div class="line"><span>{{ _('Done at') }}</span><span>{{ task.done_at[:10] }}</span></div>
-    {% endif %}
-    {% if task.created %}<div class="line"><span>{{ _('Created') }}</span><span>{{ task.created[:10] }}</span></div>{% endif %}
-    {% if task.updated %}<div class="line"><span>{{ _('Updated') }}</span><span>{{ task.updated[:10] }}</span></div>{% endif %}
-    {% if task.identifier %}<div class="line"><span>{{ _('Identifier') }}</span><span>{{ task.identifier }}</span></div>{% endif %}
+  <div class="td-assign">
+    <h3>{{ _('SecondTrack project') }}</h3>
+    <form method="post" action="/tasks/{{ task.id }}/assign" class="assign-row">
+      <input type="hidden" name="back" value="{{ back or '/tasks' }}">
+      <select name="project_id" onchange="this.form.submit()">
+        <option value="">{{ _('— not assigned —') }}</option>
+        {% for p in projects %}<option value="{{ p.id }}" {{ 'selected' if linked_project and linked_project.id == p.id }}>{% if p.number %}{{ p.number }} · {% endif %}{{ p.title or p.name }}</option>{% endfor %}
+      </select>
+      {% if linked_project %}<a class="btn ghost" href="/projects/{{ linked_project.id }}">{{ _('Open project ↗') }}</a>{% endif %}
+    </form>
   </div>
 
-  {% if task.labels %}
-  <h3>{{ _('Labels') }}</h3>
-  <div class="row-form">
-    {% for l in task.labels %}{% set hc = l.hex_color or '888888' %}<span class="badge" style="background:#{{ hc }}2e;color:#{{ hc }};border:1px solid #{{ hc }}55">{{ l.title }}</span>{% endfor %}
+  <div class="meta-grid">
+    {% if task.percent_done %}<div class="m"><div class="k">{{ _('Progress') }}</div><div class="v">{{ (task.percent_done * 100) | round | int }}%</div></div>{% endif %}
+    {% if task.assignees %}<div class="m"><div class="k">{{ _('Assignees') }}</div><div class="v">{% for a in task.assignees %}{{ a.name or a.username }}{% if not loop.last %}, {% endif %}{% endfor %}</div></div>{% endif %}
+    {% if task.done_at and task.done_at[:4] != '0001' %}<div class="m"><div class="k">{{ _('Done at') }}</div><div class="v">{{ task.done_at[:10] }}</div></div>{% endif %}
+    {% if task.created %}<div class="m"><div class="k">{{ _('Created') }}</div><div class="v">{{ task.created[:10] }}</div></div>{% endif %}
+    {% if task.updated %}<div class="m"><div class="k">{{ _('Updated') }}</div><div class="v">{{ task.updated[:10] }}</div></div>{% endif %}
+    {% if task.identifier %}<div class="m"><div class="k">{{ _('Identifier') }}</div><div class="v">{{ task.identifier }}</div></div>{% endif %}
   </div>
-  {% endif %}
-
-  {% if task.assignees %}
-  <h3>{{ _('Assignees') }}</h3>
-  <p>{% for a in task.assignees %}{{ a.name or a.username }}{% if not loop.last %}, {% endif %}{% endfor %}</p>
-  {% endif %}
 </section>
 {% endif %}
 {% endblock %}

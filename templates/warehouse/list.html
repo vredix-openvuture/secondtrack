@@ -53,12 +53,13 @@
       <td class="thumb-cell"><div class="row-thumb {{ 'placeholder' if not p.image_path }}"{% if p.image_path %} style="background-image:url('{{ p.image_path }}')"{% endif %}></div></td>
       <td>
         <details class="inline-edit">
-          <summary><strong>{{ p.name }}</strong>{% if p.part_set %} <span class="muted small">· {{ _('Set') }}: {{ p.part_set.name }}</span>{% elif p.notes %} <span class="muted small">· {{ p.notes }}</span>{% endif %}</summary>
+          <summary><strong>{{ p.name }}</strong>{% if p.quantity and p.quantity > 1 %} <span class="badge qty" title="{{ _('In stock') }}">× {{ p.quantity }}</span>{% endif %}{% if p.part_set %} <span class="muted small">· {{ _('Set') }}: {{ p.part_set.name }}</span>{% elif p.notes %} <span class="muted small">· {{ p.notes }}</span>{% endif %}</summary>
           <form method="post" action="/warehouse/{{ p.id }}/update" enctype="multipart/form-data" class="stack mt">
             <input name="name" value="{{ p.name }}" required>
             <div class="row-form">
               <input name="purchase_price" value="{{ p.purchase_price if p.purchase_price is not none else '' }}" placeholder="{{ _('Purchase') }}" inputmode="decimal">
               <input name="sale_price" value="{{ p.sale_price }}" placeholder="{{ _('Sale') }}" inputmode="decimal">
+              <input name="quantity" value="{{ p.quantity or 1 }}" placeholder="{{ _('Qty') }}" inputmode="numeric" style="max-width:100px">
             </div>
             <input name="notes" value="{{ p.notes or '' }}" placeholder="{{ _('Note (optional)') }}">
             <label class="file-field">{{ _('Change image') }}<input type="file" name="image" accept="image/*" onchange="stPreview(this)"></label>
@@ -117,10 +118,10 @@
 {% endif %}
 </section>
 
-<button class="fab" onclick="stOpenModal('newPart')" title="{{ _('Add part') }}">+</button>
+<button class="fab" onclick="stOpenModal('newPart')" title="{{ _('Add product') }}">+</button>
 <div class="modal-backdrop" id="newPart">
   <div class="modal modal-wide">
-    <div class="modal-head"><h2>{{ _('Create part') }}</h2><button class="modal-close" onclick="stCloseModal(this)">×</button></div>
+    <div class="modal-head"><h2>{{ _('Create product') }}</h2><button class="modal-close" onclick="stCloseModal(this)">×</button></div>
     <form method="post" action="/warehouse" enctype="multipart/form-data">
       <div class="pf-top">
         <label class="img-square" title="{{ _('Choose image') }}">
@@ -129,39 +130,28 @@
         </label>
         <div class="pf-fields">
           <input name="name" placeholder="z.B. GTX 1060 6GB" required autofocus>
-          <input name="sale_price" placeholder="{{ _('Sale price') }}" inputmode="decimal">
-          <input name="purchase_price" id="wpPurchase" placeholder="{{ _('Purchase price') }}" inputmode="decimal">
+          <input name="sale_price" id="wpSale" placeholder="{{ _('Sale price (total)') }}" inputmode="decimal" oninput="stUnitPrices()">
+          <div class="pf-row">
+            <input name="purchase_price" id="wpPurchase" placeholder="{{ _('Purchase price (total)') }}" inputmode="decimal" oninput="stUnitPrices()">
+            <input name="quantity" id="wpQty" placeholder="{{ _('Quantity') }}" inputmode="numeric" value="1" style="max-width:120px" oninput="stUnitPrices()">
+            <label class="chk-pill" title="{{ _('Free / gift — no receipt needed') }}">
+              <input type="checkbox" name="free" id="wpFree" onchange="stToggleFree(this)">
+              <span class="dot"></span>{{ _('Free / gift') }}
+            </label>
+          </div>
+          <div class="muted small" id="wpUnit"></div>
         </div>
       </div>
       <input name="notes" placeholder="{{ _('Note (optional)') }}" style="margin-top:.7rem">
-      <label class="chk" style="margin-top:.85rem"><input type="checkbox" name="free" id="wpFree" onchange="stToggleFree(this)"> {{ _('Free / gift — no receipt needed') }}</label>
       <label class="file-field" id="wpReceiptWrap" style="margin-top:.6rem">{{ _('Purchase receipt (required)') }}<input type="file" name="receipt" id="wpReceipt" accept="application/pdf,image/*" required></label>
 
       <div id="setPanel" hidden style="margin-top:.85rem">
         <p class="muted small">{{ _('The fields above become the set (name, total price, receipt). The total is split across these products by their sale value.') }}</p>
-        <div class="subprod-list" id="setParts">
-          <div class="subprod">
-            <label class="img-square" title="{{ _('Choose image') }}">
-              <input type="file" name="part_image" accept="image/*" onchange="stImgSquare(this)">
-              <span class="is-ph">🖼️</span>
-            </label>
-            <div class="pf-fields">
-              <input name="part_name" placeholder="{{ _('Product name') }}">
-              <div class="row-form">
-                <input name="part_sale" placeholder="{{ _('Sale value') }}" inputmode="decimal">
-                {% if ebay_enabled %}<button type="button" class="btn small" onclick="stSuggestPrice(this)" title="{{ _('Suggest price from eBay') }}">🔍</button>{% endif %}
-              </div>
-              <input name="part_purchase" placeholder="{{ _('Purchase price (optional)') }}" inputmode="decimal">
-              <input name="part_note" placeholder="{{ _('Note (optional)') }}">
-            </div>
-            <button type="button" class="act-btn danger" onclick="stRemoveSubprod(this)" title="{{ _('Remove') }}">✕</button>
-          </div>
-        </div>
-        <button type="button" class="btn small" onclick="stAddSubprod('setParts')" style="margin-top:.6rem">+ {{ _('Product') }}</button>
+        <div class="subprod-list" id="setParts"></div>
       </div>
 
       <div class="pf-actions" style="margin-top:.95rem">
-        <button type="button" class="btn set-toggle" onclick="stToggleSet(this)">⧉ {{ _('Set parts') }}</button>
+        <button type="button" class="btn set-toggle" onclick="stAddPart()">⧉ {{ _('Add product') }}</button>
         <button type="submit" class="primary">{{ _('Create') }}</button>
       </div>
     </form>
@@ -186,12 +176,13 @@
               <input name="part_sale" placeholder="{{ _('Sale value') }}" inputmode="decimal">
               {% if ebay_enabled %}<button type="button" class="btn small" onclick="stSuggestPrice(this)" title="{{ _('Suggest price from eBay') }}">🔍</button>{% endif %}
             </div>
+            <input name="part_purchase" placeholder="{{ _('Purchase price (optional)') }}" inputmode="decimal">
             <input name="part_note" placeholder="{{ _('Note (optional)') }}">
           </div>
           <button type="button" class="act-btn danger" onclick="stRemoveSubprod(this)" title="{{ _('Remove') }}">✕</button>
         </div>
       </div>
-      <button type="button" class="btn small" onclick="stAddSubprod('splitParts')" style="margin-top:.6rem">+ {{ _('Product') }}</button>
+      <button type="button" class="btn small" onclick="stAddSubprod('splitParts')" style="margin-top:.6rem">+ {{ _('Add part') }}</button>
       <div style="margin-top:.9rem"><button type="submit" class="primary">{{ _('Split') }}</button></div>
     </form>
   </div>

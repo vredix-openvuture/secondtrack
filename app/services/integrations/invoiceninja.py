@@ -66,7 +66,9 @@ def _require() -> None:
 
 # ---- Reads ----
 
-def list_invoices(limit: int = 100, include_archived: bool = False) -> list[dict]:
+def list_invoices(
+    limit: int = 100, include_archived: bool = False, include_deleted: bool = False
+) -> list[dict]:
     _require()
     with _client() as c:
         resp = c.get(
@@ -75,12 +77,19 @@ def list_invoices(limit: int = 100, include_archived: bool = False) -> list[dict
         )
         resp.raise_for_status()
         data = resp.json().get("data", [])
-    # Deleted invoices are never shown/counted. Archived ones only on request.
+    # Deleted invoices are hidden unless requested (the Nextcloud sync asks for
+    # them so it can relocate their archived PDF). Archived ones likewise.
     out = []
     for inv in data:
-        if inv.get("is_deleted"):
+        if inv.get("is_deleted") and not include_deleted:
             continue
         if inv.get("archived_at") and not include_archived:
+            continue
+        # Invoices of a DELETED client are ghosts: InvoiceNinja hides them in the
+        # UI (they show under no status filter) but the API still returns them.
+        # Skip them too so our view matches IN.
+        client = inv.get("client") or {}
+        if client.get("is_deleted") and not include_deleted:
             continue
         out.append(inv)
     return out

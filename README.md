@@ -1,64 +1,65 @@
 # secondtrack
 
-Ein kleines, selbst gehostetes Tool, um einen Refurbishing-/Gebraucht-Hardware-
-Nebenerwerb zu verfolgen: Geräte ankaufen, dran arbeiten, Teile tauschen,
-ausgebaute Teile in ein virtuelles Lager legen, Arbeitszeit tracken und am Ende
-den voraussichtlichen Gewinn sehen. Single-User, FastAPI + SQLite, ein Container.
+A small, self-hosted tool to track a refurbishing / used-hardware side business:
+buy devices, work on them, swap parts, put harvested parts into a virtual
+warehouse, track working time, and see the expected profit at the end.
+Single-user, FastAPI + SQLite, one container.
 
 ## Features
 
-- **Projekte** – Geräte in Produktion, eingelagert oder verkauft. Pro Projekt:
-  verbaute Teile (mit Ein-/Verkaufspreis), Arbeitssessions (Datum, Stunden,
-  Beschreibung), Stundensatz (global oder pro Projekt) und eine Zusammenfassung
-  mit Vorschlagspreis, Listenpreis und Gewinn.
-- **Virtuelles Lager** – ausgebaute Teile landen automatisch hier; manuell
-  anlegbar. Beim Verbauen wird der hinterlegte Verkaufswert ins Projekt übernommen.
-- **Statistik** – Arbeitszeit gesamt/pro Projekt, Materialausgaben, Lagerwert,
-  voraussichtlicher Umsatz und Gewinn (brutto & nach Arbeitszeit).
-- **Markdown-Export** – jedes Projekt als `.md` mit YAML-Frontmatter, ideal für
-  Obsidian (Download-Button oder direkt in einen gemounteten Vault schreiben).
-- **Login mit optionalem 2FA** (TOTP).
-- **Integrationen vorbereitet** – WooCommerce & InvoiceNinja als isolierte
-  Service-Module, per `.env` aktivierbar (Phase 2/3, standardmäßig aus).
+- **Projects** – devices in production, stored, or sold. Per project: installed
+  parts (with purchase/sale price), work sessions (date, hours, description),
+  hourly rate (global or per project), and a summary with suggested price, list
+  price, and profit.
+- **Virtual warehouse** – harvested parts land here automatically; you can also
+  add them manually. When installed into a build, the stored sale value is
+  carried into the project.
+- **Statistics** – total/per-project working time, material expenses, warehouse
+  value, expected revenue and profit (gross & after labor).
+- **Markdown export** – every project as a `.md` file with YAML front matter,
+  ideal for Obsidian (download button or written straight into a mounted vault).
+- **Login with optional 2FA** (TOTP).
+- **Integrations** – WooCommerce, InvoiceNinja, Vikunja, Nextcloud and eBay as
+  isolated service modules, each toggled on via `.env` / the settings UI.
 
-## Schnellstart (Docker)
+## Quick start (Docker)
 
 ```bash
 cp .env.example .env
-# .env bearbeiten: SECONDTRACK_SECRET_KEY, Admin-Login etc.
+# edit .env: SECONDTRACK_SECRET_KEY, admin login, etc.
 docker compose up -d --build
 ```
 
-Standardmäßig erreichbar unter `http://<host>:8011`. Erster Login mit den
-`SECONDTRACK_ADMIN_USER`/`SECONDTRACK_ADMIN_PASSWORD` aus der `.env`
-(Passwort danach in den Einstellungen änderbar).
+Reachable by default at `http://<host>:8011`. First login uses the
+`SECONDTRACK_ADMIN_USER`/`SECONDTRACK_ADMIN_PASSWORD` from `.env` (the password
+can be changed in the settings afterwards).
 
-### Reverse Proxy
+### Reverse proxy
 
-Die App läuft im Container auf Port 8000 und hängt am externen Docker-Netz
-`nginxpm_web`. Im Nginx Proxy Manager einen Proxy-Host auf
-`secondtrack:8000` anlegen und HTTPS davorschalten – dann
-`SECONDTRACK_COOKIE_SECURE=1` setzen.
+The app runs on port 8000 inside the container and attaches to the external
+Docker network `nginxpm_web`. In the Nginx Proxy Manager, create a proxy host to
+`secondtrack:8000` and put HTTPS in front of it – then set
+`SECONDTRACK_COOKIE_SECURE=1`.
 
-### Obsidian-Export in den Vault
+### Obsidian export into the vault
 
-In `compose.yaml` das Vault-Volume einkommentieren und den Host-Pfad anpassen:
+In `compose.yaml`, uncomment the vault volume and adjust the host path:
 
 ```yaml
     volumes:
-      - /pfad/zu/Obsidian-Vault/secondtrack:/obsidian
+      - /path/to/Obsidian-Vault/secondtrack:/obsidian
 ```
 
-und in der `.env`:
+and in `.env`:
 
 ```
 SECONDTRACK_EXPORT_DIR=/obsidian
 ```
 
-Der Button „→ In Vault" auf der Projektseite schreibt dann direkt `.md`-Dateien
-dorthin. Ohne Mount landen Exporte unter `/data/exports`.
+The “→ To vault” button on the project page then writes `.md` files straight
+there. Without a mount, exports land under `/data/exports`.
 
-## Lokal entwickeln
+## Local development
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
@@ -66,59 +67,67 @@ pip install -r requirements.txt
 SECONDTRACK_DB_PATH=./data/secondtrack.db uvicorn app.main:app --reload
 ```
 
-## Konfiguration
+## Configuration
 
-Alle Optionen sind in [.env.example](.env.example) dokumentiert (Prefix
+All options are documented in [.env.example](.env.example) (prefix
 `SECONDTRACK_`).
 
-## Datenmodell (Kurz)
+## Data model (brief)
 
-- **Project** – Gerät: Status, Ankaufpreis, Listenpreis, optionaler Stundensatz.
-- **Part** – Teil. `project_id = NULL` ⇒ es liegt im Lager. Einkaufspreis
-  (optional), Verkaufswert, Herkunft (gekauft/ausgebaut).
-- **WorkSession** – Arbeitssession je Projekt (Datum, Stunden, Beschreibung).
-- **Setting** – UI-editierbare Einstellungen (Stundensatz, Währung).
+- **Project** – container: status, customer, project number, optional hourly rate.
+- **Device** – a physical device within a project: purchase/sale price, status.
+- **Part** – a part. `project_id = NULL` and `device_id = NULL` ⇒ it sits in the
+  warehouse. Optional purchase price, sale value, origin (purchased/harvested).
+- **WorkSession** – a work session per project (date, hours, description).
+- **Customer** – a customer, optionally backed by an InvoiceNinja client.
+- **Setting** – UI-editable settings (hourly rate, currency).
 
-## Hub & Integrationen
+## Hub & integrations
 
-secondtrack ist das **Cockpit**, in dem alles zusammenläuft – generiert aber
-selbst keine Rechnungen. Die **Rechnungs-Engine ist InvoiceNinja** (Nummernkreise,
-PDF, USt, ZUGFeRD/E-Rechnung, Zahlungen, GoBD bleiben dort). secondtrack liest
-beide Systeme und orchestriert nur.
+secondtrack is the **cockpit** where everything comes together – but it does not
+generate invoices itself. The **invoicing engine is InvoiceNinja** (number
+ranges, PDF, VAT, ZUGFeRD/e-invoice, payments, GoBD all stay there). secondtrack
+reads both systems and only orchestrates.
 
 ```
-  WooCommerce ──(Order)──┐
-                         ├──► InvoiceNinja  (die eine Rechnungs-Engine)
-  secondtrack ─(Projekt)─┘            │
-        └──────────► Hub ◄────────────┘   (eine Übersicht + Aktionen)
+  WooCommerce ──(order)──┐
+                         ├──► InvoiceNinja  (the one invoicing engine)
+  secondtrack ─(project)─┘            │
+        └──────────► Hub ◄────────────┘   (one overview + actions)
 ```
 
-Die **Hub-Seite** zeigt:
+The **Hub page** shows:
 
-- KPIs aus InvoiceNinja: bezahlt, offen, Entwürfe.
-- offene **WooCommerce-Bestellungen** mit Button „→ Rechnung erstellen" (legt in
-  InvoiceNinja Kunde + Rechnung an) und „An Kunde senden".
-- alle **InvoiceNinja-Rechnungen** mit Status, Betrag, offenem Saldo und Deep-Link.
+- KPIs from InvoiceNinja: paid, open, drafts.
+- open **WooCommerce orders** with a “→ Create invoice” button (creates the
+  customer + invoice in InvoiceNinja) and “Send to customer”.
+- all **InvoiceNinja invoices** with status, amount, open balance and deep link.
 
-Auf der **Projektseite** kann aus einem Projekt (Teile + Arbeitszeit) direkt eine
-InvoiceNinja-Rechnung erstellt und an den Kunden gemailt werden – ideal für
-Kunden-Bauaufträge.
+On the **project page**, an InvoiceNinja invoice can be created directly from a
+project (parts + working time) and emailed to the customer – ideal for
+customer build jobs.
 
-**„An Kunde senden"** triggert InvoiceNinja, die Rechnung über dessen eigenen
-SMTP zu verschicken. Mit `SECONDTRACK_INVOICENINJA_AUTO_SEND=1` passiert das
-automatisch direkt beim Erstellen.
+**“Send to customer”** triggers InvoiceNinja to send the invoice over its own
+SMTP. With `SECONDTRACK_INVOICENINJA_AUTO_SEND=1` this happens automatically on
+creation.
 
-### Einrichten
+### Setup
 
-1. **InvoiceNinja:** API-Token unter *Settings → Account Management → API Tokens*
-   erzeugen, in `.env` `SECONDTRACK_INVOICENINJA_*` setzen, `_ENABLED=1`.
-2. **WooCommerce:** unter *WooCommerce → Einstellungen → Erweitert → REST API*
-   ein Schlüsselpaar (Lesezugriff genügt) anlegen, in `.env`
-   `SECONDTRACK_WOO_*` setzen, `_ENABLED=1`.
+1. **InvoiceNinja:** create an API token under *Settings → Account Management →
+   API Tokens*, set `SECONDTRACK_INVOICENINJA_*` in `.env`, `_ENABLED=1`.
+2. **WooCommerce:** under *WooCommerce → Settings → Advanced → REST API* create a
+   key pair (read access is enough), set `SECONDTRACK_WOO_*` in `.env`,
+   `_ENABLED=1`.
 
-Alle Calls sind in `app/services/integrations/` gekapselt; ist eine Integration
-aus oder nicht erreichbar, zeigt der Hub das an statt abzustürzen.
+All calls are encapsulated in `app/services/integrations/`; if an integration is
+off or unreachable, the Hub shows that instead of crashing.
 
-> Hinweis Doppel-Rechnungen: secondtrack merkt sich pro Woo-Bestellung/Projekt
-> die erzeugte InvoiceNinja-Rechnung (Tabelle `order_invoices`) und legt keine
-> zweite an.
+> Note on double invoicing: secondtrack remembers the InvoiceNinja invoice
+> created per Woo order/project (table `order_invoices`) and never creates a
+> second one.
+
+See also: **[GUIDE.md](GUIDE.md)** (what secondtrack does & how) and
+**[SHOP-ORDERS.md](SHOP-ORDERS.md)** (the shop-order flow in detail).
+
+> ⚠️ **Pre-alpha.** This is early, in-progress software — not production-ready.
+> Expect breaking changes.

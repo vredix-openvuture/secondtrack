@@ -43,14 +43,14 @@
   <form method="post" action="/settings/connection/woo" class="stack">
     <label class="chk"><input type="checkbox" name="enabled" {{ 'checked' if rt_bool['woo_enabled'] }}> {{ _('Enabled') }}</label>
     <label>{{ _('Shop URL') }}<input name="url" value="{{ rt['woo_url'] }}" placeholder="https://shop.example.com"></label>
-    <label>{{ _('Consumer key') }}<input name="key" value="{{ rt['woo_key'] }}" placeholder="ck_..."></label>
-    <label>{{ _('Consumer secret') }}<input name="secret" value="{{ rt['woo_secret'] }}" placeholder="cs_..."></label>
+    <label>{{ _('Consumer key') }}<input type="password" name="key" value="" autocomplete="new-password" placeholder="{{ '•••• ' ~ _('leave blank to keep') if rt['woo_key'] else 'ck_...' }}"></label>
+    <label>{{ _('Consumer secret') }}<input type="password" name="secret" value="" autocomplete="new-password" placeholder="{{ '•••• ' ~ _('leave blank to keep') if rt['woo_secret'] else 'cs_...' }}"></label>
     <label>{{ _('Order statuses (comma)') }}<input name="order_statuses" value="{{ rt['woo_order_statuses'] }}"></label>
     <hr>
     <h3 style="margin:.2rem 0">{{ _('Auto receipt on order (webhook)') }}</h3>
     <p class="muted small">{{ _('When a paid order comes in, secondtrack creates a paid document in InvoiceNinja and emails the customer a receipt immediately.') }}</p>
     <label class="chk"><input type="checkbox" name="webhook_enabled" {{ 'checked' if rt_bool['woo_webhook_enabled'] }}> {{ _('Enable order webhook') }}</label>
-    <label>{{ _('Webhook secret') }}<input name="webhook_secret" value="{{ rt['woo_webhook_secret'] }}" placeholder="{{ _('any long random string') }}"></label>
+    <label>{{ _('Webhook secret') }}<input type="password" name="webhook_secret" value="" autocomplete="new-password" placeholder="{{ '•••• ' ~ _('leave blank to keep') if rt['woo_webhook_secret'] else _('any long random string') }}"></label>
     <p class="muted small">{{ _('In WooCommerce → Settings → Advanced → Webhooks add a webhook (Topic: Order updated), set the same secret, and Delivery URL:') }}<br>
       <code>https://&lt;{{ _('your secondtrack URL') }}&gt;/webhooks/woo</code></p>
     <hr>
@@ -59,6 +59,12 @@
     <label class="chk"><input type="checkbox" name="poll_enabled" {{ 'checked' if rt_bool['woo_poll_enabled'] }}> {{ _('Enable order polling') }}</label>
     <label>{{ _('Interval (minutes)') }}<input name="poll_interval" value="{{ rt['woo_poll_interval'] }}" style="max-width:110px" inputmode="numeric"></label>
     {% if rt['woo_poll_since'] %}<p class="muted small">{{ _('Processing orders since:') }} <code>{{ rt['woo_poll_since'] }}</code></p>{% endif %}
+    <hr>
+    <h3 style="margin:.2rem 0">{{ _('Fulfillment task on order (Vikunja)') }}</h3>
+    <p class="muted small">{{ _('When an order comes in, secondtrack creates a Vikunja task telling you what to pack & ship (packing list, shipping address, contact). Requires the Vikunja connection.') }}</p>
+    <label class="chk"><input type="checkbox" name="task_enabled" {{ 'checked' if rt_bool['woo_task_enabled'] }}> {{ _('Create fulfillment task') }}</label>
+    <label>{{ _('Vikunja board') }}<input name="order_board" value="{{ rt['vikunja_order_board'] }}" placeholder="customers"></label>
+    <p class="muted small">{{ _('Subproject under the configured Vikunja parent — created automatically if missing.') }}</p>
     <button type="submit" class="primary">{{ _('Save') }}</button>
   </form>
 </section>
@@ -68,7 +74,7 @@
   <form method="post" action="/settings/connection/in" class="stack">
     <label class="chk"><input type="checkbox" name="enabled" {{ 'checked' if rt_bool['in_enabled'] }}> {{ _('Enabled') }}</label>
     <label>{{ _('InvoiceNinja URL') }}<input name="url" value="{{ rt['in_url'] }}" placeholder="https://invoice.example.com"></label>
-    <label>{{ _('API token') }}<input name="token" value="{{ rt['in_token'] }}"></label>
+    <label>{{ _('API token') }}<input type="password" name="token" value="" autocomplete="new-password" placeholder="{{ '•••• ' ~ _('leave blank to keep') if rt['in_token'] else '' }}"></label>
     <label class="chk"><input type="checkbox" name="auto_send" {{ 'checked' if rt_bool['in_auto_send'] }}> {{ _('Auto-send invoices on create') }}</label>
     <button type="submit" class="primary">{{ _('Save') }}</button>
   </form>
@@ -79,7 +85,7 @@
   <form method="post" action="/settings/connection/vikunja" class="stack">
     <label class="chk"><input type="checkbox" name="enabled" {{ 'checked' if rt_bool['vikunja_enabled'] }}> {{ _('Enabled') }}</label>
     <label>{{ _('Vikunja URL') }}<input name="url" value="{{ rt['vikunja_url'] }}" placeholder="https://vikunja.example.com"></label>
-    <label>{{ _('API token') }}<input name="token" value="{{ rt['vikunja_token'] }}"></label>
+    <label>{{ _('API token') }}<input type="password" name="token" value="" autocomplete="new-password" placeholder="{{ '•••• ' ~ _('leave blank to keep') if rt['vikunja_token'] else '' }}"></label>
     <label>{{ _('Parent project') }}<input name="parent" value="{{ rt['vikunja_parent'] }}"></label>
     <button type="submit" class="primary">{{ _('Save') }}</button>
   </form>
@@ -92,7 +98,7 @@
     <label class="chk"><input type="checkbox" name="enabled" {{ 'checked' if rt_bool['nc_enabled'] }}> {{ _('Enabled') }}</label>
     <label>{{ _('Nextcloud URL') }}<input name="url" value="{{ rt['nc_url'] }}" placeholder="https://cloud.example.com"></label>
     <label>{{ _('User') }}<input name="user_name" value="{{ rt['nc_user'] }}"></label>
-    <label>{{ _('App password') }}<input type="password" name="password" value="{{ rt['nc_pass'] }}"></label>
+    <label>{{ _('App password') }}<input type="password" name="password" value="" autocomplete="new-password" placeholder="{{ '•••• ' ~ _('leave blank to keep') if rt['nc_pass'] else '' }}"></label>
     <label>{{ _('Base folder') }}<input name="base_path" value="{{ rt['nc_base_path'] }}" placeholder="/OpenVuture/Belege"></label>
     <label class="chk"><input type="checkbox" name="auto_archive" {{ 'checked' if rt_bool['nc_auto_archive'] }}> {{ _('Auto-archive invoice PDF on send') }}</label>
     <button type="submit" class="primary">{{ _('Save') }}</button>
@@ -108,7 +114,7 @@
   <form method="post" action="/settings/connection/ebay" class="stack">
     <label class="chk"><input type="checkbox" name="enabled" {{ 'checked' if rt_bool['ebay_enabled'] }}> {{ _('Enabled') }}</label>
     <label>{{ _('Client ID (App ID)') }}<input name="client_id" value="{{ rt['ebay_client_id'] }}"></label>
-    <label>{{ _('Client Secret (Cert ID)') }}<input type="password" name="client_secret" value="{{ rt['ebay_client_secret'] }}"></label>
+    <label>{{ _('Client Secret (Cert ID)') }}<input type="password" name="client_secret" value="" autocomplete="new-password" placeholder="{{ '•••• ' ~ _('leave blank to keep') if rt['ebay_client_secret'] else '' }}"></label>
     <label>{{ _('Marketplace') }}<input name="marketplace" value="{{ rt['ebay_marketplace'] }}" placeholder="EBAY_DE"></label>
     <button type="submit" class="primary">{{ _('Save') }}</button>
   </form>
@@ -122,12 +128,13 @@
   <p class="muted small">{{ _('All invoice & reminder emails are sent by secondtrack via this SMTP server (no longer through Woo/InvoiceNinja).') }}</p>
   <form method="post" action="/settings/connection/email" class="stack">
     <label>{{ _('Send via') }}
-      <select name="email_provider">
+      <select name="email_provider" onchange="stEmailProvider(this)">
         <option value="secondtrack" {{ 'selected' if rt['email_provider'] == 'secondtrack' }}>secondtrack (SMTP)</option>
         <option value="invoiceninja" {{ 'selected' if rt['email_provider'] == 'invoiceninja' }}>InvoiceNinja</option>
       </select>
     </label>
     <p class="muted small">{{ _('With InvoiceNinja, IN sends using its own SMTP & templates — the SMTP fields and templates below are then unused.') }}</p>
+    <div id="smtpBlock">
     <label class="chk"><input type="checkbox" name="email_enabled" {{ 'checked' if rt_bool['email_enabled'] }}> {{ _('Send mail through secondtrack (SMTP)') }}</label>
     <div class="row-form">
       <label>{{ _('SMTP host') }}<input name="smtp_host" value="{{ rt['smtp_host'] }}" placeholder="smtp.example.com"></label>
@@ -140,7 +147,7 @@
     </div>
     <div class="row-form">
       <label>{{ _('SMTP user') }}<input name="smtp_user" value="{{ rt['smtp_user'] }}"></label>
-      <label>{{ _('SMTP password') }}<input type="password" name="smtp_pass" value="{{ rt['smtp_pass'] }}"></label>
+      <label>{{ _('SMTP password') }}<input type="password" name="smtp_pass" value="" autocomplete="new-password" placeholder="{{ '•••• ' ~ _('leave blank to keep') if rt['smtp_pass'] else '' }}"></label>
     </div>
     <div class="row-form">
       <label>{{ _('From name') }}<input name="mail_from_name" value="{{ rt['mail_from_name'] }}"></label>
@@ -166,6 +173,7 @@
       <input name="tpl_dunning_subject" value="{{ rt['tpl_dunning_subject'] }}" placeholder="{{ _('Subject') }}">
       <textarea name="tpl_dunning_body" rows="4">{{ rt['tpl_dunning_body'] }}</textarea>
     </details>
+    </div>
     <button type="submit" class="primary">{{ _('Save') }}</button>
   </form>
   <hr>

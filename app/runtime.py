@@ -24,6 +24,9 @@ DEFAULTS: dict[str, str] = {
     "woo_poll_enabled": "0",
     "woo_poll_interval": "5",   # minutes
     "woo_poll_since": "",       # only orders created at/after this are auto-receipted
+    # Order → Vikunja fulfillment task ("what to pack & ship")
+    "woo_task_enabled": "1",
+    "vikunja_order_board": "customers",  # Vikunja subproject the order task lands in
     # InvoiceNinja
     "in_enabled": "1" if _env.invoiceninja_enabled else "0",
     "in_url": _env.invoiceninja_url,

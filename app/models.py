@@ -149,6 +149,8 @@ class Part(Base):
     )
     # What it cost to buy (NULL/0 for harvested parts).
     purchase_price: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # How many identical units are in stock (e.g. 100 stickers). Prices are per unit.
+    quantity: Mapped[int] = mapped_column(Integer, default=1)
     # Value it contributes when installed in a build.
     sale_price: Mapped[float] = mapped_column(Float, default=0.0)
 
@@ -319,6 +321,12 @@ class OrderInvoice(Base):
     project_id: Mapped[int | None] = mapped_column(
         ForeignKey("projects.id"), nullable=True, index=True
     )
+    # Local customer this order belongs to (created/linked from its billing data).
+    customer_id: Mapped[int | None] = mapped_column(
+        ForeignKey("customers.id"), nullable=True, index=True
+    )
+    # The Vikunja fulfillment task ("what to pack & ship") created for this order.
+    vikunja_task_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     invoiceninja_id: Mapped[str] = mapped_column(String(64), index=True)
     invoice_number: Mapped[str | None] = mapped_column(String(64), nullable=True)

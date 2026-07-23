@@ -10,8 +10,16 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 
 from .. import runtime
-from ..models import Customer, InvoiceSource, OrderInvoice, Project, ProjectKind, ProjectStatus
-from .integrations import invoiceninja, woo
+from ..models import (
+    Customer,
+    CustomerKind,
+    InvoiceSource,
+    OrderInvoice,
+    Project,
+    ProjectKind,
+    ProjectStatus,
+)
+from .integrations import invoiceninja, vikunja, woo
 
 
 
@@ -104,22 +112,163 @@ def create_invoice_for_project(
     return link
 
 
+def _ensure_customer_for_order(
+    db: Session, order: dict, in_client_id, link: OrderInvoice
+) -> None:
+    """Make the order's customer available locally as a secondtrack Customer,
+    backed by its InvoiceNinja client. Idempotent: dedupe by IN client id, then
+    email. Sets link.customer_id. Mirrors projects._resolve_customer."""
+    if link.customer_id:
+        return
+    billing = order.get("billing", {}) or {}
+    email = (billing.get("email") or "").strip()
+    in_id = str(in_client_id) if in_client_id else ""
+
+    cust = None
+    if in_id:
+        cust = (
+            db.query(Customer)
+            .filter(Customer.invoiceninja_client_id == in_id)
+            .first()
+        )
+    if cust is None and email:
+        cust = db.query(Customer).filter(Customer.email == email).first()
+
+    if cust is None:
+        name = " ".join(
+            p for p in [billing.get("first_name", ""), billing.get("last_name", "")] if p
+        ).strip() or (billing.get("company") or "").strip() or email or "Kunde"
+        cust = Customer(
+            name=name,
+            kind=CustomerKind.invoiceninja if in_id else CustomerKind.internal,
+            invoiceninja_client_id=in_id or None,
+            email=email or None,
+            company=(billing.get("company") or "").strip() or None,
+        )
+        db.add(cust)
+        db.flush()  # obtain cust.id
+    elif in_id and not cust.invoiceninja_client_id:
+        cust.invoiceninja_client_id = in_id  # backfill now that we know it
+
+    link.customer_id = cust.id
+    db.commit()
+
+
+def _order_task_text(order: dict, invoice_number: str = "") -> tuple[str, str]:
+    """(title, HTML description) for a Woo order's fulfillment task — the packing
+    list, shipping address, contact, total and links a human needs to ship it."""
+    import html as _html
+
+    def esc(s) -> str:
+        return _html.escape(str(s or ""))
+
+    billing = order.get("billing", {}) or {}
+    shipping = order.get("shipping", {}) or {}
+    number = order.get("number") or order.get("id") or ""
+    name = " ".join(
+        p for p in [
+            (shipping.get("first_name") or billing.get("first_name") or ""),
+            (shipping.get("last_name") or billing.get("last_name") or ""),
+        ] if p
+    ).strip() or (billing.get("company") or "").strip() or "Kunde"
+
+    title = f"📦 Bestellung #{number} – {name}"
+
+    items = []
+    for li in order.get("line_items", []) or []:
+        qty = li.get("quantity", 1) or 1
+        line = f"{esc(li.get('name', 'Artikel'))} × {qty}"
+        if li.get("sku"):
+            line += f" (SKU {esc(li['sku'])})"
+        items.append(f"<li>{line}</li>")
+    items_html = "<ul>" + "".join(items) + "</ul>" if items else "<p>—</p>"
+
+    # Prefer the shipping address; fall back to billing if none was given.
+    addr = shipping if (shipping.get("address_1") or shipping.get("city")) else billing
+    addr_lines = [
+        name,
+        addr.get("company", ""),
+        addr.get("address_1", ""),
+        addr.get("address_2", ""),
+        " ".join(p for p in [addr.get("postcode", ""), addr.get("city", "")] if p),
+        addr.get("country", ""),
+    ]
+    addr_html = "<br>".join(esc(x) for x in addr_lines if x)
+
+    contact = []
+    if billing.get("email"):
+        contact.append(f"✉ {esc(billing['email'])}")
+    if billing.get("phone"):
+        contact.append(f"☎ {esc(billing['phone'])}")
+
+    parts = [
+        "<p><strong>Verpacken &amp; verschicken:</strong></p>",
+        items_html,
+        f"<p><strong>Lieferadresse</strong><br>{addr_html}</p>",
+    ]
+    if contact:
+        parts.append(f"<p>{' · '.join(contact)}</p>")
+    if order.get("total"):
+        parts.append(
+            f"<p><strong>Summe:</strong> {esc(order.get('total'))} "
+            f"{esc(order.get('currency'))}</p>"
+        )
+    note = (order.get("customer_note") or "").strip()
+    if note:
+        parts.append(f"<p><strong>Kundennotiz:</strong> {esc(note)}</p>")
+    if invoice_number:
+        parts.append(f"<p>Rechnung: {esc(invoice_number)}</p>")
+
+    woo_url = runtime.get("woo_url").rstrip("/")
+    oid = order.get("id")
+    if woo_url and oid:
+        href = f"{woo_url}/wp-admin/post.php?post={oid}&action=edit"
+        parts.append(f'<p><a href="{esc(href)}">Bestellung im Shop öffnen ↗</a></p>')
+
+    return title, "".join(parts)
+
+
+def _ensure_order_task(db: Session, order: dict, link: OrderInvoice) -> None:
+    """Create a Vikunja fulfillment task for the order in the configured board
+    (default 'customers'). Idempotent (skips if link.vikunja_task_id set). Never
+    raises — a Vikunja hiccup must not break the receipt path."""
+    if link.vikunja_task_id:
+        return
+    if not runtime.get_bool("woo_task_enabled") or not vikunja.is_enabled():
+        return
+    try:
+        board = runtime.get("vikunja_order_board") or "customers"
+        pid = vikunja.find_or_create_subproject(board)
+        title, desc = _order_task_text(order, link.invoice_number or "")
+        task = vikunja.create_task(pid, title, description=desc)
+        link.vikunja_task_id = str(task.get("id") or "") or None
+        db.commit()
+    except Exception:  # noqa: BLE001
+        db.rollback()
+
+
 def fulfill_order_as_receipt(db: Session, order_id: int) -> OrderInvoice:
     """Direct (paid) shop order → create the document in IN, mark it PAID
-    (records income, becomes a receipt) and email the receipt to the customer."""
-    from . import emails
-
+    (records income, becomes a receipt) and email the receipt to the customer.
+    Also links the customer locally and creates a Vikunja fulfillment task."""
     import time
 
     from . import emails
 
     link = create_invoice_for_order(db, order_id, auto_send=False)
 
+    # Fetch the order + its invoice once; reused for reconcile, customer, task, payment.
+    try:
+        order = woo.get_order(order_id)
+    except Exception:  # noqa: BLE001
+        order = {}
+    inv = invoiceninja.get_invoice(link.invoiceninja_id) or {}
+    client_id = inv.get("client_id")
+
     # Reconcile: if the ordered product was produced in-house (a shop project),
     # link the sale to that project and mark it sold.
-    if not link.project_id:
+    if not link.project_id and order:
         try:
-            order = woo.get_order(order_id)
             pids = [li.get("product_id") for li in (order.get("line_items") or []) if li.get("product_id")]
             if pids:
                 proj = (
@@ -138,11 +287,18 @@ def fulfill_order_as_receipt(db: Session, order_id: int) -> OrderInvoice:
         except Exception:  # noqa: BLE001
             pass
 
+    # Make the customer available locally and create the fulfillment task
+    # ("what to pack & ship"). Both idempotent; neither may break the receipt path.
+    if order:
+        try:
+            _ensure_customer_for_order(db, order, client_id, link)
+        except Exception:  # noqa: BLE001
+            db.rollback()
+        _ensure_order_task(db, order, link)
+
     if link.emailed_at:  # already handled before
         return link
 
-    inv = invoiceninja.get_invoice(link.invoiceninja_id)
-    client_id = inv.get("client_id")
     amount = float(inv.get("balance") or inv.get("amount") or 0)
 
     if emails.provider() == "invoiceninja":
@@ -247,20 +403,70 @@ def _safe_name(s: str) -> str:
 
 def _invoice_remote_path(inv: dict) -> str:
     """Nextcloud path for an InvoiceNinja invoice dict:
-    <base>/Invoices/<year>/<number>_<customer>.pdf"""
+    <base>/Invoices/<year>/<month>/<number>_<customer>.pdf"""
     number = _safe_name(str(inv.get("number") or inv.get("id")))
     client = inv.get("client") or {}
     cname = _safe_name(client.get("display_name") or client.get("name") or "")
     d = invoiceninja._invoice_date(inv)
-    year = str(d.year) if d else datetime.utcnow().strftime("%Y")
+    if d:
+        year, month = str(d.year), f"{d.month:02d}"
+    else:
+        now = datetime.utcnow()
+        year, month = now.strftime("%Y"), now.strftime("%m")
     stem = f"{number}_{cname}".strip("_ ") or number
     base = (runtime.get("nc_base_path") or "/OpenVuture/Belege").rstrip("/")
-    return f"{base}/Invoices/{year}/{stem}.pdf"
+    return f"{base}/Invoices/{year}/{month}/{stem}.pdf"
+
+
+def _deleted_path(remote_path: str) -> str:
+    """The same file relocated into a 'deleted/' subfolder of its own folder."""
+    folder, _, filename = remote_path.rpartition("/")
+    return f"{folder}/deleted/{filename}"
+
+
+def _invoice_version(inv: dict) -> str:
+    """A change-detection key for an invoice — bumps whenever InvoiceNinja
+    touches it, so we know to re-upload the PDF to Nextcloud."""
+    return str(inv.get("updated_at") or inv.get("amount") or "")
+
+
+def _sync_index(db: Session) -> dict:
+    """{id: {'ver': .., 'path': ..}} of invoices placed in Nextcloud. Migrates
+    the older ids-CSV + versions-JSON settings on first read (paths unknown for
+    those until the next sync re-uploads them)."""
+    import json
+
+    from ..db import get_setting
+
+    try:
+        idx = json.loads(get_setting(db, "nc_archive_index", "") or "{}")
+    except (ValueError, TypeError):
+        idx = {}
+    if not idx:
+        legacy = {
+            x for x in (get_setting(db, "nc_archived_invoice_ids", "") or "").split(",") if x
+        }
+        try:
+            vers = json.loads(get_setting(db, "nc_archived_versions", "") or "{}")
+        except (ValueError, TypeError):
+            vers = {}
+        idx = {i: {"ver": vers.get(i, ""), "path": None} for i in legacy}
+    return idx
+
+
+def _save_sync_index(db: Session, idx: dict) -> None:
+    import json
+
+    from ..db import set_setting
+
+    set_setting(db, "nc_archive_index", json.dumps(idx))
+    # keep the flat id list in sync for the per-row "synced" indicator
+    set_setting(db, "nc_archived_invoice_ids", ",".join(sorted(idx.keys())))
 
 
 def archive_invoice(db: Session, link: OrderInvoice, kind: str = "") -> str:
     """Fetch the invoice PDF from InvoiceNinja and store it in Nextcloud under
-    Invoices/<year>/<number>_<customer>.pdf. Returns the remote path."""
+    Invoices/<year>/<month>/<number>_<customer>.pdf. Returns the remote path."""
     from .integrations import nextcloud
 
     if not nextcloud.is_enabled():
@@ -273,40 +479,61 @@ def archive_invoice(db: Session, link: OrderInvoice, kind: str = "") -> str:
     inv = invoiceninja.get_invoice(link.invoiceninja_id) or {
         "number": link.invoice_number, "id": link.invoiceninja_id,
     }
-    return nextcloud.put_file(_invoice_remote_path(inv), pdf, "application/pdf")
+    path = _invoice_remote_path(inv)
+    remote = nextcloud.put_file(path, pdf, "application/pdf")
+    # Record sync state so the row indicator turns green and re-syncs track edits.
+    idx = _sync_index(db)
+    idx[str(link.invoiceninja_id)] = {"ver": _invoice_version(inv), "path": path}
+    _save_sync_index(db, idx)
+    return remote
 
 
 def archive_paid_invoices(db: Session) -> dict:
-    """Archive every PAID InvoiceNinja invoice not yet stored into Nextcloud
-    (Invoices/<year>/<number>_<customer>.pdf). Deduped via a setting so each
-    invoice uploads exactly once. Returns {'archived': n}."""
-    from ..db import get_setting, set_setting
+    """Sync PAID InvoiceNinja invoices into Nextcloud
+    (Invoices/<year>/<month>/<number>_<customer>.pdf): upload once, re-upload
+    (overwrite) on change, and move a deleted invoice's PDF into a 'deleted/'
+    subfolder of its month. Returns {'archived': n, 'updated': m, 'deleted': k}."""
     from .integrations import nextcloud
 
     if not nextcloud.is_enabled() or not invoiceninja.is_enabled():
-        return {"archived": 0, "skipped": "integration disabled"}
+        return {"archived": 0, "updated": 0, "deleted": 0, "skipped": "integration disabled"}
 
-    done = {
-        x for x in (get_setting(db, "nc_archived_invoice_ids", "") or "").split(",") if x
-    }
-    archived = 0
-    for inv in invoiceninja.list_invoices(limit=400, include_archived=True):
+    idx = _sync_index(db)
+    archived = updated = deleted = 0
+    # include_deleted so we can relocate PDFs of invoices removed in IN
+    for inv in invoiceninja.list_invoices(limit=400, include_archived=True, include_deleted=True):
+        iid = str(inv.get("id"))
+        if inv.get("is_deleted"):
+            entry = idx.get(iid)
+            if entry and entry.get("path"):
+                try:
+                    if nextcloud.move_file(entry["path"], _deleted_path(entry["path"])):
+                        deleted += 1
+                except Exception:  # noqa: BLE001
+                    pass
+            idx.pop(iid, None)  # no longer counts as synced (moved to deleted/)
+            continue
         if str(inv.get("status_id")) != "4":  # 4 = paid
             continue
-        iid = str(inv.get("id"))
-        if iid in done:
-            continue
+        ver = _invoice_version(inv)
+        entry = idx.get(iid)
+        if entry and entry.get("ver") == ver and entry.get("path"):
+            continue  # already synced and unchanged
         pdf = invoiceninja.download_pdf(iid)
         if not pdf:
             continue
+        path = _invoice_remote_path(inv)
         try:
-            nextcloud.put_file(_invoice_remote_path(inv), pdf, "application/pdf")
+            nextcloud.put_file(path, pdf, "application/pdf")  # PUT overwrites
         except Exception:  # noqa: BLE001
             continue
-        done.add(iid)
-        archived += 1
-    set_setting(db, "nc_archived_invoice_ids", ",".join(sorted(done)))
-    return {"archived": archived}
+        if entry:
+            updated += 1
+        else:
+            archived += 1
+        idx[iid] = {"ver": ver, "path": path}
+    _save_sync_index(db, idx)
+    return {"archived": archived, "updated": updated, "deleted": deleted}
 
 
 def _maybe_archive(db: Session, link: OrderInvoice) -> None:
@@ -378,6 +605,7 @@ def build_hub_view(
                         ).strip(),
                         "email": (o.get("billing") or {}).get("email", ""),
                         "invoice": link,
+                        "task_id": link.vikunja_task_id if link else None,
                     }
                 )
         except Exception as e:  # noqa: BLE001 - surface to UI, don't crash
@@ -386,6 +614,11 @@ def build_hub_view(
     if view.in_enabled:
         try:
             view.kpis = invoiceninja.get_company_totals(period)
+            # Invoice ids we've already uploaded to Nextcloud (see
+            # archive_paid_invoices) — used to show a per-row sync indicator.
+            nc_synced = {
+                x for x in (get_setting(db, "nc_archived_invoice_ids", "") or "").split(",") if x
+            }
             invs = invoiceninja.filter_period(
                 invoiceninja.list_invoices(limit=80, include_archived=include_archived),
                 period,
@@ -413,6 +646,7 @@ def build_hub_view(
                         "status_id": inv.get("status_id"),
                         "status": status_label(inv.get("status_id")),
                         "archived": bool(inv.get("archived_at")),
+                        "nc_synced": str(inv.get("id")) in nc_synced,
                         "date": inv.get("date", ""),
                         "due_date": due,
                         "overdue": overdue,

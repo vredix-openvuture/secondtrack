@@ -65,13 +65,21 @@
 <p class="muted empty">{{ _('No projects in this view.') }}</p>
 {% endif %}
 
-<button class="fab" onclick="stOpenModal('newProject')" title="{{ _('New device') }}">+</button>
+<button class="fab" onclick="stOpenModal('newProject')" title="{{ _('New project') }}">+</button>
 <div class="modal-backdrop" id="newProject">
   <div class="modal">
-    <div class="modal-head"><h2>{{ _('Create new device') }}</h2><button class="modal-close" onclick="stCloseModal(this)">×</button></div>
+    <div class="modal-head"><h2>{{ _('Create new project') }}</h2><button class="modal-close" onclick="stCloseModal(this)">×</button></div>
     <form method="post" action="/projects" enctype="multipart/form-data" class="stack">
-      <input name="name" placeholder="{{ _('Project title') }}" required autofocus>
-      <input name="device_name" placeholder="{{ _('First device (optional, defaults to title)') }}">
+      <div class="pf-top">
+        <label class="img-square" title="{{ _('Image (optional)') }}">
+          <input type="file" name="image" accept="image/*" onchange="stImgSquare(this)">
+          <span class="is-ph">🖼️<br>{{ _('Image') }}</span>
+        </label>
+        <div class="pf-fields">
+          <input name="name" placeholder="{{ _('Project title') }}" required autofocus>
+          <input name="device_name" placeholder="{{ _('First device (optional, defaults to title)') }}">
+        </div>
+      </div>
       <div class="row-form">
         <select name="kind">
           <option value="customer">{{ _('Customer order') }}</option>
@@ -101,9 +109,6 @@
         </div>
       </details>
       <input name="description" placeholder="{{ _('Note (optional)') }}">
-      <label class="file-field">{{ _('Image (optional)') }}
-        <input type="file" name="image" accept="image/*" onchange="stPreview(this)">
-      </label>
       <label class="file-field">{{ _('Purchase receipt (optional → expense)') }}
         <input type="file" name="receipt" accept="application/pdf,image/*">
       </label>

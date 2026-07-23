@@ -96,6 +96,26 @@ def delete_file(remote_path: str) -> None:
             r.raise_for_status()
 
 
+def move_file(src: str, dst: str) -> bool:
+    """WebDAV MOVE src → dst, creating dst's parent folders first. Returns True
+    if the file moved (False if the source was already gone / 404)."""
+    _require()
+    dst_n = _norm(dst)
+    parent = dst_n.rsplit("/", 1)[0]
+    if parent and parent != "/":
+        ensure_dir(parent)
+    with httpx.Client(auth=_auth(), timeout=30.0) as c:
+        r = c.request(
+            "MOVE", _url_for(src),
+            headers={"Destination": _url_for(dst_n), "Overwrite": "T"},
+        )
+        if r.status_code == 404:
+            return False
+        if r.status_code not in (201, 204):
+            r.raise_for_status()
+        return True
+
+
 def test_connection() -> bool:
     """PROPFIND the DAV root to verify URL + credentials."""
     _require()

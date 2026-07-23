@@ -195,6 +195,13 @@ body.dash-editing .grid-stack-item-content > .card.widget { outline: 2px dashed 
 .md-content ul.md-task { list-style: none; padding-left: .1rem; }
 .md-content ul.md-task li { display: flex; align-items: center; gap: .45rem; }
 .md-content p { margin: .2rem 0; }
+/* Vikunja (TipTap) task lists — no bullet, checkbox + text on one line */
+.md-content ul[data-type="taskList"], .rich-editor ul[data-type="taskList"] { list-style: none; padding-left: 0; margin: .2rem 0; }
+.md-content ul[data-type="taskList"] li, .rich-editor ul[data-type="taskList"] li { display: flex; align-items: flex-start; gap: .5rem; }
+.md-content ul[data-type="taskList"] li > label, .rich-editor ul[data-type="taskList"] li > label { flex: 0 0 auto; margin: 0; display: inline-flex; align-items: center; }
+.md-content ul[data-type="taskList"] li > label > span:empty, .rich-editor ul[data-type="taskList"] li > label > span:empty { display: none; }
+.md-content ul[data-type="taskList"] li > div, .rich-editor ul[data-type="taskList"] li > div { flex: 1 1 auto; min-width: 0; }
+.md-content ul[data-type="taskList"] li > div > p, .rich-editor ul[data-type="taskList"] li > div > p { margin: 0; }
 .md-content h3, .md-content h4, .md-content h5 { margin: .3rem 0; font-size: .95rem; }
 textarea.md-field { font-family: inherit; resize: vertical; }
 
@@ -295,6 +302,10 @@ td.actions > * + * { margin-left: .3rem; }
 .badge.archived { background: rgba(0,0,0,.30); color: var(--muted); }                       /* neutral — done/stored */
 .badge.sold { background: color-mix(in srgb, var(--pos) 26%, transparent); color: #fff; }   /* green — invoiced/sold */
 .badge.neg-badge { background: color-mix(in srgb, var(--accent-2) 22%, transparent); color: #fff; }
+.badge.qty { background: color-mix(in srgb, var(--blue) 32%, transparent); color: #fff; border: 1px solid color-mix(in srgb, var(--blue) 55%, transparent); }
+/* Nextcloud sync indicator (subtle cloud, not a loud badge) */
+.nc-ind { font-size: .98rem; opacity: .3; vertical-align: middle; cursor: help; }
+.nc-ind.on { opacity: 1; color: var(--pos); }
 
 /* Forms */
 input, select, textarea {
@@ -339,6 +350,17 @@ button, .btn {
 button:hover, .btn:hover { border-color: var(--accent); text-decoration: none; }
 button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
 button.primary:hover { background: var(--accent-d); }
+/* Quiet secondary button (toolbars, deep-links) — avoids a wall of orange */
+.btn.ghost, a.btn.ghost { background: transparent; border-color: var(--border); color: var(--muted); font-weight: 500; }
+.btn.ghost:hover, a.btn.ghost:hover { background: rgba(255,255,255,.06); border-color: var(--accent); color: var(--text); }
+
+/* Card header with a right-aligned tool row */
+.card-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: .9rem; }
+.card-head h2 { margin: 0; }
+.card-tools { display: flex; gap: .45rem; flex-wrap: wrap; align-items: center; }
+.card-tools .btn { font-size: .8rem; padding: .38rem .7rem; }
+.card-tools form { margin: 0; }
+
 /* .btn (top actions, deep links) = Rain Boots too */
 .btn { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
 .btn:hover { background: var(--accent-d); border-color: var(--accent-d); color: #fff; }
@@ -488,15 +510,67 @@ table.grid.card-rows tbody tr td { background: var(--surface-2); border-top: 1px
 table.grid.card-rows tbody tr td:first-child { border-left: 1px solid rgba(255,255,255,.06); border-radius: 12px 0 0 12px; }
 table.grid.card-rows tbody tr td:last-child { border-right: 1px solid rgba(255,255,255,.06); border-radius: 0 12px 12px 0; }
 table.grid.card-rows tbody tr:hover td { background: color-mix(in srgb, var(--accent) 9%, var(--surface-2)); }
+.click-row { cursor: pointer; }
+
+/* Clearly divided table: column + row rules + zebra, so cells read as cells */
+table.grid.ruled { border-collapse: collapse; }
+table.grid.ruled th, table.grid.ruled td { border-right: 1px solid rgba(255,255,255,.07); padding: .7rem .9rem; }
+table.grid.ruled th:last-child, table.grid.ruled td:last-child { border-right: none; }
+table.grid.ruled thead th { border-bottom: 1px solid rgba(255,255,255,.16); }
+table.grid.ruled tbody tr td { border-bottom: 1px solid rgba(255,255,255,.07); }
+table.grid.ruled tbody tr:last-child td { border-bottom: none; }
+table.grid.ruled tbody tr:nth-child(even) td { background: rgba(255,255,255,.028); }
+table.grid.ruled tbody tr:hover td { background: color-mix(in srgb, var(--accent) 10%, transparent); }
 
 /* Standout icon action buttons */
-.act-btn { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; padding: 0; border-radius: 9px; background: var(--surface); border: 1px solid rgba(255,255,255,.14); color: var(--text); line-height: 1; font-size: 1rem; }
-.act-btn:hover { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--surface)); text-decoration: none; }
-.act-btn.danger:hover { border-color: var(--neg); color: var(--neg); background: color-mix(in srgb, var(--neg) 14%, var(--surface)); }
+.act-btn { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; padding: 0; border-radius: 9px; background: rgba(0,0,0,.22); border: 1px solid rgba(255,255,255,.12); color: rgba(255,255,255,.82); line-height: 1; font-size: 1rem; transition: border-color .12s ease, color .12s ease, background .12s ease; }
+.act-btn:hover { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, rgba(0,0,0,.22)); text-decoration: none; }
+.act-btn.danger:hover { border-color: var(--neg); color: var(--neg); background: color-mix(in srgb, var(--neg) 16%, rgba(0,0,0,.22)); }
+.act-btn svg { display: block; }
+
+/* Round status indicator (receipt-missing / InvoiceNinja sync) */
+.io-ind { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: rgba(255,255,255,.06); color: var(--muted); font-weight: 700; }
+.io-ind svg { display: block; }
+.io-ind.on { background: color-mix(in srgb, var(--pos) 20%, transparent); color: var(--pos); }
+.io-ind.warn { background: color-mix(in srgb, var(--neg) 22%, transparent); color: var(--neg); }
 
 /* Square image picker at the top of a form */
 .pf-top { display: flex; gap: 1.1rem; align-items: stretch; }
 .pf-fields { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .7rem; }
+
+/* price input with a trailing currency label */
+.price-field { position: relative; display: block; width: 100%; }
+.price-field > input { width: 100%; padding-right: 3rem; }
+.price-field > input:disabled { opacity: .45; cursor: not-allowed; }
+.price-field::after {
+  content: attr(data-cur); position: absolute; top: 50%; right: .9rem; transform: translateY(-50%);
+  color: var(--muted); font-size: .82rem; line-height: 1; pointer-events: none;
+}
+.price-field:has(input:disabled)::after { opacity: .45; }
+label > .price-field { margin-top: .25rem; }
+
+/* purchase price + "free / gift" toggle on one line */
+.pf-row { display: flex; gap: .6rem; align-items: stretch; }
+.pf-row > input, .pf-row > .price-field { flex: 1 1 auto; min-width: 0; }
+.chk-pill {
+  display: inline-flex; align-items: center; gap: .5rem; flex: 0 0 auto;
+  margin: 0; padding: 0 .95rem; white-space: nowrap; cursor: pointer; user-select: none;
+  background: rgba(0,0,0,.20); color: var(--muted); font-size: .82rem;
+  border: 1px solid rgba(255,255,255,.10); border-radius: 10px;
+  transition: border-color .12s ease, color .12s ease, background .12s ease;
+}
+.chk-pill input { position: absolute; opacity: 0; width: 0; height: 0; margin: 0; pointer-events: none; }
+.chk-pill .dot {
+  width: 16px; height: 16px; flex: 0 0 auto; border-radius: 5px;
+  border: 1.5px solid rgba(255,255,255,.32); background: transparent;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: background .12s ease, border-color .12s ease;
+}
+.chk-pill .dot::after { content: "✓"; color: #fff; font-size: .72rem; font-weight: 800; line-height: 1; opacity: 0; transition: opacity .1s ease; }
+.chk-pill:hover { border-color: rgba(255,255,255,.28); color: var(--text); }
+.chk-pill:has(input:checked) { background: color-mix(in srgb, var(--accent) 20%, rgba(0,0,0,.20)); border-color: var(--accent); color: var(--text); }
+.chk-pill:has(input:checked) .dot { background: var(--accent); border-color: var(--accent); }
+.chk-pill:has(input:checked) .dot::after { opacity: 1; }
 .img-square { position: relative; flex: 0 0 auto; width: 118px; height: 118px; border-radius: 14px;
   border: 2px dashed rgba(255,255,255,.20); background: rgba(0,0,0,.20);
   display: flex; align-items: center; justify-content: center; cursor: pointer; overflow: hidden;
@@ -542,11 +616,61 @@ input[type="range"] { width: 100%; accent-color: var(--accent); padding: 0; }
 
 /* ---- Kanban (Vikunja) ---- */
 .kanban { display: flex; flex-direction: column; gap: 1rem; padding-bottom: 1rem; }
+/* per-project Kanban: columns share the width; scroll only when many/narrow */
+.kanban-board { display: flex; gap: 1rem; overflow-x: auto; padding-bottom: 1rem; align-items: flex-start; }
+.kanban-board .kanban-col { flex: 1 1 260px; min-width: 240px; max-width: 420px; }
+.kanban-board .kanban-col h3 { font-size: 1rem; }
+.kanban-board .kanban-tasks { min-height: 40px; }
+.kanban-board.hide-done .task-card.done { display: none; }
+.kanban-toolbar { margin-bottom: .8rem; }
+.kanban-board .task-card[draggable="true"] { cursor: grab; }
+.kanban-board .task-card.dragging { opacity: .45; }
+.kanban-board .kanban-col.drop-hover { outline: 2px dashed var(--accent); outline-offset: -3px; }
+.kanban-board .kanban-col.drop-hover .kanban-tasks { background: color-mix(in srgb, var(--accent) 8%, transparent); border-radius: 8px; }
+.view-switch { margin-top: -.35rem; }
 .kanban-col { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); width: 100%; }
-.kanban-col h3 { font-size: .9rem; margin: 0; padding: .7rem .9rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; }
-.kanban-col h3 .count { color: var(--muted); font-weight: 500; }
-.kanban-col h3 .col-title { display: flex; align-items: center; gap: .6rem; min-width: 0; }
-.proj-thumb { width: 30px; height: 30px; border-radius: 6px; object-fit: cover; flex: 0 0 auto; }
+.kanban-col h3 { font-size: 1.3rem; margin: 0; padding: .85rem 1rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; gap: .7rem; }
+.kanban-col h3 .count { color: var(--muted); font-weight: 500; font-size: .95rem; flex: 0 0 auto; }
+.kanban-col h3 .col-title { display: flex; align-items: center; gap: .95rem; min-width: 0; font-weight: 700; }
+.proj-thumb { width: 88px; height: 88px; border-radius: 16px; object-fit: cover; flex: 0 0 auto; border: 1px solid rgba(255,255,255,.16); box-shadow: 0 3px 10px rgba(0,0,0,.34); }
+a.proj-thumb-link { flex: 0 0 auto; display: inline-flex; line-height: 0; }
+a.proj-thumb-link:hover .proj-thumb { border-color: var(--accent); box-shadow: 0 3px 14px rgba(0,0,0,.45); }
+.proj-thumb.placeholder { display: inline-flex; align-items: center; justify-content: center; background: var(--surface-2); color: var(--muted); font-size: 2.4rem; line-height: 1; }
+
+/* Task detail editor */
+.task-detail .td-head { display: flex; flex-wrap: wrap; gap: .8rem 1.2rem; align-items: center; justify-content: space-between; }
+.task-detail .td-actions { display: flex; gap: .6rem; flex-wrap: wrap; }
+.task-edit { display: flex; flex-direction: column; gap: .9rem; margin: 1.1rem 0; padding: 1rem; background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; }
+.task-edit .fld { margin: 0; }
+.task-edit .fld-row { display: flex; gap: .9rem; flex-wrap: wrap; }
+.task-edit .fld-row .fld { flex: 1 1 180px; }
+.td-labels { margin-top: .4rem; }
+.label-chips { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: .7rem; }
+.tag-chip { display: inline-flex; align-items: center; gap: .45rem; padding: .3rem .35rem .3rem .75rem; border-radius: 999px; font-size: .85rem; color: var(--text); }
+.tag-chip .tc-dot { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; }
+.tag-chip form { display: inline; margin: 0; }
+.tag-chip button { background: rgba(0,0,0,.30); border: none; color: #fff; width: 20px; height: 20px; border-radius: 50%; padding: 0; line-height: 1; font-size: 1rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.tag-chip button:hover { background: var(--accent-2); }
+.label-add { display: flex; align-items: center; gap: .55rem; flex-wrap: wrap; }
+.label-add input[name="label"] { flex: 1 1 240px; min-width: 180px; }
+.label-add button { flex: 0 0 auto; }
+.assign-row { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; margin: 0; }
+.assign-row select { flex: 1 1 260px; min-width: 200px; }
+.assign-row .btn { flex: 0 0 auto; }
+.meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .6rem; margin-top: 1.2rem; }
+.meta-grid .m { background: var(--surface-2); border: 1px solid var(--border); border-radius: 9px; padding: .55rem .75rem; }
+.meta-grid .m .k { color: var(--muted); font-size: .68rem; text-transform: uppercase; letter-spacing: .04em; margin-bottom: .15rem; }
+.meta-grid .m .v { font-weight: 600; font-variant-numeric: tabular-nums; }
+/* big done-checkbox before the task title */
+.ph-top .td-check { margin: 0; display: inline-flex; align-items: center; }
+.ph-top .td-check input[type=checkbox] { width: 26px; height: 26px; accent-color: var(--accent); cursor: pointer; }
+h1.task-done-title { text-decoration: line-through; opacity: .55; }
+/* contenteditable rich description (renders Vikunja HTML, edits in place) */
+.rich-editor { min-height: 120px; max-height: 360px; overflow-y: auto; background: rgba(0,0,0,.20); border: 1px solid rgba(255,255,255,.10); border-radius: 10px; padding: .7rem .85rem; }
+.rich-editor:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+.rich-editor:empty::before { content: attr(data-ph); color: rgba(255,255,255,.38); }
+.td-assign { margin-top: 1rem; }
+.td-assign .label-add select { min-width: 220px; }
 .kanban-tasks { padding: .7rem; display: flex; flex-direction: column; gap: .6rem; }
 .task-card { background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: .6rem .7rem; font-size: .9rem; }
 .task-card { display: flex; align-items: center; gap: .65rem; }
@@ -554,9 +678,14 @@ input[type="range"] { width: 100%; accent-color: var(--accent); padding: 0; }
 .task-check { display: flex; margin: 0; flex: 0 0 auto; }
 .task-check input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
 .task-card.done .task-link { opacity: .55; text-decoration: line-through; }
+/* subtasks: indented (inline margin) under their parent, with a connecting accent */
+.task-card.subtask { border-left: 3px solid color-mix(in srgb, var(--accent) 55%, transparent); position: relative; }
+.task-card.subtask::before { content: "↳"; color: var(--muted); margin-right: .1rem; flex: 0 0 auto; }
 .subproject-tabs { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 1rem; }
-.subproject-tabs a { padding: .3rem .8rem; border-radius: 999px; background: var(--surface); border: 1px solid var(--border); color: var(--muted); }
-.subproject-tabs a.on { background: color-mix(in srgb, var(--accent) 22%, var(--surface-2)); color: var(--text); border-color: var(--accent); }
+.subproject-tabs a, .subproject-tabs button { padding: .3rem .8rem; border-radius: 999px; background: var(--surface); border: 1px solid var(--border); color: var(--muted); cursor: pointer; font: inherit; }
+.subproject-tabs a.on, .subproject-tabs button.on { background: color-mix(in srgb, var(--accent) 22%, var(--surface-2)); color: var(--text); border-color: var(--accent); }
+.subproject-tabs a:hover, .subproject-tabs button:hover { border-color: var(--accent); color: var(--text); text-decoration: none; }
+.view-switch #doneToggle { margin-left: auto; }
 
 /* Markdown editor (expenses description, live preview) */
 .md-edit { display: grid; gap: .4rem; }

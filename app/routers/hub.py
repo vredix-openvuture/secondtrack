@@ -9,7 +9,7 @@ from ..auth import require_login
 from ..db import get_db
 from ..models import OrderInvoice
 from ..services import emails, hub
-from ..services.integrations import invoiceninja, nextcloud
+from ..services.integrations import invoiceninja, nextcloud, vikunja
 from ..templating import ctx, templates
 
 router = APIRouter(prefix="/hub")
@@ -43,6 +43,7 @@ async def hub_page(
             include_archived=include_archived,
             period=period,
             in_url=invoiceninja.base_url(),
+            vikunja_url=vikunja.web_url() if vikunja.is_enabled() else "",
             auto_send=runtime.get_bool("in_auto_send"),
             nc_enabled=nextcloud.is_enabled(),
             email_on=emails.sending_enabled(),
@@ -113,7 +114,10 @@ async def archive_paid(
 ):
     try:
         r = hub.archive_paid_invoices(db)
-        msg = f"Nextcloud: {r.get('archived', 0)} bezahlte Rechnung(en) abgelegt."
+        up = r.get("updated", 0)
+        msg = f"Nextcloud: {r.get('archived', 0)} neu abgelegt" + (
+            f", {up} aktualisiert." if up else "."
+        )
     except Exception as e:  # noqa: BLE001
         msg = f"Error: {e}"
     return RedirectResponse(f"/hub?msg={msg}", status_code=303)
