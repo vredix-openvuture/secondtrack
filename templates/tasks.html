@@ -2,7 +2,8 @@
 {% block title %}{{ _('Tasks') }} · secondtrack{% endblock %}
 {% block content %}
 {% macro task_row(t, board_url, depth, kanban=false) %}
-  <div class="task-card {{ 'done' if t.done }}{{ ' subtask' if depth }}"{% if kanban %} draggable="true" data-task-id="{{ t.id }}"{% endif %}{% if depth %} style="margin-left:{{ depth * 1.6 }}rem"{% endif %}>
+  {% if depth == 0 and not kanban %}<div class="task-group">{% endif %}
+  <div class="{{ 'task-card' if kanban else 'task-row' }} {{ 'done' if t.done }}{{ ' subtask' if depth }}"{% if kanban %} draggable="true" data-task-id="{{ t.id }}"{% endif %}{% if depth and not kanban %} style="padding-left:{{ depth * 1.5 + 0.7 }}rem"{% endif %}>
     {% if not kanban %}
     <form method="post" action="/tasks/{{ t.id }}/toggle" class="task-check">
       <input type="hidden" name="next" value="{{ board_url }}">
@@ -12,6 +13,7 @@
     <a class="task-link" href="/tasks/{{ t.id }}?back={{ board_url | urlencode }}"{% if kanban %} draggable="false"{% endif %}>{{ t.title }}</a>
   </div>
   {% for c in t._children %}{{ task_row(c, board_url, depth + 1, kanban) }}{% endfor %}
+  {% if depth == 0 and not kanban %}</div>{% endif %}
 {% endmacro %}
 
 <div class="page-head"><h1>{{ _('Tasks') }}</h1>
