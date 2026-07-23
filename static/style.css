@@ -688,7 +688,6 @@ h1.task-done-title { text-decoration: line-through; opacity: .55; }
 .task-row { display: flex; align-items: center; gap: .65rem; padding: .6rem .7rem; font-size: .9rem; }
 .task-group .task-row + .task-row { border-top: 1px solid color-mix(in srgb, var(--border) 50%, transparent); }
 .task-row.done .task-link { opacity: .55; text-decoration: line-through; }
-.task-row.subtask::before { content: "↳"; color: var(--muted); margin-right: .1rem; flex: 0 0 auto; }
 .subproject-tabs { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 1rem; }
 .subproject-tabs a, .subproject-tabs button { padding: .3rem .8rem; border-radius: 999px; background: var(--surface); border: 1px solid var(--border); color: var(--muted); cursor: pointer; font: inherit; }
 .subproject-tabs a.on, .subproject-tabs button.on { background: color-mix(in srgb, var(--accent) 22%, var(--surface-2)); color: var(--text); border-color: var(--accent); }
