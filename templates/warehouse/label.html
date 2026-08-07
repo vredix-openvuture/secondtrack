@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Label') }} {{ code }} · secondtrack{% endblock %}
+{% block content %}
+
+<div class="page-head no-print">
+  <a href="/warehouse" class="btn ghost">← {{ _('Warehouse') }}</a>
+  <div class="tabs" style="margin-left:auto">
+    <a href="/label/{{ code }}?fmt=qr" class="{{ 'on' if fmt == 'qr' }}">{{ _('QR code') }}</a>
+    <a href="/label/{{ code }}?fmt=barcode" class="{{ 'on' if fmt == 'barcode' }}">{{ _('Barcode') }}</a>
+  </div>
+  <button type="button" class="btn" onclick="window.print()">{{ _('Print') }}</button>
+</div>
+
+{% if fmt == 'barcode' %}
+{# ---- 2 x 1 inch label: barcode left · identifier + name right ---- #}
+<div class="label-2x1">
+  <div class="bc">{{ barcode|safe }}</div>
+  <div class="l2-info">
+    <div class="l2-code">{{ code }}</div>
+    <div class="l2-name">{{ name }}</div>
+    {% if subtitle %}<div class="l2-path">{{ subtitle }}</div>{% endif %}
+  </div>
+</div>
+<p class="muted small no-print" style="text-align:center">
+  {{ _('Code128 — reads') }} <code>{{ code }}</code> {{ _('on a handheld scanner. Use the QR code for phone-camera links.') }}
+</p>
+{% else %}
+<div class="label-sheet">
+  <img src="{{ qr }}" alt="QR {{ code }}">
+  <div class="label-code">{{ code }}</div>
+  <div class="label-name">{{ name }}</div>
+  {% if subtitle %}<div class="label-path">{{ subtitle }}</div>{% endif %}
+</div>
+<p class="muted small no-print" style="text-align:center">
+  {{ _('Scanning opens') }}: <code>{{ scan_url }}</code>
+</p>
+{% endif %}
+{% endblock %}

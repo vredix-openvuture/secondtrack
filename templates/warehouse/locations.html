@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Locations') }} · secondtrack{% endblock %}
+{% block content %}
+
+{% if msg %}<p class="notice">{{ _(msg) }}</p>{% endif %}
+
+<div class="page-head">
+  <h1>{{ _('Warehouse') }}</h1>
+  {% include "warehouse/_subnav.html" %}
+</div>
+
+{% macro parent_options(sel_id) %}
+  <option value="">{{ _('Top level') }}</option>
+  {% for l in all_locs %}<option value="{{ l.id }}" {{ 'selected' if sel_id == l.id }}>{{ l.path }}</option>{% endfor %}
+{% endmacro %}
+
+{% macro node(loc) %}
+<li>
+  <div class="loc-node" id="row-{{ loc.code }}">
+    <span class="loc-name">📍 {{ loc.name }}</span>
+    <span class="loc-code">{{ loc.code }}</span>
+    <span class="loc-count">{{ counts.get(loc.id, 0) }} {{ _('parts') }}</span>
+    <span class="loc-acts">
+      <a class="act-btn" href="/label/{{ loc.code }}" target="_blank" title="{{ _('Print label') }}">🏷</a>
+      <button type="button" class="act-btn" onclick="this.closest('li').querySelector('details.loc-edit').open=true" title="{{ _('Edit') }}">✎</button>
+      <form method="post" action="/warehouse/locations/{{ loc.id }}/delete"
+            onsubmit="return confirm('{{ _('Delete location? Sub-locations and items move up one level.') }}')">
+        <button class="act-btn danger" title="{{ _('Delete location') }}">✕</button>
+      </form>
+    </span>
+  </div>
+  <details class="inline-edit loc-edit">
+    <summary style="display:none"></summary>
+    <form method="post" action="/warehouse/locations/{{ loc.id }}/update" class="stack mt" style="max-width:520px">
+      <input name="name" value="{{ loc.name }}" required>
+      <label>{{ _('Parent location') }}
+        <select name="parent_id">{{ parent_options(loc.parent_id) }}</select>
+      </label>
+      <input name="notes" value="{{ loc.notes or '' }}" placeholder="{{ _('Note (optional)') }}">
+      <button type="submit" class="primary">{{ _('Save') }}</button>
+    </form>
+  </details>
+  {% if loc.children %}
+  <ul>{% for c in loc.children %}{{ node(c) }}{% endfor %}</ul>
+  {% endif %}
+</li>
+{% endmacro %}
+
+<section class="card">
+{% if roots %}
+<ul class="loc-tree">
+  {% for loc in roots %}{{ node(loc) }}{% endfor %}
+</ul>
+{% else %}
+<p class="muted empty">{{ _('No locations yet. Add a rack, shelf or bin with +.') }}</p>
+{% endif %}
+</section>
+
+<button class="fab" onclick="stOpenModal('newLocation')" title="{{ _('Add location') }}">+</button>
+<div class="modal-backdrop" id="newLocation">
+  <div class="modal">
+    <div class="modal-head"><h2>{{ _('New location') }}</h2><button class="modal-close" onclick="stCloseModal(this)">×</button></div>
+    <form method="post" action="/warehouse/locations" class="stack">
+      <input name="name" placeholder="{{ _('Name (e.g. Rack A / Shelf 3)') }}" required autofocus>
+      <label>{{ _('Parent location') }}
+        <select name="parent_id">{{ parent_options(none) }}</select>
+      </label>
+      <input name="notes" placeholder="{{ _('Note (optional)') }}">
+      <button type="submit" class="primary">{{ _('Create') }}</button>
+    </form>
+  </div>
+</div>
+
+<script src="/static/warehouse.js" defer></script>
+{% endblock %}

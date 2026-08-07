@@ -17,6 +17,7 @@ from ..db import get_db, get_setting, set_setting
 from ..i18n import DEFAULT_LANG, LANGUAGES
 from ..models import User
 from ..services import emails, mailer
+from ..services import warehouse as wh
 from ..services.uploads import delete_image, save_image
 from ..templating import ctx, templates
 
@@ -61,6 +62,7 @@ async def settings_page(
             display_name=user.display_name or "",
             hourly_rate=get_setting(db, "hourly_rate", "0"),
             currency=get_setting(db, "currency", app_settings.currency),
+            public_base_url=get_setting(db, "public_base_url", "") or "",
             languages=LANGUAGES,
             current_lang=get_setting(db, "language", DEFAULT_LANG) or DEFAULT_LANG,
             rt=rt,
@@ -86,6 +88,19 @@ async def settings_page(
     )
 
 
+# ---- Global optional fields (all products) ----
+@router.post("/optional-fields")
+async def update_optional_fields(
+    fields_json: str = Form("[]"),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_login),
+):
+    set_setting(db, "optional_fields_json", wh.sanitize_fields(fields_json))
+    return RedirectResponse(
+        "/settings/categories?msg=Optional fields saved", status_code=303
+    )
+
+
 # ---- General ----
 @router.post("/general")
 async def update_general(
@@ -93,6 +108,7 @@ async def update_general(
     hourly_rate: str = Form("0"),
     currency: str = Form("€"),
     language: str = Form(DEFAULT_LANG),
+    public_base_url: str = Form(""),
     db: Session = Depends(get_db),
     user: User = Depends(require_login),
 ):
@@ -104,6 +120,7 @@ async def update_general(
     set_setting(db, "hourly_rate", str(rate))
     set_setting(db, "currency", currency.strip() or "€")
     set_setting(db, "language", language if language in LANGUAGES else DEFAULT_LANG)
+    set_setting(db, "public_base_url", public_base_url.strip())
     return RedirectResponse("/settings?tab=general&msg=Saved", status_code=303)
 
 

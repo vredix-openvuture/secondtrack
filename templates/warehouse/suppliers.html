@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Suppliers') }} · secondtrack{% endblock %}
+{% block content %}
+
+{% if msg %}<p class="notice">{{ _(msg) }}</p>{% endif %}
+
+<div class="page-head">
+  <h1>{{ _('Warehouse') }}</h1>
+  {% include "warehouse/_subnav.html" %}
+</div>
+
+{% macro supplier_fields(s) %}
+  <input name="name" value="{{ s.name if s else '' }}" placeholder="{{ _('Supplier name') }}" required>
+  <div class="row-form">
+    <input name="contact" value="{{ s.contact or '' if s else '' }}" placeholder="{{ _('Contact person') }}">
+    <input name="account_no" value="{{ s.account_no or '' if s else '' }}" placeholder="{{ _('My account no.') }}">
+  </div>
+  <div class="row-form">
+    <input name="email" value="{{ s.email or '' if s else '' }}" placeholder="{{ _('Email') }}" type="email">
+    <input name="phone" value="{{ s.phone or '' if s else '' }}" placeholder="{{ _('Phone') }}">
+  </div>
+  <input name="website" value="{{ s.website or '' if s else '' }}" placeholder="{{ _('Website') }}">
+  <input name="address" value="{{ s.address or '' if s else '' }}" placeholder="{{ _('Address') }}">
+  <input name="notes" value="{{ s.notes or '' if s else '' }}" placeholder="{{ _('Note (optional)') }}">
+{% endmacro %}
+
+{% if suppliers %}
+<div class="info-grid">
+  {% for s in suppliers %}
+  <div class="info-card">
+    <form method="post" action="/warehouse/suppliers/{{ s.id }}/delete" class="card-del"
+          onsubmit="return confirm('{{ _('Delete supplier? Parts keep their data.') }}')">
+      <button type="submit" class="act-btn danger" title="{{ _('Delete supplier') }}">✕</button>
+    </form>
+    <h3>{{ s.name }}</h3>
+    {% if s.contact %}<div class="info-line"><b>{{ _('Contact') }}</b>{{ s.contact }}</div>{% endif %}
+    {% if s.email %}<div class="info-line"><b>{{ _('Email') }}</b><a href="mailto:{{ s.email }}">{{ s.email }}</a></div>{% endif %}
+    {% if s.phone %}<div class="info-line"><b>{{ _('Phone') }}</b>{{ s.phone }}</div>{% endif %}
+    {% if s.website %}<div class="info-line"><b>{{ _('Website') }}</b><a href="{{ s.website }}" target="_blank" rel="noopener">{{ s.website }}</a></div>{% endif %}
+    {% if s.account_no %}<div class="info-line"><b>{{ _('Account') }}</b>{{ s.account_no }}</div>{% endif %}
+    {% if s.address %}<div class="info-line"><b>{{ _('Address') }}</b>{{ s.address }}</div>{% endif %}
+    <div class="info-line"><b>{{ _('Parts') }}</b>{{ counts.get(s.id, 0) }}</div>
+    <details class="inline-edit mt">
+      <summary class="muted small" style="cursor:pointer">{{ _('Edit') }}</summary>
+      <form method="post" action="/warehouse/suppliers/{{ s.id }}/update" class="stack mt">
+        {{ supplier_fields(s) }}
+        <button type="submit" class="primary">{{ _('Save') }}</button>
+      </form>
+    </details>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<p class="muted empty">{{ _('No suppliers yet. Add one with +.') }}</p>
+{% endif %}
+
+<button class="fab" onclick="stOpenModal('newSupplier')" title="{{ _('Add supplier') }}">+</button>
+<div class="modal-backdrop" id="newSupplier">
+  <div class="modal">
+    <div class="modal-head"><h2>{{ _('New supplier') }}</h2><button class="modal-close" onclick="stCloseModal(this)">×</button></div>
+    <form method="post" action="/warehouse/suppliers" class="stack">
+      {{ supplier_fields(none) }}
+      <button type="submit" class="primary">{{ _('Create') }}</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -13,12 +13,16 @@ from .config import get_settings
 from .db import init_db
 from .routers import (
     auth,
+    categories,
     dashboard,
     expenses as expenses_router,
     hub,
+    locations,
     projects,
+    scan,
     settings as settings_router,
     stats,
+    suppliers,
     tasks,
     warehouse,
     webhooks,
@@ -125,6 +129,10 @@ app.include_router(auth.router)
 app.include_router(dashboard.router)
 app.include_router(projects.router)
 app.include_router(warehouse.router)
+app.include_router(suppliers.router)
+app.include_router(locations.router)
+app.include_router(categories.router)
+app.include_router(scan.router)
 app.include_router(hub.router)
 app.include_router(expenses_router.router)
 app.include_router(tasks.router)

@@ -6,12 +6,7 @@
 <div class="page-head"><h1>{{ _('Settings') }}</h1></div>
 {% if msg %}<p class="notice">{{ _(msg) }}</p>{% endif %}
 
-<div class="tabs settings-tabs">
-  <a href="/settings?tab=general" class="{{ 'on' if tab == 'general' }}">{{ _('General') }}</a>
-  <a href="/settings?tab=connections" class="{{ 'on' if tab == 'connections' }}">{{ _('Connections') }}</a>
-  <a href="/settings?tab=style" class="{{ 'on' if tab == 'style' }}">{{ _('Style') }}</a>
-  <a href="/settings?tab=account" class="{{ 'on' if tab == 'account' }}">{{ _('Account') }}</a>
-</div>
+{% include "partials/settings_tabs.html" %}
 
 {% if tab == 'general' %}
 <section class="card" style="max-width:560px">
@@ -23,6 +18,7 @@
     </label>
     <label>{{ _('Default hourly rate') }}<input name="hourly_rate" value="{{ hourly_rate }}" inputmode="decimal"></label>
     <label>{{ _('Currency symbol') }}<input name="currency" value="{{ currency }}" maxlength="4"></label>
+    <label>{{ _('Public base URL (for scan labels)') }}<input name="public_base_url" value="{{ public_base_url }}" placeholder="https://secondtrack.example.com"></label>
     <button type="submit" class="primary">{{ _('Save') }}</button>
   </form>
 </section>

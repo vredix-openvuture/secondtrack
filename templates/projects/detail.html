@@ -357,6 +357,16 @@
         <form method="post" action="/projects/{{ project.id }}/export"><button type="submit">{{ _('→ Vault') }}</button></form>
       </div>
     </section>
+
+    <!-- ===== FINISHED GOOD ===== -->
+    <section class="card">
+      <h2>{{ _('Finished good') }}</h2>
+      <p class="muted small">{{ _('Register this build as a sellable finished good in the warehouse (kept ready to ship).') }}</p>
+      <form method="post" action="/warehouse/stock-from-project/{{ project.id }}"
+            onsubmit="return confirm('{{ _('Stock this build as a finished good?') }}')">
+        <button type="submit" class="primary">📦 {{ _('Stock as finished good') }}</button>
+      </form>
+    </section>
 </div>
 
 <!-- ===== SUMMARY (full width) ===== -->

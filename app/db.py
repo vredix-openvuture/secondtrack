@@ -83,6 +83,35 @@ def _ensure_columns() -> None:
             ("source_expense_id", "INTEGER"),
             ("set_id", "INTEGER"),
             ("quantity", "INTEGER DEFAULT 1"),
+            # Warehouse rework (W1/W2/W4/W6)
+            ("category_id", "INTEGER"),
+            ("supplier_id", "INTEGER"),
+            ("location_id", "INTEGER"),
+            ("code", "VARCHAR(32)"),
+            ("attributes", "TEXT"),
+            ("condition", "VARCHAR(20)"),
+            ("serial_no", "VARCHAR(120)"),
+            ("mpn", "VARCHAR(120)"),
+            ("ean", "VARCHAR(64)"),
+            ("warranty_until", "DATE"),
+            ("purchase_date", "DATE"),
+            ("min_stock", "INTEGER"),
+            ("unit", "VARCHAR(20)"),
+            ("extra", "TEXT"),
+        ],
+        "categories": [
+            ("color", "VARCHAR(16)"),
+        ],
+        "sets": [
+            # Warehouse rework (W5)
+            ("kind", "VARCHAR(20) DEFAULT 'purchase_lot'"),
+            ("status", "VARCHAR(20)"),
+            ("sellable", "BOOLEAN DEFAULT 0"),
+            ("condition", "VARCHAR(20)"),
+            ("notes", "TEXT"),
+            ("code", "VARCHAR(32)"),
+            ("location_id", "INTEGER"),
+            ("source_project_id", "INTEGER"),
         ],
         "users": [("display_name", "VARCHAR(120)")],
         "work_sessions": [("hourly_rate", "FLOAT")],
@@ -184,6 +213,46 @@ def _remap_project_status() -> None:
             )
 
 
+def _backfill_codes() -> None:
+    """Give existing warehouse parts and sets a scan code (idempotent). New
+    rows get their code on creation; this covers rows from before the rework."""
+    from .models import Category, Part, PartSet
+    from .routers.categories import CATEGORY_COLORS
+    from .services import codes
+
+    with SessionLocal() as db:
+        for part in db.query(Part).filter(Part.code.is_(None)).all():
+            part.code = codes.generate(db, "part")
+        for ps in db.query(PartSet).filter(PartSet.code.is_(None)).all():
+            ps.code = codes.generate(db, "set")
+        # Give pre-existing categories a colour so cards/tags are tinted.
+        for i, cat in enumerate(
+            db.query(Category).filter(Category.color.is_(None)).order_by(Category.position).all()
+        ):
+            cat.color = CATEGORY_COLORS[i % len(CATEGORY_COLORS)]
+        # Migrate legacy per-column optional data into the `extra` JSON blob so
+        # the new global optional-fields system owns it. Runs once (extra IS NULL).
+        import json as _json
+        for part in db.query(Part).filter(Part.extra.is_(None)).all():
+            d: dict = {}
+            if part.serial_no:
+                d["serial_no"] = part.serial_no
+            if part.mpn:
+                d["mpn"] = part.mpn
+            if part.ean:
+                d["ean"] = part.ean
+            if part.unit:
+                d["unit"] = part.unit
+            if part.min_stock is not None:
+                d["min_stock"] = part.min_stock
+            if part.purchase_date:
+                d["purchase_date"] = part.purchase_date.isoformat()
+            if part.warranty_until:
+                d["warranty_until"] = part.warranty_until.isoformat()
+            part.extra = _json.dumps(d, ensure_ascii=False)
+        db.commit()
+
+
 def init_db() -> None:
     """Create tables, seed the admin user and default settings."""
     from passlib.hash import bcrypt
@@ -212,3 +281,5 @@ def init_db() -> None:
     _backfill_projects()
     # P3 status remap (idempotent): legacy statuses → new lifecycle values.
     _remap_project_status()
+    # Warehouse rework: give pre-existing parts/sets a scan code (idempotent).
+    _backfill_codes()

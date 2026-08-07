@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Categories') }} · secondtrack{% endblock %}
+{% block content %}
+
+<div class="page-head"><h1>{{ _('Settings') }}</h1></div>
+{% if msg %}<p class="notice">{{ _(msg) }}</p>{% endif %}
+
+{% include "partials/settings_tabs.html" %}
+
+<p class="muted" style="margin:-.3rem 0 1.1rem">{{ _('Product categories define extra fields a part can carry — e.g. CPU → platform (AM4/AM5). Only parts in that category show those fields.') }}</p>
+
+{% macro field_editor(fields_json) %}
+  <div class="cat-fields" data-fields='{{ fields_json }}'></div>
+  <button type="button" class="btn small ghost" onclick="stCatAddField(this)">+ {{ _('Add field') }}</button>
+  <input type="hidden" name="fields_json" value="[]">
+{% endmacro %}
+
+<section class="card cat-editor">
+  <div class="card-head"><h2>🧩 {{ _('Optional fields (all products)') }}</h2></div>
+  <p class="muted small" style="margin:-.4rem 0 .9rem">{{ _('Shown behind the “Optional fields” button on every product, regardless of category.') }}</p>
+  <form method="post" action="/settings/optional-fields" onsubmit="return stCatSerialize(this)">
+    <div class="cat-fields-wrap">
+      {{ field_editor(optional_fields_json) }}
+    </div>
+    <div class="mt"><button type="submit" class="primary btn small">{{ _('Save') }}</button></div>
+  </form>
+</section>
+
+<div class="card-head" style="margin-top:1.6rem"><h2>{{ _('Categories') }}</h2></div>
+
+{% for cat in categories %}
+<section class="card cat-editor">
+  <form method="post" action="/settings/categories/{{ cat.id }}/update" onsubmit="return stCatSerialize(this)">
+    <div class="cat-head">
+      <input type="color" name="color" class="cat-color" value="{{ cat.color or '#fb6734' }}" title="{{ _('Category colour') }}">
+      <input name="icon" class="cat-icon" value="{{ cat.icon or '' }}" placeholder="🔤" maxlength="4" title="{{ _('Icon (emoji)') }}">
+      <input name="name" class="cat-name" value="{{ cat.name }}" required>
+      <span class="badge qty" title="{{ _('Parts in this category') }}">{{ counts.get(cat.id, 0) }} {{ _('parts') }}</span>
+      <button type="submit" class="btn small">{{ _('Save') }}</button>
+    </div>
+    <div class="cat-fields-wrap">
+      {{ field_editor(cat.fields_json) }}
+    </div>
+  </form>
+  <form method="post" action="/settings/categories/{{ cat.id }}/delete" class="cat-del"
+        onsubmit="return confirm('{{ _('Delete category? Parts keep their data but lose the category.') }}')">
+    <button type="submit" class="act-btn danger" title="{{ _('Delete category') }}">✕</button>
+  </form>
+</section>
+{% endfor %}
+
+<section class="card cat-editor">
+  <div class="card-head"><h2>{{ _('New category') }}</h2></div>
+  <form method="post" action="/settings/categories" onsubmit="return stCatSerialize(this)">
+    <div class="cat-head">
+      <input type="color" name="color" class="cat-color" value="#fb6734" title="{{ _('Category colour') }}">
+      <input name="icon" class="cat-icon" placeholder="🔤" maxlength="4" title="{{ _('Icon (emoji)') }}">
+      <input name="name" class="cat-name" placeholder="{{ _('Category name (e.g. CPU)') }}" required>
+      <button type="submit" class="primary btn small">{{ _('Create') }}</button>
+    </div>
+    <div class="cat-fields-wrap">
+      {{ field_editor('[]') }}
+    </div>
+  </form>
+</section>
+
+<script src="/static/warehouse.js" defer></script>
+{% endblock %}

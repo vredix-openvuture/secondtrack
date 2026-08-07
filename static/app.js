@@ -158,12 +158,19 @@ function stResetPartModal() {
   m.querySelectorAll('.img-square .is-ph').forEach(function (p) { p.style.display = ''; });
 }
 function stRemoveSubprod(btn) {
-  var list = btn.closest('.subprod-list');
   var card = btn.closest('.subprod');
-  if (list && list.querySelectorAll('.subprod').length > 1) { card.remove(); return; }
-  card.querySelectorAll('input').forEach(function (i) { i.value = ''; });
-  var img = card.querySelector('img.is-preview'); if (img) img.remove();
-  var ph = card.querySelector('.is-ph'); if (ph) ph.style.display = '';
+  var list = card ? card.closest('.subprod-list') : null;
+  if (!card) return;
+  card.remove();  // always remove the row
+  if (!list) return;
+  var remaining = list.querySelectorAll('.subprod').length;
+  // Create modal: an empty set list means "single product" → collapse the panel.
+  if (list.id === 'setParts' && remaining === 0) {
+    var panel = document.getElementById('setPanel');
+    if (panel) panel.setAttribute('hidden', '');
+  }
+  // Split modal always needs at least one row.
+  if (list.id === 'splitParts' && remaining === 0) stAddSubprod('splitParts');
 }
 function stAddPart() {
   var p = document.getElementById('setPanel');

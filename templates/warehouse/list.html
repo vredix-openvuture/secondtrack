@@ -1,124 +1,419 @@
 {% extends "base.html" %}
 {% block title %}{{ _('Warehouse') }} · secondtrack{% endblock %}
 {% block content %}
+{% set whtab = 'stock' %}
+
+<svg width="0" height="0" class="ic-sprite" aria-hidden="true"><defs>
+  <symbol id="ic-dots" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></symbol>
+  <symbol id="ic-install" viewBox="0 0 24 24" fill="none"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></symbol>
+  <symbol id="ic-edit" viewBox="0 0 24 24" fill="none"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></symbol>
+  <symbol id="ic-label" viewBox="0 0 24 24" fill="none"><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8z"/><circle cx="7" cy="7" r="1.2"/></symbol>
+  <symbol id="ic-split" viewBox="0 0 24 24" fill="none"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M6 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"/></symbol>
+  <symbol id="ic-trash" viewBox="0 0 24 24" fill="none"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></symbol>
+  <symbol id="ic-x" viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></symbol>
+  <symbol id="ic-arrow" viewBox="0 0 24 24" fill="none"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></symbol>
+  <symbol id="ic-part" viewBox="0 0 24 24" fill="none"><rect x="6" y="6" width="12" height="12" rx="2"/><rect x="10" y="10" width="4" height="4" rx="1"/><line x1="9" y1="6" x2="9" y2="3"/><line x1="15" y1="6" x2="15" y2="3"/><line x1="9" y1="21" x2="9" y2="18"/><line x1="15" y1="21" x2="15" y2="18"/><line x1="6" y1="9" x2="3" y2="9"/><line x1="6" y1="15" x2="3" y2="15"/><line x1="21" y1="9" x2="18" y2="9"/><line x1="21" y1="15" x2="18" y2="15"/></symbol>
+  <symbol id="ic-layers" viewBox="0 0 24 24" fill="none"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></symbol>
+  <symbol id="ic-box" viewBox="0 0 24 24" fill="none"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.3 7 12 12 20.7 7"/><line x1="12" y1="22" x2="12" y2="12"/></symbol>
+  <symbol id="ic-pin" viewBox="0 0 24 24" fill="none"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></symbol>
+  <symbol id="ic-search" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></symbol>
+  <symbol id="ic-image" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></symbol>
+  <symbol id="ic-wrench" viewBox="0 0 24 24" fill="none"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></symbol>
+  <symbol id="ic-check" viewBox="0 0 24 24" fill="none"><polyline points="20 6 9 17 4 12"/></symbol>
+</defs></svg>
 
 {% if request.query_params.get('msg') %}<p class="notice">{{ _(request.query_params.get('msg')) }}</p>{% endif %}
+
 <div class="page-head">
-  <h1>{{ _('Virtual warehouse') }}</h1>
-  <div class="view-toggle" data-view-scope="warehouse" data-view-default="list">
-    <button type="button" data-mode="list" onclick="stSetView('warehouse','list')">☰ {{ _('List') }}</button>
-    <button type="button" data-mode="cards" onclick="stSetView('warehouse','cards')">▦ {{ _('Cards') }}</button>
+  <h1>{{ _('Warehouse') }}</h1>
+  {% include "warehouse/_subnav.html" %}
+</div>
+
+<div class="wh-panel">
+  <div class="wh-panel-top">
+    <nav class="wh-viewtabs">
+      <a href="/warehouse?view=parts" class="{{ 'on' if view == 'parts' }}"><svg class="ic"><use href="#ic-part"/></svg>{{ _('Single parts') }} <span class="vt-n">{{ single_count }}</span></a>
+      <a href="/warehouse?view=sets" class="{{ 'on' if view == 'sets' }}"><svg class="ic"><use href="#ic-layers"/></svg>{{ _('Sets') }} <span class="vt-n">{{ lots|length }}</span></a>
+      <a href="/warehouse?view=wip" class="{{ 'on' if view == 'wip' }}"><svg class="ic"><use href="#ic-wrench"/></svg>{{ _('Work in progress') }} <span class="vt-n">{{ wip|length }}</span></a>
+      <a href="/warehouse?view=finished" class="{{ 'on' if view == 'finished' }}"><svg class="ic"><use href="#ic-box"/></svg>{{ _('Finished goods') }} <span class="vt-n">{{ finished|length }}</span></a>
+    </nav>
+    <div class="kpi-inline">
+      <span>{{ _('Stock (cost)') }}: <strong>{{ stock_cost|money }} {{ currency }}</strong></span>
+      <span>{{ _('Stock (sale)') }}: <strong>{{ stock_value|money }} {{ currency }}</strong></span>
+      {% if low_stock %}<span>{{ _('Low stock') }}: <strong class="neg">{{ low_stock }}</strong></span>{% endif %}
+    </div>
   </div>
-  <div class="kpi-inline">
-    <span>{{ _('Stock (cost)') }}: <strong>{{ stock_cost|money }} {{ currency }}</strong></span>
-    <span>{{ _('Stock (sale)') }}: <strong>{{ stock_value|money }} {{ currency }}</strong></span>
+  <div class="wh-panel-tools">
+    {% if view == 'parts' and (categories or low_stock) %}
+    <div class="chip-filter">
+      <a href="/warehouse?view=parts" class="chip {{ 'on' if not active_cat and not only_low }}">{{ _('All') }}</a>
+      {% for c in categories %}
+      <a href="/warehouse?view=parts&cat={{ c.id }}" class="chip {{ 'on' if active_cat == c.id }}"><span class="chip-dot" style="background:{{ c.color or '#9a7f8b' }}"></span>{{ c.name }}</a>
+      {% endfor %}
+      {% if low_stock %}<a href="/warehouse?view=parts&low=1" class="chip warn {{ 'on' if only_low }}">{{ _('Low stock') }} ({{ low_stock }})</a>{% endif %}
+    </div>
+    {% endif %}
+    <label class="search"><svg class="ic"><use href="#ic-search"/></svg> <input type="text" placeholder="{{ _('Filter…') }}" oninput="stFilterRows(this)"></label>
+    <div class="view-toggle" data-view-scope="warehouse" data-view-default="list">
+      <button type="button" data-mode="list" onclick="stSetView('warehouse','list')">{{ _('List') }}</button>
+      <button type="button" data-mode="cards" onclick="stSetView('warehouse','cards')">{{ _('Cards') }}</button>
+    </div>
   </div>
 </div>
-<script>window.ST_EBAY = {{ 'true' if ebay_enabled else 'false' }};</script>
+<script>
+  window.ST_EBAY = {{ 'true' if ebay_enabled else 'false' }};
+  window.ST_COST_LABEL = "{{ _('Cost') }}";
+  window.ST_NO_PARTS = "{{ _('no parts yet') }}";
+  window.ST_NO_PARTS_LONG = "{{ _('No parts booked yet — book components below.') }}";
+  window.ST_PARTS_LABEL = "{{ _('parts') }}";
+  window.ST_TOTAL_LABEL = "{{ _('Total') }}";
+  window.ST_PART_LABEL = "{{ _('Part') }}";
+  window.ST_VALUE_LABEL = "{{ _('Value') }}";
+  window.ST_MATERIAL_LABEL = "{{ _('Material value') }}";
+  window.ST_PARTNAME = "{{ _('Part name') }}";
+  window.ST_SALE = "{{ _('Sale') }}";
+  window.ST_VK_TOTAL = "{{ _('Sale total') }}";
+  window.ST_EDIT_WIP = "{{ _('Edit WIP') }}";
+  window.ST_EDIT_FINISHED = "{{ _('Edit finished good') }}";
+  window.ST_FINISH_CONFIRM = "{{ _('Move to finished? It gets a finished storage number.') }}";
+  window.ST_DEL_SET = "{{ _('Delete set? Its parts stay in the warehouse.') }}";
+  window.ST_DEL_WIP = "{{ _('Delete? Its parts return to the warehouse.') }}";
+  window.ST_FIN_WARN = "{{ _('This item is already finished. Change its parts anyway?') }}";
+  window.ST_QTY = "{{ _('Quantity') }}";
+  window.ST_BOOK = "{{ _('Book') }}";
+  window.ST_NO_AVAIL = "{{ _('No loose parts available.') }}";
+</script>
 
-{% if sets %}
-<section class="card">
-  <h2>{{ _('Sets') }}</h2>
-  {% for s in sets %}
-  <div class="set-block">
-    <div class="set-head">
-      <div class="row-thumb {{ 'placeholder' if not s.image_path }}"{% if s.image_path %} style="background-image:url('{{ s.image_path }}')"{% endif %}></div>
-      <div class="set-meta">
-        <strong>{{ s.name }}</strong>
-        <div class="muted small">{{ _('Purchase') }} {{ s.purchase_price|money }} {{ currency }} · {{ s.parts|length }} {{ _('parts') }}{% if s.sale_price %} · {{ _('Set price') }} {{ s.sale_price|money }} {{ currency }}{% endif %}</div>
+{% macro part_tags(p) %}
+  {% if p.category %}<span class="tag cat" style="--ac:{{ p.category.color or '#9a7f8b' }}"><span class="d" style="background:{{ p.category.color or '#9a7f8b' }}"></span>{{ p.category.name }}</span>{% endif %}
+  {% for lbl, val in wh.display_attributes(p)[:3] %}<span class="tag prop"><b>{{ lbl }}</b>{{ val }}</span>{% endfor %}
+  {% if p.condition %}<span class="tag prop">{{ _(p.condition|capitalize) }}</span>{% endif %}
+{% endmacro %}
+
+{% macro opt_field(f) %}
+  {% if f.type == 'bool' %}
+  <label class="fld"><span class="chk"><input type="checkbox" name="opt_{{ f.key }}" value="1"> {{ f.label }}</span></label>
+  {% else %}
+  <label class="fld">
+    <span class="lbl">{{ f.label }}{% if f.unit %} <span class="unit">({{ f.unit }})</span>{% endif %}</span>
+    {% if f.type == 'select' %}
+    <select name="opt_{{ f.key }}"><option value="">—</option>{% for o in f.options %}<option value="{{ o }}">{{ o }}</option>{% endfor %}</select>
+    {% elif f.type == 'date' %}<input type="date" name="opt_{{ f.key }}">
+    {% elif f.type == 'number' %}<input name="opt_{{ f.key }}" inputmode="decimal">
+    {% else %}<input name="opt_{{ f.key }}">
+    {% endif %}
+  </label>
+  {% endif %}
+{% endmacro %}
+
+{% macro opt_section() %}
+  {% if optional_fields %}
+  <details class="opt-toggle gaptop">
+    <summary class="btn ghost">＋ {{ _('Optional fields') }}</summary>
+    <div class="pf-grid gaptop">
+      {% for f in optional_fields %}{{ opt_field(f) }}{% endfor %}
+    </div>
+  </details>
+  {% endif %}
+{% endmacro %}
+
+{# Uniform toolbar (search + list/cards toggle) — the same for every view. #}
+{% macro wh_toolbar() %}
+<div class="ntoolbar wh-parts-toolbar">
+  <label class="search"><svg class="ic"><use href="#ic-search"/></svg> <input type="text" placeholder="{{ _('Filter…') }}" oninput="stFilterRows(this)"></label>
+  <span class="spacer"></span>
+  <div class="view-toggle" data-view-scope="warehouse" data-view-default="list">
+    <button type="button" data-mode="list" onclick="stSetView('warehouse','list')">{{ _('List') }}</button>
+    <button type="button" data-mode="cards" onclick="stSetView('warehouse','cards')">{{ _('Cards') }}</button>
+  </div>
+</div>
+{% endmacro %}
+
+{# Leading image tile (→ QR label) for table rows, like the parts table. #}
+{% macro row_thumb(obj, icon) %}
+<a href="/label/{{ obj.code }}" target="_blank" class="nt-ic {{ 'has-photo' if obj.image_path }}"{% if obj.image_path %} style="background-image:url('{{ obj.image_path }}')"{% endif %} title="{{ _('Show QR label') }}">{% if not obj.image_path %}<svg class="ic ph-ic"><use href="#ic-{{ icon }}"/></svg>{% endif %}</a>
+{% endmacro %}
+
+{# ============================ FINISHED GOODS ============================ #}
+{% if view == 'finished' %}
+<section class="wh-section">
+  {% if finished %}
+  <div class="table-wrap view-list">
+    <table class="ntbl">
+      <thead><tr><th>{{ _('Part') }}</th><th>{{ _('Code') }}</th><th>{{ _('Location') }}</th><th class="r">{{ _('Parts') }}</th><th class="r">{{ _('Value') }}</th><th class="r">{{ _('Profit') }}</th><th class="nt-act"></th></tr></thead>
+      <tbody>
+      {% for s in finished %}
+        {% set matval = s.parts|sum(attribute='sale_price') %}
+        <tr data-name="{{ s.name|lower }}">
+          <td><div class="nt-name">{{ row_thumb(s, 'box') }}<b class="nt-title" onclick="stEditSetModal({{ s.id }})">{{ s.name }}</b></div></td>
+          <td><code class="small">{{ s.code }}</code></td>
+          <td>{% if s.location %}<span class="nt-loc"><svg class="ic tag-ic"><use href="#ic-pin"/></svg> {{ s.location.path }}</span>{% else %}<span class="faint">—</span>{% endif %}</td>
+          <td class="r">{{ s.parts|length }}</td>
+          <td class="r nt-val"><b>{{ (s.sale_price or 0)|money }} {{ currency }}</b></td>
+          {% set profit = (s.sale_price or 0) - matval %}
+          <td class="r nt-val"><b class="{{ 'pos' if profit >= 0 else 'neg' }}">{{ profit|money }} {{ currency }}</b></td>
+          <td class="nt-act">
+            <button type="button" class="nt-kb" title="{{ _('Actions') }}"
+              onclick="stSetMenu(event, this, {{ s.id }}, '{{ s.code }}', 'finished')"><svg class="ic"><use href="#ic-dots"/></svg></button>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="pgrid view-cards">
+    {% for s in finished %}
+    <div class="pcard sell" id="row-{{ s.code }}" data-name="{{ s.name|lower }}" style="--ac:{{ '#46c98b' }}">
+      <div class="pcard-img {{ 'has-photo' if s.image_path }}"{% if s.image_path %} style="background-image:url('{{ s.image_path }}')"{% endif %}>
+        {% if not s.image_path %}<span class="ph-ic"><svg class="ic"><use href="#ic-box"/></svg></span>{% endif %}
+        <div class="pcard-corner">{% if s.sellable %}<span class="pbadge sale">{{ _('For sale') }}</span>{% endif %}</div>
+      </div>
+      <div class="pcard-body">
+        {% set matval = s.parts|sum(attribute='sale_price') %}
+        <div class="pcard-nm" onclick="stEditSetModal({{ s.id }})" title="{{ _('Edit') }}">{{ s.name }}</div>
+        <div class="pcard-tags">
+          {% if s.location %}<span class="tag prop"><svg class="ic tag-ic"><use href="#ic-pin"/></svg> {{ s.location.path }}</span>{% endif %}
+          <span class="tag prop">{{ s.parts|length }} {{ _('parts') }}</span>
+        </div>
+        <div class="pcard-foot">
+          {% set profit = (s.sale_price or 0) - matval %}
+          <div class="pcard-price"><span class="big">{{ (s.sale_price or 0)|money }} {{ currency }}</span><span class="sm">{{ _('Profit') }} <b class="{{ 'pos' if profit >= 0 else 'neg' }}">{{ profit|money }} {{ currency }}</b> · {{ _('Material') }} {{ matval|money }} {{ currency }}</span></div>
+          <div class="pcard-go">
+            <a class="act-btn" href="/label/{{ s.code }}" target="_blank" title="{{ _('Print label') }}"><svg class="ic"><use href="#ic-label"/></svg></a>
+            <button type="button" class="act-btn" onclick="stEditSetModal({{ s.id }})" title="{{ _('Edit') }}"><svg class="ic"><use href="#ic-edit"/></svg></button>
+            <form method="post" action="/warehouse/set/{{ s.id }}/delete" onsubmit="return confirm('{{ _('Delete set? Its parts stay in the warehouse.') }}')"><button class="act-btn danger" title="{{ _('Delete') }}"><svg class="ic"><use href="#ic-trash"/></svg></button></form>
+          </div>
+        </div>
       </div>
     </div>
-    <ul class="set-parts">
-      {% for p in s.parts %}
-      <li>
-        <span class="sp-name">{{ p.name }}{% if p.project_id %} <span class="badge sold">{{ _('installed') }}</span>{% endif %}</span>
-        <span class="muted small">{{ p.purchase_price|money }} → {{ p.sale_price|money }} {{ currency }}</span>
-      </li>
-      {% endfor %}
-    </ul>
+    {% endfor %}
   </div>
-  {% endfor %}
+  {% else %}
+  <p class="muted small" style="padding:.3rem .2rem">{{ _('No finished goods yet. Build one from parts with “New finished good”.') }}</p>
+  {% endif %}
+  <button class="fab" onclick="stOpenModal('newFinished')" title="{{ _('New finished good') }}">+</button>
 </section>
 {% endif %}
 
-<section class="card">
-{% if parts %}
-<table class="grid view-list card-rows">
-  <thead>
-    <tr><th class="thumb-col"></th><th>{{ _('Part') }}</th><th>{{ _('Origin') }}</th><th class="num">{{ _('Purchase') }}</th><th class="num">{{ _('Sale') }}</th><th>{{ _('Actions') }}</th></tr>
-  </thead>
-  <tbody>
-  {% for p in parts %}
-    <tr>
-      <td class="thumb-cell"><div class="row-thumb {{ 'placeholder' if not p.image_path }}"{% if p.image_path %} style="background-image:url('{{ p.image_path }}')"{% endif %}></div></td>
-      <td>
-        <details class="inline-edit">
-          <summary><strong>{{ p.name }}</strong>{% if p.quantity and p.quantity > 1 %} <span class="badge qty" title="{{ _('In stock') }}">× {{ p.quantity }}</span>{% endif %}{% if p.part_set %} <span class="muted small">· {{ _('Set') }}: {{ p.part_set.name }}</span>{% elif p.notes %} <span class="muted small">· {{ p.notes }}</span>{% endif %}</summary>
-          <form method="post" action="/warehouse/{{ p.id }}/update" enctype="multipart/form-data" class="stack mt">
-            <input name="name" value="{{ p.name }}" required>
-            <div class="row-form">
-              <input name="purchase_price" value="{{ p.purchase_price if p.purchase_price is not none else '' }}" placeholder="{{ _('Purchase') }}" inputmode="decimal">
-              <input name="sale_price" value="{{ p.sale_price }}" placeholder="{{ _('Sale') }}" inputmode="decimal">
-              <input name="quantity" value="{{ p.quantity or 1 }}" placeholder="{{ _('Qty') }}" inputmode="numeric" style="max-width:100px">
-            </div>
-            <input name="notes" value="{{ p.notes or '' }}" placeholder="{{ _('Note (optional)') }}">
-            <label class="file-field">{{ _('Change image') }}<input type="file" name="image" accept="image/*" onchange="stPreview(this)"></label>
-            <button type="submit" class="primary">{{ _('Save') }}</button>
-          </form>
-        </details>
-      </td>
-      <td>{{ _('Harvested') if p.origin.value == "harvested" else _('Bought') }}</td>
-      <td class="num">{{ p.purchase_price|money }}{% if p.purchase_price is not none %} {{ currency }}{% endif %}</td>
-      <td class="num">{{ p.sale_price|money }} {{ currency }}</td>
-      <td class="actions">
-        {% if projects %}
-        <form method="post" action="/warehouse/{{ p.id }}/install" class="row-form compact">
-          <select name="project_id" required>
-            <option value="" disabled selected>{{ _('install into…') }}</option>
-            {% for pr in projects %}<option value="{{ pr.id }}">{{ pr.name }}</option>{% endfor %}
-          </select>
-          <button type="submit" class="act-btn" title="{{ _('Install into project') }}">→</button>
-        </form>
-        {% endif %}
-        <button type="button" class="act-btn" onclick="stEditPart(this)" title="{{ _('Edit') }}">✎</button>
-        <button type="button" class="act-btn" onclick="stOpenSplit({{ p.id }}, {{ p.purchase_price or 0 }})" title="{{ _('Split into a set') }}">⧉</button>
-        <form method="post" action="/warehouse/{{ p.id }}/delete" onsubmit="return confirm('{{ _('Delete part?') }}')"><button class="act-btn danger" title="{{ _('Delete part?') }}">✕</button></form>
-      </td>
-    </tr>
-  {% endfor %}
-  </tbody>
-</table>
-
-<div class="cards-grid view-cards">
-  {% for p in parts %}
-  <div class="entity-card">
-    <div class="thumb {{ 'placeholder' if not p.image_path }}"
-         {% if p.image_path %}style="background-image:url('{{ p.image_path }}')"{% endif %}></div>
-    <div class="body">
-      <h3>{{ p.name }}</h3>
-      <div class="meta">
-        <span>{{ _('Harvested') if p.origin.value == "harvested" else _('Bought') }}</span>
-        <span>{{ p.sale_price|money }} {{ currency }}</span>
+{# ============================ WORK IN PROGRESS =========================== #}
+{% if view == 'wip' %}
+<section class="wh-section">
+  {% if wip %}
+  <div class="table-wrap view-list">
+    <table class="ntbl">
+      <thead><tr><th>{{ _('Part') }}</th><th>{{ _('Code') }}</th><th>{{ _('Location') }}</th><th class="r">{{ _('Parts') }}</th><th class="r">{{ _('Material value') }}</th><th class="nt-act"></th></tr></thead>
+      <tbody>
+      {% for s in wip %}
+        <tr data-name="{{ s.name|lower }}">
+          <td><div class="nt-name">{{ row_thumb(s, 'wrench') }}<b class="nt-title" onclick="stEditSetModal({{ s.id }})">{{ s.name }}</b> <span class="pbadge wip" style="font-size:.62rem">{{ _('WIP') }}</span></div></td>
+          <td><code class="small">{{ s.code }}</code></td>
+          <td>{% if s.location %}<span class="nt-loc"><svg class="ic tag-ic"><use href="#ic-pin"/></svg> {{ s.location.path }}</span>{% else %}<span class="faint">—</span>{% endif %}</td>
+          <td class="r">{{ s.parts|length }}</td>
+          <td class="r nt-val"><b>{{ s.parts|sum(attribute='sale_price')|money }} {{ currency }}</b></td>
+          <td class="nt-act">
+            <button type="button" class="nt-kb" title="{{ _('Actions') }}"
+              onclick="stSetMenu(event, this, {{ s.id }}, '{{ s.code }}', 'wip')"><svg class="ic"><use href="#ic-dots"/></svg></button>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="pgrid view-cards">
+    {% for s in wip %}
+    {% set matval = s.parts|sum(attribute='sale_price') %}
+    <div class="pcard" id="row-{{ s.code }}" data-name="{{ s.name|lower }}" style="--ac:#f0a23a">
+      <div class="pcard-img {{ 'has-photo' if s.image_path }}"{% if s.image_path %} style="background-image:url('{{ s.image_path }}')"{% endif %} onclick="window.open('/label/{{ s.code }}','_blank')" title="{{ _('Show QR label') }}">
+        {% if not s.image_path %}<span class="ph-ic"><svg class="ic"><use href="#ic-wrench"/></svg></span>{% endif %}
+        <div class="pcard-corner"><span class="pbadge wip">{{ _('WIP') }}</span></div>
       </div>
-      {% if projects %}
-      <form method="post" action="/warehouse/{{ p.id }}/install" class="row-form compact" onclick="event.stopPropagation()">
-        <select name="project_id" required>
-          <option value="" disabled selected>{{ _('install into…') }}</option>
-          {% for pr in projects %}<option value="{{ pr.id }}">{{ pr.name }}</option>{% endfor %}
-        </select>
-        <button type="submit">→</button>
-      </form>
-      {% endif %}
+      <div class="pcard-body">
+        <div class="pcard-nm" onclick="stEditSetModal({{ s.id }})" title="{{ _('Edit') }}">{{ s.name }}</div>
+        <div class="pcard-tags">
+          {% if s.location %}<span class="tag prop"><svg class="ic tag-ic"><use href="#ic-pin"/></svg> {{ s.location.path }}</span>{% endif %}
+          <span class="tag prop">{{ s.parts|length }} {{ _('parts') }}</span>
+        </div>
+        <div class="pcard-foot">
+          <div class="pcard-price"><span class="big">{{ matval|money }} {{ currency }}</span><span class="sm">{{ _('Material value') }}</span></div>
+          <div class="pcard-go">
+            <button type="button" class="act-btn" onclick="stEditSetModal({{ s.id }})" title="{{ _('Edit') }}"><svg class="ic"><use href="#ic-edit"/></svg></button>
+            <form method="post" action="/warehouse/set/{{ s.id }}/finish" onsubmit="return confirm('{{ _('Move to finished? It gets a finished storage number.') }}')" style="display:inline"><button class="act-btn" title="{{ _('Move to finished') }}"><svg class="ic"><use href="#ic-check"/></svg></button></form>
+            <form method="post" action="/warehouse/set/{{ s.id }}/delete" onsubmit="return confirm('{{ _('Delete? Its parts return to the warehouse.') }}')"><button class="act-btn danger" title="{{ _('Delete') }}"><svg class="ic"><use href="#ic-trash"/></svg></button></form>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="muted small" style="padding:.3rem .2rem">{{ _('Nothing in progress. Start one with “New WIP”, then book parts onto it.') }}</p>
+  {% endif %}
+  <button class="fab" onclick="stOpenModal('newWip')" title="{{ _('New WIP') }}">+</button>
+</section>
+{% endif %}
+
+{# ================================ SETS ================================= #}
+{% if view == 'sets' %}
+<section class="wh-section">
+  {% if not lots %}<p class="muted small" style="padding:.3rem .2rem">{{ _('No sets yet. Add one with “New set”.') }}</p>{% endif %}
+  {% if lots %}
+  <div class="table-wrap view-list">
+    <table class="ntbl">
+      <thead><tr><th>{{ _('Set') }}</th><th>{{ _('Code') }}</th><th>{{ _('Location') }}</th><th class="r">{{ _('Parts') }}</th><th class="r">{{ _('Purchase') }}</th><th class="r">{{ _('Sale total') }}</th><th class="nt-act"></th></tr></thead>
+      <tbody>
+      {% for s in lots %}
+        <tr data-name="{{ s.name|lower }}">
+          <td><div class="nt-name">{{ row_thumb(s, 'layers') }}<b class="nt-title" onclick="stEditLotModal({{ s.id }})">{{ s.name }}</b></div></td>
+          <td><code class="small">{{ s.code }}</code></td>
+          <td>{% if s.location %}<span class="nt-loc"><svg class="ic tag-ic"><use href="#ic-pin"/></svg> {{ s.location.path }}</span>{% else %}<span class="faint">—</span>{% endif %}</td>
+          <td class="r">{{ s.parts|length }}</td>
+          <td class="r nt-val">{{ s.purchase_price|money }} {{ currency }}</td>
+          <td class="r nt-val"><b>{{ s.parts|sum(attribute='sale_price')|money }} {{ currency }}</b></td>
+          <td class="nt-act">
+            <button type="button" class="nt-kb" title="{{ _('Actions') }}"
+              onclick="stSetMenu(event, this, {{ s.id }}, '{{ s.code }}', 'lot')"><svg class="ic"><use href="#ic-dots"/></svg></button>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+  <div class="pgrid view-cards">
+    {% for s in lots %}
+    <div class="pcard" id="row-{{ s.code }}" data-name="{{ s.name|lower }}" style="--ac:#9a7f8b">
+      <div class="pcard-img {{ 'has-photo' if s.image_path }}"{% if s.image_path %} style="background-image:url('{{ s.image_path }}')"{% endif %} onclick="window.open('/label/{{ s.code }}','_blank')" title="{{ _('Show QR label') }}">
+        {% if not s.image_path %}<span class="ph-ic"><svg class="ic"><use href="#ic-layers"/></svg></span>{% endif %}
+      </div>
+      <div class="pcard-body">
+        <div class="pcard-nm" onclick="stEditLotModal({{ s.id }})" title="{{ _('Edit') }}">{{ s.name }}</div>
+        <div class="pcard-tags">
+          {% if s.location %}<span class="tag prop"><svg class="ic tag-ic"><use href="#ic-pin"/></svg> {{ s.location.path }}</span>{% endif %}
+          <span class="tag prop">{{ s.parts|length }} {{ _('parts') }}</span>
+        </div>
+        <div class="pcard-foot">
+          <div class="pcard-price"><span class="big">{{ s.parts|sum(attribute='sale_price')|money }} {{ currency }}</span><span class="sm">{{ _('Purchase') }} {{ s.purchase_price|money }} {{ currency }}</span></div>
+          <div class="pcard-go">
+            <a class="act-btn" href="/label/{{ s.code }}" target="_blank" title="{{ _('Print label') }}"><svg class="ic"><use href="#ic-label"/></svg></a>
+            <button type="button" class="act-btn" onclick="stEditLotModal({{ s.id }})" title="{{ _('Edit') }}"><svg class="ic"><use href="#ic-edit"/></svg></button>
+            <form method="post" action="/warehouse/set/{{ s.id }}/delete" onsubmit="return confirm('{{ _('Delete set? Its parts stay in the warehouse.') }}')"><button class="act-btn danger" title="{{ _('Delete') }}"><svg class="ic"><use href="#ic-trash"/></svg></button></form>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  <button class="fab" onclick="stOpenModal('newSet')" title="{{ _('New set') }}">+</button>
+</section>
+{% endif %}
+
+{# ============================= SINGLE PARTS ============================= #}
+{% if view == 'parts' %}
+<section class="wh-section">
+
+  {% if single_parts %}
+  {# ---- LIST: Notion-clean table ---- #}
+  <div class="ntbl-wrap view-list">
+    <div style="overflow-x:auto">
+    <table class="ntbl" id="whTable">
+      <thead>
+        <tr><th>{{ _('Part') }}</th><th>{{ _('Category') }}</th><th>{{ _('Specs') }}</th><th>{{ _('Location') }}</th><th class="r">{{ _('Qty') }}</th><th class="r">{{ _('Unit price') }}</th><th class="r">{{ _('Total') }}</th><th class="nt-act"></th></tr>
+      </thead>
+      <tbody>
+      {% for p in single_parts %}
+        <tr id="row-{{ p.code }}" data-name="{{ p.name|lower }}" style="--ac:{{ p.category.color if p.category else '#9a7f8b' }}">
+          <td>
+            <div class="nt-name">
+              <a href="/label/{{ p.code }}" target="_blank" class="nt-ic {{ 'has-photo' if p.image_path }}"{% if p.image_path %} style="background-image:url('{{ p.image_path }}')"{% endif %} title="{{ _('Show QR label') }}">{% if not p.image_path %}<svg class="ic ph-ic"><use href="#ic-part"/></svg>{% endif %}</a>
+              <b class="nt-title" onclick="stEditPartModal({{ p.id }})" title="{{ _('Edit') }}">{{ p.name }}</b>
+              {% if p.low_stock %}<span class="pbadge low" style="font-size:.62rem">{{ _('Low') }}</span>{% endif %}
+              {% if p.part_set %}<span class="tag prop" title="{{ _('Part of a set') }}"><svg class="ic tag-ic"><use href="#ic-layers"/></svg> {{ p.part_set.name }}</span>{% endif %}
+            </div>
+          </td>
+          <td>{% if p.category %}<span class="tag cat" style="--ac:{{ p.category.color or '#9a7f8b' }}"><span class="d" style="background:{{ p.category.color or '#9a7f8b' }}"></span>{{ p.category.name }}</span>{% else %}<span class="faint">—</span>{% endif %}</td>
+          <td><div class="nt-tags">
+            {% for lbl, val in wh.display_attributes(p)[:3] %}<span class="tag prop"><b>{{ lbl }}</b>{{ val }}</span>{% endfor %}
+            {% if p.condition %}<span class="tag prop">{{ _(p.condition|capitalize) }}</span>{% endif %}
+          </div></td>
+          <td>{% if p.location %}<span class="nt-loc"><svg class="ic tag-ic"><use href="#ic-pin"/></svg> {{ p.location.path }}</span>{% else %}<span class="faint">—</span>{% endif %}</td>
+          <td class="r">{{ p.quantity or 1 }}{% if p.unit %} {{ p.unit }}{% endif %}</td>
+          <td class="r">{{ p.sale_price|money }} {{ currency }}{% if not p.set_id and p.purchase_price %} <span class="c">/ {{ p.purchase_price|money }}</span>{% elif p.set_id %} <span class="c">{{ _('in set') }}</span>{% endif %}</td>
+          <td class="r nt-val"><b>{{ (p.sale_price * (p.quantity or 1))|money }} {{ currency }}</b></td>
+          <td class="nt-act">
+            <button type="button" class="nt-kb" title="{{ _('Actions') }}"
+              onclick="stRowMenu(event, this, {{ p.id }}, '{{ p.code }}', {{ p.purchase_price or 0 }})"><svg class="ic"><use href="#ic-dots"/></svg></button>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
     </div>
   </div>
-  {% endfor %}
-</div>
-{% else %}
-<p class="muted empty">{{ _('Warehouse is empty. Remove parts from projects or add them with +.') }}</p>
-{% endif %}
+
+  {# ---- CARDS: image-forward product cards ---- #}
+  <div class="pgrid view-cards">
+    {% for p in single_parts %}
+    <div class="pcard" id="card-{{ p.code }}" data-name="{{ p.name|lower }}" style="--ac:{{ p.category.color if p.category else '#9a7f8b' }}">
+      <div class="pcard-img {{ 'has-photo' if p.image_path }}"{% if p.image_path %} style="background-image:url('{{ p.image_path }}')"{% endif %} onclick="window.open('/label/{{ p.code }}','_blank')" title="{{ _('Show QR label') }}">
+        {% if not p.image_path %}<span class="ph-ic"><svg class="ic"><use href="#ic-part"/></svg></span>{% endif %}
+        {% if p.low_stock %}<div class="pcard-corner"><span class="pbadge low">{{ _('Low') }}</span></div>{% endif %}
+      </div>
+      <div class="pcard-body">
+        <div class="pcard-nm" onclick="stEditPartModal({{ p.id }})" title="{{ _('Edit') }}">{{ p.name }}</div>
+        <div class="pcard-tags">{{ part_tags(p) }}</div>
+        <div class="pcard-foot">
+          <div class="pcard-price"><span class="big">{{ p.sale_price|money }} {{ currency }}</span><span class="sm">{% if p.location %}<svg class="ic tag-ic"><use href="#ic-pin"/></svg> {{ p.location.path }}{% elif p.purchase_price %}{{ _('Cost') }} {{ p.purchase_price|money }} {{ currency }}{% endif %}</span></div>
+          <div class="pcard-go">
+            {% if projects %}
+            <span class="installer">
+              <button type="button" class="go-primary" title="{{ _('Install into project') }}"><svg class="ic"><use href="#ic-arrow"/></svg></button>
+              <select onchange="stInstall({{ p.id }}, this.value)">
+                <option value="" disabled selected>{{ _('install into…') }}</option>
+                {% for pr in projects %}<option value="{{ pr.id }}">{{ pr.name }}</option>{% endfor %}
+              </select>
+            </span>
+            {% endif %}
+            <button type="button" class="act-btn" onclick="stRowMenu(event, this, {{ p.id }}, '{{ p.code }}', {{ p.purchase_price or 0 }})" title="{{ _('Actions') }}"><svg class="ic"><use href="#ic-dots"/></svg></button>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="muted empty">{{ _('No parts yet. Add one with +, or bring them in from projects.') }}</p>
+  {% endif %}
 </section>
 
 <button class="fab" onclick="stOpenModal('newPart')" title="{{ _('Add product') }}">+</button>
+{% endif %}
+
+{# --------------------------- SHARED ⋯ ROW MENU --------------------------- #}
+<div class="rowmenu" id="rowMenu">
+  {% if projects %}
+  <label class="rm-install"><svg class="ic"><use href="#ic-install"/></svg>{{ _('Install into project…') }}
+    <select id="rmInstall" onchange="stMenuInstall(this.value)">
+      <option value="" disabled selected>…</option>
+      {% for pr in projects %}<option value="{{ pr.id }}">{{ pr.name }}</option>{% endfor %}
+    </select>
+  </label>
+  {% endif %}
+  <button type="button" id="rmEdit"><svg class="ic"><use href="#ic-edit"/></svg>{{ _('Edit') }}</button>
+  <a id="rmLabel" href="#" target="_blank"><svg class="ic"><use href="#ic-label"/></svg>{{ _('Print label') }}</a>
+  <div class="rm-sep"></div>
+  <button type="button" id="rmDelete" class="del"><svg class="ic"><use href="#ic-trash"/></svg>{{ _('Delete') }}</button>
+</div>
+
+{# ------------------- SHARED ⋯ MENU FOR SETS / WIP / FINISHED ------------------- #}
+<div class="rowmenu" id="setMenu">
+  <button type="button" id="smEdit"><svg class="ic"><use href="#ic-edit"/></svg>{{ _('Edit') }}</button>
+  <a id="smLabel" href="#" target="_blank"><svg class="ic"><use href="#ic-label"/></svg>{{ _('Print label') }}</a>
+  <button type="button" id="smFinish"><svg class="ic"><use href="#ic-check"/></svg>{{ _('Move to finished') }}</button>
+  <div class="rm-sep"></div>
+  <button type="button" id="smDelete" class="del"><svg class="ic"><use href="#ic-trash"/></svg>{{ _('Delete') }}</button>
+</div>
+
+{# ------------------------------ CREATE MODAL ------------------------------ #}
 <div class="modal-backdrop" id="newPart">
   <div class="modal modal-wide">
     <div class="modal-head"><h2>{{ _('Create product') }}</h2><button class="modal-close" onclick="stCloseModal(this)">×</button></div>
@@ -126,65 +421,268 @@
       <div class="pf-top">
         <label class="img-square" title="{{ _('Choose image') }}">
           <input type="file" name="image" accept="image/*" onchange="stImgSquare(this)">
-          <span class="is-ph">🖼️<br>{{ _('Image') }}</span>
+          <span class="is-ph"><svg class="ic ph-ic"><use href="#ic-image"/></svg><br>{{ _('Image') }}</span>
         </label>
         <div class="pf-fields">
-          <input name="name" placeholder="z.B. GTX 1060 6GB" required autofocus>
-          <input name="sale_price" id="wpSale" placeholder="{{ _('Sale price (total)') }}" inputmode="decimal" oninput="stUnitPrices()">
-          <div class="pf-row">
-            <input name="purchase_price" id="wpPurchase" placeholder="{{ _('Purchase price (total)') }}" inputmode="decimal" oninput="stUnitPrices()">
-            <input name="quantity" id="wpQty" placeholder="{{ _('Quantity') }}" inputmode="numeric" value="1" style="max-width:120px" oninput="stUnitPrices()">
-            <label class="chk-pill" title="{{ _('Free / gift — no receipt needed') }}">
-              <input type="checkbox" name="free" id="wpFree" onchange="stToggleFree(this)">
-              <span class="dot"></span>{{ _('Free / gift') }}
-            </label>
+          <label class="fld">{{ _('Name') }}<input name="name" placeholder="z.B. GTX 1060 6GB" required autofocus></label>
+          <div class="pf-grid">
+            <label class="fld span2">{{ _('Sale price (total)') }}<input name="sale_price" id="wpSale" inputmode="decimal" oninput="stUnitPrices()"></label>
+            <label class="fld">{{ _('Purchase price (total)') }}<input name="purchase_price" id="wpPurchase" inputmode="decimal" oninput="stUnitPrices()"></label>
+            <label class="fld">{{ _('Quantity') }}<input name="quantity" id="wpQty" inputmode="numeric" value="1" oninput="stUnitPrices()"></label>
           </div>
           <div class="muted small" id="wpUnit"></div>
         </div>
       </div>
-      <input name="notes" placeholder="{{ _('Note (optional)') }}" style="margin-top:.7rem">
+
+      <div class="pf-grid gaptop">
+        <label class="fld">{{ _('Category') }}
+          <select name="category_id" onchange="stCatChange(this)">
+            <option value="">{{ _('No category') }}</option>
+            {% for c in categories %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}
+          </select>
+        </label>
+        <label class="fld">{{ _('Location') }}
+          <select name="location_id">
+            <option value="">{{ _('No location') }}</option>
+            {% for l in locations %}<option value="{{ l.id }}">{{ l.path }}</option>{% endfor %}
+          </select>
+        </label>
+        <div class="attr-fields span2"></div>
+        <label class="fld">{{ _('Supplier') }}
+          <select name="supplier_id">
+            <option value="">{{ _('No supplier') }}</option>
+            {% for su in suppliers %}<option value="{{ su.id }}">{{ su.name }}</option>{% endfor %}
+          </select>
+        </label>
+        <label class="fld">{{ _('Condition') }}
+          <select name="condition">
+            <option value="">—</option>
+            {% for cv in ['new','used','refurbished','defective'] %}<option value="{{ cv }}">{{ _(cv|capitalize) }}</option>{% endfor %}
+          </select>
+        </label>
+        <label class="fld span2">{{ _('Note (optional)') }}<textarea name="notes" rows="2"></textarea></label>
+      </div>
+      {{ opt_section() }}
+
+      <label class="chk-row gaptop" title="{{ _('Free / gift — no receipt needed') }}">
+        <input type="checkbox" name="free" id="wpFree" onchange="stToggleFree(this)"> {{ _('Free / gift — no receipt needed') }}
+      </label>
       <label class="file-field" id="wpReceiptWrap" style="margin-top:.6rem">{{ _('Purchase receipt (required)') }}<input type="file" name="receipt" id="wpReceipt" accept="application/pdf,image/*" required></label>
 
-      <div id="setPanel" hidden style="margin-top:.85rem">
-        <p class="muted small">{{ _('The fields above become the set (name, total price, receipt). The total is split across these products by their sale value.') }}</p>
-        <div class="subprod-list" id="setParts"></div>
-      </div>
-
-      <div class="pf-actions" style="margin-top:.95rem">
-        <button type="button" class="btn set-toggle" onclick="stAddPart()">⧉ {{ _('Add product') }}</button>
+      <div class="pf-actions gaptop">
         <button type="submit" class="primary">{{ _('Create') }}</button>
       </div>
     </form>
   </div>
 </div>
 
-<div class="modal-backdrop" id="splitSet">
+{# ------------------------------- EDIT MODAL ------------------------------- #}
+<div class="modal-backdrop" id="editPart">
   <div class="modal modal-wide">
-    <div class="modal-head"><h2>{{ _('Split part into a set') }}</h2><button class="modal-close" onclick="stCloseModal(this)">×</button></div>
-    <p class="muted small">{{ _('The part becomes a set; its price is split across the parts below by their sale value.') }}</p>
-    <form method="post" action="/warehouse/0/split" id="splitForm" enctype="multipart/form-data">
-      <input name="total_price" id="splitTotal" placeholder="{{ _('Total price') }}" inputmode="decimal">
-      <div class="subprod-list" id="splitParts" style="margin-top:.8rem">
-        <div class="subprod">
-          <label class="img-square" title="{{ _('Choose image') }}">
-            <input type="file" name="part_image" accept="image/*" onchange="stImgSquare(this)">
-            <span class="is-ph">🖼️</span>
-          </label>
-          <div class="pf-fields">
-            <input name="part_name" placeholder="{{ _('Product name') }}">
-            <div class="row-form">
-              <input name="part_sale" placeholder="{{ _('Sale value') }}" inputmode="decimal">
-              {% if ebay_enabled %}<button type="button" class="btn small" onclick="stSuggestPrice(this)" title="{{ _('Suggest price from eBay') }}">🔍</button>{% endif %}
-            </div>
-            <input name="part_purchase" placeholder="{{ _('Purchase price (optional)') }}" inputmode="decimal">
-            <input name="part_note" placeholder="{{ _('Note (optional)') }}">
+    <div class="modal-head"><h2>{{ _('Edit product') }}</h2><button class="modal-close" onclick="stCloseModal(this)">×</button></div>
+    <form method="post" action="" id="editPartForm" enctype="multipart/form-data">
+      <div class="pf-top">
+        <label class="img-square" title="{{ _('Change image') }}">
+          <input type="file" name="image" accept="image/*" onchange="stImgSquare(this)">
+          <span class="is-ph"><svg class="ic ph-ic"><use href="#ic-image"/></svg><br>{{ _('Image') }}</span>
+        </label>
+        <div class="pf-fields">
+          <label class="fld">{{ _('Name') }}<input name="name" placeholder="{{ _('Name') }}" required></label>
+          <div class="pf-grid">
+            <label class="fld span2">{{ _('Sale price (total)') }}<input name="sale_price" inputmode="decimal"></label>
+            <label class="fld">{{ _('Purchase price (total)') }}<input name="purchase_price" inputmode="decimal"></label>
+            <label class="fld">{{ _('Quantity') }}<input name="quantity" inputmode="numeric" value="1"></label>
           </div>
-          <button type="button" class="act-btn danger" onclick="stRemoveSubprod(this)" title="{{ _('Remove') }}">✕</button>
         </div>
       </div>
-      <button type="button" class="btn small" onclick="stAddSubprod('splitParts')" style="margin-top:.6rem">+ {{ _('Add part') }}</button>
-      <div style="margin-top:.9rem"><button type="submit" class="primary">{{ _('Split') }}</button></div>
+
+      <div class="pf-grid gaptop">
+        <label class="fld">{{ _('Category') }}
+          <select name="category_id" onchange="stCatChange(this)">
+            <option value="">{{ _('No category') }}</option>
+            {% for c in categories %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}
+          </select>
+        </label>
+        <label class="fld">{{ _('Location') }}
+          <select name="location_id">
+            <option value="">{{ _('No location') }}</option>
+            {% for l in locations %}<option value="{{ l.id }}">{{ l.path }}</option>{% endfor %}
+          </select>
+        </label>
+        <div class="attr-fields span2"></div>
+        <label class="fld">{{ _('Supplier') }}
+          <select name="supplier_id">
+            <option value="">{{ _('No supplier') }}</option>
+            {% for su in suppliers %}<option value="{{ su.id }}">{{ su.name }}</option>{% endfor %}
+          </select>
+        </label>
+        <label class="fld">{{ _('Condition') }}
+          <select name="condition">
+            <option value="">—</option>
+            {% for cv in ['new','used','refurbished','defective'] %}<option value="{{ cv }}">{{ _(cv|capitalize) }}</option>{% endfor %}
+          </select>
+        </label>
+        <label class="fld span2">{{ _('Note (optional)') }}<textarea name="notes" rows="2"></textarea></label>
+      </div>
+      {{ opt_section() }}
+
+      <div class="ep-foot gaptop">
+        <div class="muted small">{{ _('Code') }}: <code id="epCode"></code> · <a id="epLabel" href="#" target="_blank"><svg class="ic tag-ic"><use href="#ic-label"/></svg> {{ _('Label') }}</a></div>
+      </div>
+      <div class="pf-actions gaptop">
+        <button type="submit" class="primary">{{ _('Save') }}</button>
+      </div>
     </form>
   </div>
 </div>
+
+{# ----------------------------- EDIT SET MODAL ----------------------------- #}
+<div class="modal-backdrop" id="editSet">
+  <div class="modal modal-wide">
+    <div class="modal-head"><h2 id="esTitle">{{ _('Edit finished good') }}</h2><button class="modal-close" onclick="stCloseModal(this)">×</button></div>
+    <form method="post" action="" id="editSetForm" enctype="multipart/form-data">
+      <div id="esWipBar" class="wip-bar" hidden>
+        <span class="pbadge wip">{{ _('WIP') }}</span>
+        <span class="muted small">{{ _('In progress') }}</span>
+        <button type="button" class="btn small" id="esFinishBtn" style="margin-left:auto"><svg class="ic tag-ic"><use href="#ic-check"/></svg> {{ _('Move to finished') }}</button>
+      </div>
+      <p id="esFinWarn" class="notice" hidden style="border-left-color:var(--accent-2)">{{ _('This item is already finished — changing its parts is unusual.') }}</p>
+      <div class="pf-top">
+        <label class="img-square" title="{{ _('Change image') }}">
+          <input type="file" name="image" accept="image/*" onchange="stImgSquare(this)">
+          <span class="is-ph"><svg class="ic ph-ic"><use href="#ic-image"/></svg><br>{{ _('Image') }}</span>
+        </label>
+        <div class="pf-fields">
+          <label class="fld">{{ _('Name') }}<input name="name" required></label>
+          <div class="pf-grid">
+            <label class="fld">{{ _('Sale price') }}<span class="price-field" data-cur="{{ currency }}"><input name="sale_price" inputmode="decimal"></span><span class="muted small" id="esCostHint"></span></label>
+            <label class="fld">{{ _('Location') }}
+              <select name="location_id">
+                <option value="">{{ _('No location') }}</option>
+                {% for l in locations %}<option value="{{ l.id }}">{{ l.path }}</option>{% endfor %}
+              </select>
+            </label>
+          </div>
+        </div>
+      </div>
+      <label class="chk-row gaptop"><input type="checkbox" name="sellable" value="1"> {{ _('Ready to sell (finished good)') }}</label>
+      <label class="fld gaptop">{{ _('Note (optional)') }}<textarea name="notes" rows="2"></textarea></label>
+
+      <div class="components gaptop">
+        <div class="comp-head">
+          <strong><svg class="ic sec-ic"><use href="#ic-layers"/></svg> {{ _('Components') }}</strong>
+          <span class="muted small" id="esCost"></span>
+        </div>
+        <div class="comp-list" id="esMembers"></div>
+        <button type="button" class="btn small ghost gaptop" id="esAddToggle" onclick="stToggleAvail()">＋ {{ _('Add part') }}</button>
+        <div class="avail-panel" id="esAvailPanel" hidden>
+          <div class="muted small" style="margin:.2rem 0 .5rem">{{ _('Available parts') }}</div>
+          <div class="avail-list" id="esAvail"></div>
+        </div>
+      </div>
+
+      <div class="ep-foot gaptop">
+        <div class="muted small">{{ _('Code') }}: <code id="esCode"></code> · <a id="esLabel" href="#" target="_blank"><svg class="ic tag-ic"><use href="#ic-label"/></svg> {{ _('Label') }}</a></div>
+      </div>
+      <div class="pf-actions gaptop"><button type="submit" class="primary">{{ _('Save') }}</button></div>
+    </form>
+  </div>
+</div>
+
+{# --------------------------- NEW FINISHED GOOD --------------------------- #}
+<div class="modal-backdrop" id="newFinished">
+  <div class="modal">
+    <div class="modal-head"><h2>{{ _('New finished good') }}</h2><button class="modal-close" onclick="stCloseModal(this)">×</button></div>
+    <form method="post" action="/warehouse/finished" class="stack">
+      <label class="fld">{{ _('Name') }}<input name="name" required autofocus></label>
+      <label class="fld">{{ _('Sale price') }}<span class="price-field" data-cur="{{ currency }}"><input name="sale_price" inputmode="decimal"></span></label>
+      <p class="muted small">{{ _('Create it, then book component parts onto it in its editor.') }}</p>
+      <button type="submit" class="primary">{{ _('Create') }}</button>
+    </form>
+  </div>
+</div>
+
+{# ------------------------------ NEW WIP MODAL ----------------------------- #}
+<div class="modal-backdrop" id="newWip">
+  <div class="modal">
+    <div class="modal-head"><h2>{{ _('New WIP') }}</h2><button class="modal-close" onclick="stCloseModal(this)">×</button></div>
+    <form method="post" action="/warehouse/wip" class="stack">
+      <label class="fld">{{ _('Name') }}<input name="name" required autofocus></label>
+      <p class="muted small">{{ _('Create it, then book the parts you are working with. Move it to finished when done.') }}</p>
+      <button type="submit" class="primary">{{ _('Create') }}</button>
+    </form>
+  </div>
+</div>
+
+{# ------------------------------ NEW SET MODAL ----------------------------- #}
+<div class="modal-backdrop" id="newSet">
+  <div class="modal modal-wide">
+    <div class="modal-head"><h2>{{ _('New set') }}</h2><button class="modal-close" onclick="stCloseModal(this)">×</button></div>
+    <form method="post" action="/warehouse/set" enctype="multipart/form-data">
+      <div class="pf-top">
+        <label class="img-square" title="{{ _('Choose image') }}">
+          <input type="file" name="image" accept="image/*" onchange="stImgSquare(this)">
+          <span class="is-ph"><svg class="ic ph-ic"><use href="#ic-image"/></svg><br>{{ _('Image') }}</span>
+        </label>
+        <div class="pf-fields">
+          <label class="fld">{{ _('Name') }}<input name="name" placeholder="z.B. Konvolut PC-Teile" required autofocus></label>
+          <div class="pf-grid">
+            <label class="fld">{{ _('Purchase price (set total)') }}<span class="price-field" data-cur="{{ currency }}"><input name="purchase_price" inputmode="decimal"></span></label>
+            <label class="fld">{{ _('Location') }}
+              <select name="location_id"><option value="">{{ _('No location') }}</option>{% for l in locations %}<option value="{{ l.id }}">{{ l.path }}</option>{% endfor %}</select>
+            </label>
+          </div>
+        </div>
+      </div>
+      <p class="muted small gaptop">{{ _('Add the parts contained in the set — each with its own sale price. The purchase price is the set total (one invoice); parts have no individual purchase price.') }}</p>
+      <div class="set-members" id="newSetParts"></div>
+      <button type="button" class="btn small ghost gaptop" onclick="stNewSetAddRow()">＋ {{ _('Add part') }}</button>
+      <label class="chk-row gaptop"><input type="checkbox" name="free" id="nsFree" onchange="stToggleSetFree(this)"> {{ _('Free / gift — no receipt needed') }}</label>
+      <label class="fld" id="nsReceiptWrap">{{ _('Invoice / receipt (required)') }}<input type="file" name="receipt" id="nsReceipt" accept="application/pdf,image/*" required></label>
+      <div class="pf-actions gaptop"><button type="submit" class="primary">{{ _('Create set') }}</button></div>
+    </form>
+  </div>
+</div>
+
+{# ------------------------------ EDIT SET (LOT) ---------------------------- #}
+<div class="modal-backdrop" id="editLot">
+  <div class="modal modal-wide">
+    <div class="modal-head"><h2>{{ _('Edit set') }}</h2><button class="modal-close" onclick="stCloseModal(this)">×</button></div>
+    <form method="post" action="" id="editLotForm" enctype="multipart/form-data">
+      <div class="pf-top">
+        <label class="img-square" title="{{ _('Change image') }}">
+          <input type="file" name="image" accept="image/*" onchange="stImgSquare(this)">
+          <span class="is-ph"><svg class="ic ph-ic"><use href="#ic-image"/></svg><br>{{ _('Image') }}</span>
+        </label>
+        <div class="pf-fields">
+          <label class="fld">{{ _('Name') }}<input name="name" required></label>
+          <div class="pf-grid">
+            <label class="fld">{{ _('Purchase price (set total)') }}<span class="price-field" data-cur="{{ currency }}"><input name="purchase_price" inputmode="decimal"></span><span class="muted small" id="elVk"></span></label>
+            <label class="fld">{{ _('Location') }}
+              <select name="location_id"><option value="">{{ _('No location') }}</option>{% for l in locations %}<option value="{{ l.id }}">{{ l.path }}</option>{% endfor %}</select>
+            </label>
+          </div>
+        </div>
+      </div>
+      <label class="fld gaptop">{{ _('Note (optional)') }}<textarea name="notes" rows="2"></textarea></label>
+
+      <div class="components gaptop">
+        <div class="comp-head"><strong><svg class="ic sec-ic"><use href="#ic-layers"/></svg> {{ _('Parts in this set') }}</strong></div>
+        <div class="set-members" id="elMembers"></div>
+        <div class="comp-add">
+          <input id="elAddName" placeholder="{{ _('Part name') }}">
+          <input id="elAddSale" class="r" inputmode="decimal" placeholder="{{ _('Sale') }}" style="max-width:120px">
+          <button type="button" class="btn" onclick="stLotAddMember()">＋ {{ _('Add') }}</button>
+        </div>
+      </div>
+
+      <div class="ep-foot gaptop">
+        <div class="muted small">{{ _('Code') }}: <code id="elCode"></code> · <a id="elLabel" href="#" target="_blank"><svg class="ic tag-ic"><use href="#ic-label"/></svg> {{ _('Label') }}</a></div>
+      </div>
+      <div class="pf-actions gaptop"><button type="submit" class="primary">{{ _('Save') }}</button></div>
+    </form>
+  </div>
+</div>
+
+<script src="/static/warehouse.js" defer></script>
 {% endblock %}
