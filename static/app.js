@@ -225,18 +225,29 @@ function stImgSquare(input) {
   var ph = box.querySelector('.is-ph'); if (ph) ph.style.display = 'none';
 }
 function stToggleFree(cb) {
-  var wrap = document.getElementById('wpReceiptWrap');
+  var box = document.getElementById('wpReceiptBox');
+  var sel = document.getElementById('wpExpense');
   var rec = document.getElementById('wpReceipt');
   var pp = document.getElementById('wpPurchase');
   if (cb.checked) {
     if (rec) { rec.required = false; rec.value = ''; }
-    if (wrap) wrap.style.display = 'none';
+    if (sel) sel.value = '';
+    if (box) box.style.display = 'none';
     if (pp) { pp.value = ''; pp.disabled = true; }
   } else {
-    if (rec) rec.required = true;
-    if (wrap) wrap.style.display = '';
+    if (box) box.style.display = '';
     if (pp) pp.disabled = false;
+    if (sel) stPickExpense(sel); else if (rec) rec.required = true;
   }
+}
+// Picking an existing receipt replaces the upload — the purchase is already
+// booked, so we link that expense instead of filing a second one.
+function stPickExpense(sel) {
+  var wrap = document.getElementById('wpReceiptWrap');
+  var rec = document.getElementById('wpReceipt');
+  var picked = !!sel.value;
+  if (rec) { rec.required = !picked; if (picked) rec.value = ''; }
+  if (wrap) wrap.style.display = picked ? 'none' : '';
 }
 // ---- Price fields: digits only, currency suffix, 2-decimal normalise ----
 function stIsMoney(inp) { return /price|amount|rate|sale|purchase|total/i.test(inp.name || ''); }

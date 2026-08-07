@@ -62,7 +62,7 @@ async def list_expenses(
     # so the editor can pre-fill / update it instead of creating a duplicate.
     from collections import defaultdict
 
-    from ..models import Part
+    from ..models import Part, PartSet
 
     by_exp: dict[int, list] = defaultdict(list)
     for p in (
@@ -72,12 +72,35 @@ async def list_expenses(
     ):
         by_exp[p.source_expense_id].append(p)
     linked_parts = {eid: ps[0] for eid, ps in by_exp.items() if len(ps) == 1}
+
+    # A receipt scan says little at thumbnail size, so an expense is shown with
+    # the image of the product it paid for. Unlike `linked_parts` this covers
+    # parts already installed into a project and expenses with several parts —
+    # the oldest part wins, and a part beats a set booked on the same receipt.
+    set_img: dict[int, str] = {}
+    for ps_ in (
+        db.query(PartSet)
+        .filter(PartSet.expense_id.isnot(None), PartSet.image_path.isnot(None))
+        .order_by(PartSet.id)
+        .all()
+    ):
+        set_img.setdefault(ps_.expense_id, ps_.image_path)
+    part_img: dict[int, str] = {}
+    for p in (
+        db.query(Part)
+        .filter(Part.source_expense_id.isnot(None), Part.image_path.isnot(None))
+        .order_by(Part.id)
+        .all()
+    ):
+        part_img.setdefault(p.source_expense_id, p.image_path)
+    linked_images = {**set_img, **part_img}
+
     return templates.TemplateResponse(
         "expenses/list.html",
         ctx(
             request, db, active="expenses",
             rows=rows, projects=projects, total=total,
-            linked_parts=linked_parts,
+            linked_parts=linked_parts, linked_images=linked_images,
             in_enabled=invoiceninja.is_enabled(),
             today=date.today().isoformat(),
         ),

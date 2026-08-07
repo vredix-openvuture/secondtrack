@@ -467,7 +467,17 @@
       <label class="chk-row gaptop" title="{{ _('Free / gift — no receipt needed') }}">
         <input type="checkbox" name="free" id="wpFree" onchange="stToggleFree(this)"> {{ _('Free / gift — no receipt needed') }}
       </label>
-      <label class="file-field" id="wpReceiptWrap" style="margin-top:.6rem">{{ _('Purchase receipt (required)') }}<input type="file" name="receipt" id="wpReceipt" accept="application/pdf,image/*" required></label>
+      <div id="wpReceiptBox">
+        <label class="fld" style="margin-top:.6rem">{{ _('Link existing receipt') }}
+          <select name="expense_id" id="wpExpense" onchange="stPickExpense(this)">
+            <option value="">{{ _('— upload a new receipt —') }}</option>
+            {% for e in linkable_expenses %}
+            <option value="{{ e.id }}">{{ e.expense_date.isoformat() }} · {{ e.name or e.vendor or e.description or _('Receipt') }} · {{ e.amount|money }} {{ currency }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="file-field" id="wpReceiptWrap" style="margin-top:.6rem">{{ _('Purchase receipt (required)') }}<input type="file" name="receipt" id="wpReceipt" accept="application/pdf,image/*" required></label>
+      </div>
 
       <div class="pf-actions gaptop">
         <button type="submit" class="primary">{{ _('Create') }}</button>

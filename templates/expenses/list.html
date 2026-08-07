@@ -25,13 +25,14 @@
   {% for e in rows %}
     {% set eproj = e.bucket if e.bucket else (e.project_id or '') %}
     {% set lp = linked_parts.get(e.id) %}
+    {% set ethumb = linked_images.get(e.id) or e.image_path %}
     <tr class="click-row" onclick="stOpenExpense(this)"
         data-id="{{ e.id }}" data-name="{{ e.name or '' }}" data-amount="{{ e.amount }}"
         data-date="{{ e.expense_date.isoformat() }}" data-vendor="{{ e.vendor or '' }}"
         data-category="{{ e.category or '' }}" data-project="{{ eproj }}"
         data-description="{{ e.description or '' }}" data-image="{{ e.image_path or '' }}"
         data-prod-name="{{ lp.name if lp else '' }}" data-prod-sale="{{ lp.sale_price if lp and lp.sale_price else '' }}" data-prod-note="{{ lp.notes if lp and lp.notes else '' }}">
-      <td class="thumb-cell"><div class="row-thumb {{ 'placeholder' if not e.image_path }}"{% if e.image_path %} style="background-image:url('{{ e.image_path }}')"{% endif %}></div></td>
+      <td class="thumb-cell"><div class="row-thumb {{ 'placeholder' if not ethumb }}"{% if ethumb %} style="background-image:url('{{ ethumb }}')"{% endif %}></div></td>
       <td>{{ e.expense_date.isoformat() }}</td>
       <td><strong>{{ e.name or e.vendor or '—' }}</strong>{% if e.description %} <span class="muted small">· {{ e.description }}</span>{% endif %}</td>
       <td>{{ e.category or '—' }}</td>
@@ -49,14 +50,15 @@
   {% for e in rows %}
   {% set eproj = e.bucket if e.bucket else (e.project_id or '') %}
   {% set lp = linked_parts.get(e.id) %}
+  {% set ethumb = linked_images.get(e.id) or e.image_path %}
   <div class="entity-card click-row" onclick="stOpenExpense(this)"
        data-id="{{ e.id }}" data-name="{{ e.name or '' }}" data-amount="{{ e.amount }}"
        data-date="{{ e.expense_date.isoformat() }}" data-vendor="{{ e.vendor or '' }}"
        data-category="{{ e.category or '' }}" data-project="{{ eproj }}"
        data-description="{{ e.description or '' }}" data-image="{{ e.image_path or '' }}"
        data-prod-name="{{ lp.name if lp else '' }}" data-prod-sale="{{ lp.sale_price if lp and lp.sale_price else '' }}" data-prod-note="{{ lp.notes if lp and lp.notes else '' }}">
-    <div class="thumb {{ 'placeholder' if not e.image_path }}"
-         {% if e.image_path %}style="background-image:url('{{ e.image_path }}')"{% endif %}></div>
+    <div class="thumb {{ 'placeholder' if not ethumb }}"
+         {% if ethumb %}style="background-image:url('{{ ethumb }}')"{% endif %}></div>
     <div class="body">
       <div class="meta"><span>{{ e.expense_date.isoformat() }}</span><strong>{{ e.amount|money }} {{ currency }}</strong></div>
       <h3>{{ e.name or e.vendor or e.description or '—' }}</h3>

@@ -10,6 +10,7 @@ from ..auth import require_login
 from ..db import get_db
 from ..models import (
     Category,
+    Expense,
     Part,
     PartOrigin,
     PartSet,
@@ -168,6 +169,18 @@ def _form_lists(db):
     return categories, suppliers, locations
 
 
+def _linkable_expenses(db, limit: int = 100):
+    """Existing receipts offered in the create form, newest first. Only
+    expenses that actually carry a receipt file can stand in for an upload."""
+    return (
+        db.query(Expense)
+        .filter(Expense.receipt_path.isnot(None))
+        .order_by(Expense.expense_date.desc(), Expense.id.desc())
+        .limit(limit)
+        .all()
+    )
+
+
 def _recompute_assembly_cost(db, ps: PartSet) -> None:
     """An assembly's cost is the sum of its booked component parts (× quantity).
     Queries the DB directly (the ORM collection can be stale)."""
@@ -302,6 +315,7 @@ async def warehouse_list(
             projects=projects,
             stock_value=stock_value, stock_cost=stock_cost, low_stock=low_stock,
             categories=categories, suppliers=suppliers, locations=locations,
+            linkable_expenses=_linkable_expenses(db),
             optional_fields=wh.optional_fields(db),
             active_cat=active_cat, only_low=only_low, filtering=filtering, wh=wh,
             ebay_enabled=ebay.is_enabled(),
@@ -373,6 +387,7 @@ async def create_part(
     part_receipt: list[UploadFile] = File(default=[]),
     image: UploadFile | None = File(None),
     receipt: UploadFile | None = File(None),
+    expense_id: str = Form(""),
     db: Session = Depends(get_db),
     user=Depends(require_login),
 ):
@@ -383,11 +398,19 @@ async def create_part(
     is_free = free.strip().lower() in ("1", "on", "true", "yes")
     img_url, img_err = save_image_or_error(image, "part")
     sup_id, loc_id = _fk(supplier_id), _fk(location_id)
+    # An existing receipt can stand in for an upload: link it instead of
+    # creating a second expense for a purchase that is already booked.
+    linked_exp = db.get(Expense, _fk(expense_id)) if _fk(expense_id) else None
 
     if members:
         total = _parse_float(purchase_price) or 0.0
-        rpath = None if is_free else save_receipt(receipt, "receipt")
-        if not is_free and not rpath and not all(m["receipt_path"] for m in members):
+        rpath = None if (is_free or linked_exp) else save_receipt(receipt, "receipt")
+        if (
+            not is_free
+            and not linked_exp
+            and not rpath
+            and not all(m["receipt_path"] for m in members)
+        ):
             return RedirectResponse(
                 "/warehouse?msg=Beleg erforderlich: ein Set-Beleg oder ein Beleg je Teil (oder 'gratis')",
                 status_code=303,
@@ -396,6 +419,7 @@ async def create_part(
             db, name=name.strip(), total=total,
             sale_price=_parse_float(sale_price), image_path=img_url,
             rpath=rpath, members=members, supplier_id=sup_id, location_id=loc_id,
+            src_expense_id=linked_exp.id if linked_exp else None,
         )
         return RedirectResponse(
             "/warehouse?msg=Set angelegt" + (f" — {img_err}" if img_err else ""),
@@ -403,7 +427,7 @@ async def create_part(
         )
 
     rpath = None
-    if not is_free:
+    if not is_free and not linked_exp:
         rpath = save_receipt(receipt, "receipt")
         if not rpath:
             return RedirectResponse(
@@ -440,7 +464,10 @@ async def create_part(
     )
     db.add(part)
     db.commit()
-    if rpath:
+    if linked_exp:
+        part.source_expense_id = linked_exp.id
+        db.commit()
+    elif rpath:
         exp = exp_service.create(
             db, amount=pp_total or 0.0, expense_date=date.today(), vendor="",
             description=f"Part: {part.name}", category="Parts",
