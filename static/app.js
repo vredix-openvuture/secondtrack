@@ -246,6 +246,18 @@ function stRecMode() {
 }
 document.addEventListener('DOMContentLoaded', stRecMode);
 
+// A "+ New …" entry inside a dropdown reveals that dropdown's create fields,
+// so picking an existing one and adding one are the same control.
+function stPickNew(sel, fieldsId) {
+  var box = document.getElementById(fieldsId);
+  if (!box) return;
+  box.hidden = sel.value !== '__new';
+  if (!box.hidden) {
+    var first = box.querySelector('input');
+    if (first) first.focus();
+  }
+}
+
 // The project head shows the facts; the edit form is on request.
 function stToggleProjectEdit(btn) {
   var panel = document.getElementById('projEdit');

@@ -49,47 +49,41 @@
         {% for st in statuses %}<option value="{{ st.value }}" {{ 'selected' if project.status == st }}>{{ st_label.get(st.value, st.value) }}</option>{% endfor %}
       </select>
     </label>
+    {# Creating lives in the dropdown itself — picking and adding are the same
+       decision, so they belong in one control. #}
     <label>{{ _('Project type') }}
-      <select name="type_id">
+      <select name="type_id" onchange="stPickNew(this, 'newTypeFields')">
         {% for t in project_types %}<option value="{{ t.id }}" {{ 'selected' if project.type_id == t.id }}>{{ t.name }}</option>{% endfor %}
+        <option value="__new">+ {{ _('New project type') }}…</option>
       </select>
+      <div class="stack new-fields" id="newTypeFields" hidden>
+        <input name="new_type_name" placeholder="{{ _('Type name (e.g. Repair)') }}">
+        <label class="chk-row"><input type="checkbox" name="new_type_shop" value="1"> {{ _('Builds of this type can be stocked as shop goods') }}</label>
+      </div>
     </label>
     <label>{{ _('Hourly rate (empty = {rate})').replace('{rate}', (global_rate|money) ~ ' ' ~ currency) }}<input name="hourly_rate" value="{{ project.hourly_rate if project.hourly_rate is not none else '' }}" inputmode="decimal"></label>
     <label>{{ _('Customer') }}
-      <select name="customer_id">
+      <select name="customer_id" onchange="stPickNew(this, 'newCustomerFields')">
         <option value="none" {{ 'selected' if not project.customer_id }}>— {{ _('none / internal') }} —</option>
         {% for c in customers %}<option value="{{ c.id }}" {{ 'selected' if project.customer_id == c.id }}>{{ c.name }}{% if c.kind.value == 'invoiceninja' %} (IN){% endif %}</option>{% endfor %}
         {% if in_clients %}<optgroup label="InvoiceNinja">{% for ic in in_clients %}<option value="in:{{ ic.id }}">{{ ic.name }}</option>{% endfor %}</optgroup>{% endif %}
+        <option value="__new">+ {{ _('New customer') }}…</option>
       </select>
+      <div class="stack new-fields" id="newCustomerFields" hidden>
+        <input name="new_customer_name" placeholder="{{ _('Customer name') }}">
+        <div class="row-form">
+          <select name="customer_kind">
+            <option value="internal">{{ _('Internal (no invoicing)') }}</option>
+            <option value="invoiceninja">{{ _('InvoiceNinja client') }}</option>
+          </select>
+          <input name="customer_company" placeholder="{{ _('Company (optional)') }}">
+        </div>
+        <input name="customer_email" type="email" placeholder="{{ _('Email (optional)') }}">
+      </div>
     </label>
     <label>{{ _('Vikunja task (ID or URL)') }}<input name="vikunja_task_id" value="{{ project.vikunja_task_id or '' }}" placeholder="z.B. 123"></label>
     <label class="span2">{{ _('Description') }}<textarea name="description" rows="3">{{ project.description or "" }}</textarea></label>
   </div>
-
-  <details class="adder">
-    <summary>{{ _('+ New project type') }}</summary>
-    <div class="stack">
-      <input name="new_type_name" placeholder="{{ _('Type name (e.g. Repair)') }}">
-      <label class="chk-row"><input type="checkbox" name="new_type_shop" value="1"> {{ _('Builds of this type can be stocked as shop goods') }}</label>
-      <p class="muted small">{{ _('Leave the name empty to keep the type selected above.') }}</p>
-    </div>
-  </details>
-
-  <details class="adder">
-    <summary>{{ _('+ New customer') }}</summary>
-    <div class="stack">
-      <input name="new_customer_name" placeholder="{{ _('Customer name') }}">
-      <div class="row-form">
-        <select name="customer_kind">
-          <option value="internal">{{ _('Internal (no invoicing)') }}</option>
-          <option value="invoiceninja">{{ _('InvoiceNinja client') }}</option>
-        </select>
-        <input name="customer_company" placeholder="{{ _('Company (optional)') }}">
-      </div>
-      <input name="customer_email" type="email" placeholder="{{ _('Email (optional)') }}">
-      <p class="muted small">{{ _('Fill this only to create a NEW customer; otherwise pick one above.') }}</p>
-    </div>
-  </details>
 
   <div class="ph-actions">
     <button type="submit" class="primary">{{ _('Save') }}</button>
@@ -108,12 +102,18 @@
     <tbody>
     {% for it in items %}{% set o = it.obj %}
       <tr>
+        {# Flex, not an inline image: with a <br> the code wrapped to the cell
+           edge and ended up under the picture instead of beside it. #}
         <td>
-          {% if o.image_path %}<img src="{{ o.image_path }}" class="row-img" alt="" onerror="this.style.display='none'">{% endif %}
-          <strong>{{ o.name }}</strong>
-          {% if it.kind == 'set' %}<span class="badge">{{ _('Set') }}{% if o.parts %} · {{ o.parts|length }} {{ _('parts') }}{% endif %}</span>{% endif %}
-          {% if o.code %}<br><span class="muted small item-code">{{ o.code }}</span>{% endif %}
-          {% if o.notes %}<br><span class="muted small">{{ o.notes }}</span>{% endif %}
+          <div class="item-cell">
+            {% if o.image_path %}<img src="{{ o.image_path }}" class="row-img" alt="" onerror="this.style.display='none'">{% endif %}
+            <div>
+              <strong>{{ o.name }}</strong>
+              {% if it.kind == 'set' %}<span class="badge">{{ _('Set') }}{% if o.parts %} · {{ o.parts|length }} {{ _('parts') }}{% endif %}</span>{% endif %}
+              {% if o.code %}<br><span class="muted small item-code">{{ o.code }}</span>{% endif %}
+              {% if o.notes %}<br><span class="muted small">{{ o.notes }}</span>{% endif %}
+            </div>
+          </div>
         </td>
         <td class="num">
           {# Booking is a share of the stock: lowering this puts the rest

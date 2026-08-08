@@ -236,6 +236,8 @@ DE: dict[str, str] = {
     "+ Link existing expense": "+ Vorhandene Ausgabe verknüpfen",
     "Items": "Objekte",
     "+ New project type": "+ Neuer Projekttyp",
+    "New project type": "Neuer Projekttyp",
+    "New customer": "Neuer Kunde",
     "Type name (e.g. Repair)": "Typname (z.B. Reparatur)",
     "Builds of this type can be stocked as shop goods":
         "Projekte dieses Typs können als Shop-Ware eingelagert werden",

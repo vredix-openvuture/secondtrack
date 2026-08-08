@@ -334,6 +334,19 @@ textarea.md-field { font-family: inherit; resize: vertical; }
 .fit-cols th:not(:first-child), .fit-cols td:not(:first-child) {
   width: 1%; white-space: nowrap;
 }
+/* A project item is a physical thing you want to recognise at a glance — 40px
+   is a favicon, not a product shot. */
+/* Create fields belong to the dropdown above them, so they are indented under
+   it rather than reading as another top-level field. */
+.new-fields {
+  margin-top: .5rem; padding-left: .75rem;
+  border-left: 2px solid var(--accent);
+}
+
+.item-cell { display: flex; align-items: center; gap: .8rem; }
+.item-cell .row-img {
+  width: 64px; height: 64px; border-radius: 9px; margin-right: 0; flex: 0 0 auto;
+}
 
 /* Wide tables (items, work time) take the full width above; the short cards sit
    in a grid below. A grid keeps card order readable — CSS columns reflowed them
@@ -362,9 +375,12 @@ textarea.md-field { font-family: inherit; resize: vertical; }
 /* Assign row: the picker carries the width, everything else is only as wide as
    it needs to be. `.row-form` stretched all four children to equal size, which
    is why the buttons shouted. */
+/* Picking is a separate act from reading the list — the rule and the gap keep
+   it from looking like another table row. */
 .assign-row {
   display: flex; align-items: center; gap: .5rem;
-  flex-wrap: wrap; margin-top: 1rem;
+  flex-wrap: wrap; margin-top: 1.6rem;
+  padding-top: 1.3rem; border-top: 1px solid var(--border);
 }
 .assign-row select { flex: 1 1 11rem; min-width: 0; }
 .assign-row .qty-in { flex: 0 0 3.6rem; }

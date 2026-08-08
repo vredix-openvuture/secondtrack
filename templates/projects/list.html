@@ -79,20 +79,26 @@
           <input name="name" placeholder="{{ _('Project title') }}" required autofocus>
         </div>
       </div>
-      {# No prices here — a project's cost comes from the items assigned to it. #}
-      <select name="type_id">
-        {% for t in project_types %}<option value="{{ t.id }}">{{ t.name }}</option>{% endfor %}
-      </select>
+      {# No prices here — a project's cost comes from the items assigned to it.
+         Creating a type or a customer lives inside its own dropdown. #}
+      <label>{{ _('Project type') }}
+        <select name="type_id" onchange="stPickNew(this, 'npTypeFields')">
+          {% for t in project_types %}<option value="{{ t.id }}">{{ t.name }}</option>{% endfor %}
+          <option value="__new">+ {{ _('New project type') }}…</option>
+        </select>
+        <div class="stack new-fields" id="npTypeFields" hidden>
+          <input name="new_type_name" placeholder="{{ _('Type name (e.g. Repair)') }}">
+          <label class="chk-row"><input type="checkbox" name="new_type_shop" value="1"> {{ _('Builds of this type can be stocked as shop goods') }}</label>
+        </div>
+      </label>
       <label>{{ _('Customer') }}
-        <select name="customer_id">
+        <select name="customer_id" onchange="stPickNew(this, 'npCustomerFields')">
           <option value="">— {{ _('none / internal') }} —</option>
           {% for c in customers %}<option value="{{ c.id }}">{{ c.name }}{% if c.kind.value == 'invoiceninja' %} (IN){% endif %}</option>{% endfor %}
           {% if in_clients %}<optgroup label="InvoiceNinja">{% for ic in in_clients %}<option value="in:{{ ic.id }}">{{ ic.name }}</option>{% endfor %}</optgroup>{% endif %}
+          <option value="__new">+ {{ _('New customer') }}…</option>
         </select>
-      </label>
-      <details class="adder">
-        <summary>{{ _('+ New customer') }}</summary>
-        <div class="stack">
+        <div class="stack new-fields" id="npCustomerFields" hidden>
           <input name="new_customer_name" placeholder="{{ _('Customer name') }}">
           <div class="row-form">
             <select name="customer_kind">
@@ -103,7 +109,7 @@
           </div>
           <input name="customer_email" type="email" placeholder="{{ _('Email (optional)') }}">
         </div>
-      </details>
+      </label>
       <input name="description" placeholder="{{ _('Note (optional)') }}">
       <button type="submit" class="primary">{{ _('Create') }}</button>
     </form>
