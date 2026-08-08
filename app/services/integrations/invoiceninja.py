@@ -325,24 +325,15 @@ def send_email(invoice_id: str, template: str = "invoice") -> None:
 def _line_items_for_project(db: Session, project: Project) -> list[dict]:
     f = compute_project(db, project)
     items: list[dict] = []
-    # Devices (the refurbished units) at their sale value.
-    for d in project.devices:
-        if d.sale_price:
-            items.append(
-                {
-                    "product_key": d.name,
-                    "notes": "Gerät",
-                    "quantity": 1,
-                    "cost": round(d.sale_price or 0.0, 2),
-                }
-            )
-    for p in f.parts:
+    # Everything on the project is a warehouse item, billed at its sale value.
+    # A set is one line — billing it and its members would charge twice.
+    for it in f.items:
         items.append(
             {
-                "product_key": p.name,
-                "notes": p.notes or "",
+                "product_key": it["obj"].name,
+                "notes": getattr(it["obj"], "notes", None) or "",
                 "quantity": 1,
-                "cost": round(p.sale_price or 0.0, 2),
+                "cost": round(it["sale"], 2),
             }
         )
     if f.hours > 0:

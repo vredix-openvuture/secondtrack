@@ -7,7 +7,7 @@ from datetime import date
 from sqlalchemy.orm import Session
 
 from ..config import get_settings
-from ..models import PartOrigin, Project
+from ..models import Project
 from .finance import compute_project
 
 settings = get_settings()
@@ -42,7 +42,7 @@ def render_project_markdown(db: Session, project: Project) -> str:
         "type: secondtrack-projekt",
         f"status: {project.status.value}",
         f"erstellt: {project.created_at.date().isoformat() if project.created_at else date.today().isoformat()}",
-        f"ankaufpreis: {f.device_cost:.2f}",
+        f"materialkosten: {f.material_cost:.2f}",
         f"verkaufspreis: {f.sale_price:.2f}",
         f"arbeitsstunden: {f.hours:.2f}",
         f"stundensatz: {f.rate:.2f}",
@@ -53,24 +53,28 @@ def render_project_markdown(db: Session, project: Project) -> str:
         f"# {project.name}",
         "",
         f"**Status:** {_STATUS_LABEL.get(project.status.value, project.status.value)}  ",
-        f"**Ankaufpreis Gerät:** {_fmt(f.device_cost)}",
+        f"**Materialkosten:** {_fmt(f.material_cost)}",
         "",
     ]
 
     if project.description:
         lines += [project.description, ""]
 
-    # Parts table
+    # Item table — a set is one row, same as on the project page. Listing its
+    # members as well would show (and sum) the same purchase twice.
     lines += ["## Verbaute Teile", ""]
-    if f.parts:
+    if f.items:
         lines += [
-            "| Teil | Herkunft | Einkauf | Verkaufswert |",
+            "| Objekt | Herkunft | Einkauf | Verkaufswert |",
             "| --- | --- | ---: | ---: |",
         ]
-        for p in f.parts:
-            origin = "Ausgebaut" if p.origin == PartOrigin.harvested else "Gekauft"
+        for it in f.items:
+            if it["kind"] == "set":
+                origin = "Set"
+            else:
+                origin = "Gekauft" if it["bought"] else "Ausgebaut"
             lines.append(
-                f"| {p.name} | {origin} | {_fmt(p.purchase_price)} | {_fmt(p.sale_price)} |"
+                f"| {it['obj'].name} | {origin} | {_fmt(it['purchase'])} | {_fmt(it['sale'])} |"
             )
         lines += [
             f"| **Summe** | | **{_fmt(f.parts_purchase_cost)}** | **{_fmt(f.parts_value)}** |",

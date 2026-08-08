@@ -232,8 +232,41 @@ DE: dict[str, str] = {
     "Create set": "Set anlegen",
     "Purchase price (set total)": "Einkaufspreis (Set gesamt)",
     "Invoice / receipt (required)": "Rechnung / Beleg (erforderlich)",
-    "Link existing receipt": "Vorhandenen Beleg verknüpfen",
-    "— upload a new receipt —": "— neuen Beleg hochladen —",
+    "Purchase receipt": "Kaufbeleg",
+    "+ Link existing expense": "+ Vorhandene Ausgabe verknüpfen",
+    "Items": "Objekte",
+    "Items (sale value)": "Objekte (VK-Wert)",
+    "Item": "Objekt",
+    "Set": "Set",
+    "Assign": "Zuweisen",
+    "New": "Neu",
+    "Pick from warehouse…": "Aus dem Lager wählen…",
+    "Nothing assigned yet — pick it from the warehouse.":
+        "Noch nichts zugewiesen — wähle es aus dem Lager.",
+    "Return to warehouse?": "Zurück ins Lager?",
+    "Its purchase expense is linked to this project for traceability and stays listed under Expenses.":
+        "Der Kaufbeleg wird zur Rückverfolgung mit diesem Projekt verknüpft und bleibt normal unter Ausgaben gelistet.",
+    "From the assigned items (sale value) + work time. Creates a draft in InvoiceNinja to review/edit before sending.":
+        "Aus den zugewiesenen Objekten (VK) + Arbeitszeit. Erstellt einen Entwurf in InvoiceNinja zum Prüfen/Bearbeiten vor dem Versand.",
+    "Zugewiesen — der Beleg deckt mehrere Objekte ab und bleibt im Lager":
+        "Zugewiesen — der Beleg deckt mehrere Objekte ab und bleibt im Lager",
+    "Price calculation": "Preiskalkulation",
+    "Margin": "Marge",
+    "Nur Shop-Produktionen werden Fertigware — ein Kundenauftrag wird abgerechnet":
+        "Nur Shop-Produktionen werden Fertigware — ein Kundenauftrag wird abgerechnet",
+    "Choose expense…": "Ausgabe wählen…",
+    "Expense": "Ausgabe",
+    "Link": "Verknüpfen",
+    "+ Install from warehouse": "+ Aus dem Lager einbauen",
+    "Choose part…": "Teil wählen…",
+    "No parts on this project yet.": "Noch keine Teile in diesem Projekt.",
+    "Its purchase expense moves to this project too.":
+        "Der zugehörige Kaufbeleg wandert mit in dieses Projekt.",
+    "Teil eingebaut — der Beleg deckt mehrere Teile ab und bleibt im Lager":
+        "Teil eingebaut — der Beleg deckt mehrere Teile ab und bleibt im Lager",
+    "Upload new receipt": "Neuen Beleg hochladen",
+    "Use existing receipt": "Vorhandenen Beleg verknüpfen",
+    "Free / gift — none needed": "Gratis / Geschenk — keiner nötig",
     "Parts in this set": "Teile in diesem Set",
     "Part name": "Teilename",
     "Sale total": "VK gesamt",

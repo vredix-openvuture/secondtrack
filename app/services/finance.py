@@ -5,7 +5,32 @@ from dataclasses import dataclass
 from sqlalchemy.orm import Session
 
 from ..db import get_setting
-from ..models import Part, PartOrigin, Project, ProjectStatus, WorkSession
+from ..models import Part, PartOrigin, PartSet, Project, ProjectStatus, WorkSession
+
+
+def project_items(db: Session, project: Project) -> list[dict]:
+    """Every warehouse object assigned to this project, flat. A set counts as
+    one item at its own price and swallows its members, so a set and its parts
+    are never both billed. Single source of truth for the item list, the
+    calculation and the invoice — they must never disagree."""
+    sets = (
+        db.query(PartSet).filter(PartSet.project_id == project.id)
+        .order_by(PartSet.name).all()
+    )
+    grouped = {p.id for ps in sets for p in ps.parts}
+    items: list[dict] = [
+        {"kind": "set", "obj": ps, "purchase": ps.purchase_price or 0.0,
+         "sale": ps.sale_price or 0.0, "bought": True}
+        for ps in sets
+    ]
+    items += [
+        {"kind": "part", "obj": p, "purchase": p.purchase_price or 0.0,
+         "sale": p.sale_price or 0.0, "bought": p.origin == PartOrigin.purchased}
+        for p in db.query(Part).filter(Part.project_id == project.id)
+        .order_by(Part.name).all()
+        if p.id not in grouped
+    ]
+    return items
 
 
 def global_hourly_rate(db: Session) -> float:
@@ -27,13 +52,13 @@ class ProjectFinance:
     project: Project
     rate: float
     parts: list[Part]
+    items: list[dict]         # what the project page shows and the invoice bills
     sessions: list[WorkSession]
 
     # Money figures
-    device_cost: float        # acquisition price of the whole device
-    parts_purchase_cost: float  # cost of purchased parts installed
-    material_cost: float      # device_cost + parts_purchase_cost
-    parts_value: float        # sum of installed parts' sale price
+    parts_purchase_cost: float  # cost of purchased items assigned to the project
+    material_cost: float      # parts_purchase_cost (+ legacy project price)
+    parts_value: float        # sum of assigned items' sale price
     hours: float
     labor_value: float        # hours * rate
     build_total: float        # parts_value + labor_value (suggested quote)
@@ -46,23 +71,16 @@ def compute_project(db: Session, project: Project) -> ProjectFinance:
     rate = project_hourly_rate(db, project)
     parts = [p for p in project.parts]
     sessions = list(project.sessions)
-    devices = list(project.devices)
+    items = project_items(db, project)
 
-    # Device acquisition cost: sum over the project's devices. Fall back to the
-    # legacy project.purchase_price for projects not yet migrated to a device
-    # (transition safety — removed with the P4 cleanup).
-    if devices:
-        device_cost = sum((d.purchase_price or 0.0) for d in devices)
-    else:
-        device_cost = project.purchase_price or 0.0
-
-    parts_purchase_cost = sum(
-        (p.purchase_price or 0.0)
-        for p in parts
-        if p.origin == PartOrigin.purchased
-    )
-    material_cost = device_cost + parts_purchase_cost
-    parts_value = sum((p.sale_price or 0.0) for p in parts)
+    # Cost and value both come from the assigned items — the same rows the page
+    # lists, so the table and the calculation can never drift apart.
+    # `project.purchase_price` is the pre-warehouse field, honoured only for old
+    # projects that never got an item, else it double-counts against one.
+    parts_purchase_cost = sum(i["purchase"] for i in items if i["bought"])
+    legacy_cost = 0.0 if items else (project.purchase_price or 0.0)
+    material_cost = parts_purchase_cost + legacy_cost
+    parts_value = sum(i["sale"] for i in items)
     hours = sum((s.hours or 0.0) for s in sessions)
     # Labor value respects a per-session rate override, falling back to the
     # project/global rate.
@@ -70,15 +88,12 @@ def compute_project(db: Session, project: Project) -> ProjectFinance:
         (s.hours or 0.0) * (s.hourly_rate if s.hourly_rate is not None else rate)
         for s in sessions
     )
-    # Suggested price must at least recover the device purchase price, plus the
-    # resale value of installed parts, plus labor. (Purchased-part cost is not
-    # added separately — it's already reflected in each part's sale price.)
-    build_total = device_cost + parts_value + labor_value
-    # Listing/sale price: explicit device sale prices if any device sets one,
-    # else the legacy project.sale_price, else the suggested build total.
-    if any(d.sale_price is not None for d in devices):
-        sale_price = sum((d.sale_price or 0.0) for d in devices)
-    elif project.sale_price is not None:
+    # Suggested price = resale value of the assigned items plus labor. Their
+    # purchase cost is not added separately — it is already reflected in each
+    # item's sale price.
+    build_total = parts_value + labor_value + legacy_cost
+    # Listing price: explicit if set on the project, else the suggested total.
+    if project.sale_price is not None:
         sale_price = project.sale_price
     else:
         sale_price = build_total
@@ -89,8 +104,8 @@ def compute_project(db: Session, project: Project) -> ProjectFinance:
         project=project,
         rate=rate,
         parts=parts,
+        items=items,
         sessions=sessions,
-        device_cost=device_cost,
         parts_purchase_cost=parts_purchase_cost,
         material_cost=material_cost,
         parts_value=parts_value,

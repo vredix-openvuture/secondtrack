@@ -239,10 +239,14 @@ async def warehouse_list(
     cat: str = "",
     low: str = "",
     view: str = "parts",
+    for_project: str = "",
     db: Session = Depends(get_db),
     user=Depends(require_login),
 ):
     view = view if view in ("parts", "sets", "wip", "finished") else "parts"
+    # Arrived from a project's "+ New": open the create dialog and hand the
+    # finished item straight back to that project.
+    for_pid = int(for_project) if for_project.strip().isdigit() else None
     # All warehouse parts (project & device NULL) — the basis for accounting and
     # set membership; the display list `parts` is this, optionally filtered.
     all_wh_parts = (
@@ -273,7 +277,13 @@ async def warehouse_list(
     #                  consumed and therefore hidden here.
     #   lots         — purchase-lot sets (one invoice/EK; parts keep own VK)
     #   finished     — assemblies / finished goods (built from parts, consumed)
-    all_sets = db.query(PartSet).order_by(PartSet.created_at.desc()).all()
+    # Sets assigned to a project have left the shelf, same as their parts.
+    all_sets = (
+        db.query(PartSet)
+        .filter(PartSet.project_id.is_(None))
+        .order_by(PartSet.created_at.desc())
+        .all()
+    )
     lots = [s for s in all_sets if s.kind == SetKind.purchase_lot.value]
     assemblies = [s for s in all_sets if s.kind == SetKind.assembly.value]
     wip = [s for s in assemblies if s.status == "wip"]
@@ -315,6 +325,7 @@ async def warehouse_list(
             projects=projects,
             stock_value=stock_value, stock_cost=stock_cost, low_stock=low_stock,
             categories=categories, suppliers=suppliers, locations=locations,
+            for_project=for_pid,
             linkable_expenses=_linkable_expenses(db),
             optional_fields=wh.optional_fields(db),
             active_cat=active_cat, only_low=only_low, filtering=filtering, wh=wh,
@@ -388,10 +399,15 @@ async def create_part(
     image: UploadFile | None = File(None),
     receipt: UploadFile | None = File(None),
     expense_id: str = Form(""),
+    for_project: str = Form(""),
     db: Session = Depends(get_db),
     user=Depends(require_login),
 ):
-    """Create one warehouse part — or, if set-parts are supplied, a set."""
+    """Create one warehouse part — or, if set-parts are supplied, a set.
+
+    With `for_project` the new item is assigned to that project right away and
+    the user is sent back to it: a project never creates items itself, it sends
+    you here and gets the result."""
     members = _set_members(
         part_name, part_sale, part_purchase, part_note, part_image, part_receipt
     )
@@ -401,6 +417,9 @@ async def create_part(
     # An existing receipt can stand in for an upload: link it instead of
     # creating a second expense for a purchase that is already booked.
     linked_exp = db.get(Expense, _fk(expense_id)) if _fk(expense_id) else None
+    for_pid = _fk(for_project)
+    if for_pid and not db.get(Project, for_pid):
+        for_pid = None
 
     if members:
         total = _parse_float(purchase_price) or 0.0
@@ -415,12 +434,22 @@ async def create_part(
                 "/warehouse?msg=Beleg erforderlich: ein Set-Beleg oder ein Beleg je Teil (oder 'gratis')",
                 status_code=303,
             )
-        _make_set(
+        ps = _make_set(
             db, name=name.strip(), total=total,
             sale_price=_parse_float(sale_price), image_path=img_url,
             rpath=rpath, members=members, supplier_id=sup_id, location_id=loc_id,
             src_expense_id=linked_exp.id if linked_exp else None,
         )
+        if for_pid:
+            ps.project_id = for_pid
+            for p in db.query(Part).filter(Part.set_id == ps.id).all():
+                p.project_id = for_pid
+            if ps.expense_id:
+                exp = db.get(Expense, ps.expense_id)
+                if exp and exp.project_id is None:
+                    exp.project_id, exp.bucket = for_pid, "project"
+            db.commit()
+            return RedirectResponse(f"/projects/{for_pid}", status_code=303)
         return RedirectResponse(
             "/warehouse?msg=Set angelegt" + (f" — {img_err}" if img_err else ""),
             status_code=303,
@@ -475,6 +504,11 @@ async def create_part(
         )
         part.source_expense_id = exp.id
         db.commit()
+    if for_pid:
+        part.project_id = for_pid
+        wh.carry_expense_to_project(db, part, for_pid)
+        db.commit()
+        return RedirectResponse(f"/projects/{for_pid}", status_code=303)
     return RedirectResponse(
         "/warehouse" + (f"?msg={img_err}" if img_err else ""), status_code=303
     )
@@ -575,6 +609,7 @@ async def install_part(
     project = db.get(Project, project_id)
     if part and part.project_id is None and project:
         part.project_id = project.id  # sale price carries over automatically
+        wh.carry_expense_to_project(db, part, project.id)  # and so does the cost
         db.commit()
         return RedirectResponse(f"/projects/{project.id}", status_code=303)
     return RedirectResponse("/warehouse", status_code=303)
@@ -781,12 +816,21 @@ async def stock_from_project(
 ):
     """Register a finished project build as a sellable finished good on the
     shelf: an assembly (kind=assembly, sellable). Its component parts are booked
-    onto it afterwards in the finished-good editor; cost then follows the parts."""
+    onto it afterwards in the finished-good editor; cost then follows the parts.
+
+    Shop production only — a customer order is built for one customer and
+    invoiced, so it never becomes shop stock."""
+    from ..models import ProjectKind
     from ..services import finance
 
     project = db.get(Project, project_id)
     if not project:
         return RedirectResponse("/warehouse", status_code=303)
+    if project.kind != ProjectKind.shop:
+        return RedirectResponse(
+            f"/projects/{project_id}?msg=Nur Shop-Produktionen werden Fertigware — ein Kundenauftrag wird abgerechnet",
+            status_code=303,
+        )
     f = finance.compute_project(db, project)
     title = project.title or project.name or "Finished good"
     ps = PartSet(

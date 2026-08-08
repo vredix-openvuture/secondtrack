@@ -34,6 +34,10 @@ async def scan_resolve(
     kind, obj = codes.resolve(db, code)
     if kind == "location":
         return RedirectResponse(f"/warehouse/locations?focus={obj.code}", status_code=303)
+    # Assigned to a project means off the shelf: the warehouse list no longer
+    # holds it, so send the scan where the object actually is.
+    if obj is not None and getattr(obj, "project_id", None):
+        return RedirectResponse(f"/projects/{obj.project_id}", status_code=303)
     if kind == "part" and obj is not None:
         return RedirectResponse(f"/warehouse?view=parts&focus={obj.code}", status_code=303)
     if kind == "set" and obj is not None:

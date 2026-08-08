@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
-from fastapi.responses import PlainTextResponse, RedirectResponse, Response
+from fastapi.responses import PlainTextResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from .. import runtime
@@ -11,14 +11,15 @@ from ..auth import require_login
 from ..config import get_settings as get_app_settings
 from ..db import get_db, new_project_number
 from ..models import (
-    Customer, CustomerKind, Device, DeviceStatus, Expense, OrderInvoice, Part,
+    Customer, CustomerKind, Expense, OrderInvoice, Part, PartSet,
     PartOrigin, Project, ProjectKind, ProjectStatus, Report, WorkSession,
 )
-from ..services import expenses as exp_service, hub
+from ..services import hub
+from ..services import warehouse as wh
 from ..services.finance import compute_project, global_hourly_rate
 from ..services.integrations import invoiceninja, vikunja
 from ..services.markdown import export_project_to_file, render_project_markdown
-from ..services.uploads import delete_image, save_image_or_error, save_receipt
+from ..services.uploads import delete_image, save_image_or_error
 from ..templating import ctx, templates
 
 app_settings = get_app_settings()
@@ -34,7 +35,7 @@ NEW_STATUSES = [
     ProjectStatus.invoiced,
 ]
 
-DEVICE_STATUSES = list(DeviceStatus)  # in_production / archived / sold
+
 
 
 def _parse_float(value: str | None) -> float | None:
@@ -151,10 +152,7 @@ async def create_project(
     customer_kind: str = Form("internal"),
     customer_email: str = Form(""),
     customer_company: str = Form(""),
-    device_name: str = Form(""),
-    purchase_price: str = Form(""),
     image: UploadFile | None = File(None),
-    receipt: UploadFile | None = File(None),
     db: Session = Depends(get_db),
     user=Depends(require_login),
 ):
@@ -175,24 +173,7 @@ async def create_project(
     )
     db.add(project)
     db.commit()
-    # A project always starts with (at least) one device.
-    price = _parse_float(purchase_price) or 0.0
-    device = Device(
-        project_id=project.id,
-        name=device_name.strip() or name.strip(),
-        purchase_price=price,
-        status=DeviceStatus.in_production,
-    )
-    db.add(device)
-    db.commit()
-    # If a receipt for the device purchase was attached, log it as an expense.
-    rpath = save_receipt(receipt, "receipt")
-    if rpath and price > 0:
-        exp_service.create(
-            db, amount=price, expense_date=date.today(),
-            vendor="", description=f"Device purchase: {project.name}",
-            category="Device purchase", project_id=project.id, receipt_path=rpath,
-        )
+    # A project starts empty — its items are picked from the warehouse.
     dest = f"/projects/{project.id}"
     if img_err:
         dest += f"?msg={img_err}"
@@ -210,9 +191,10 @@ async def project_detail(
     if not project:
         return RedirectResponse("/projects", status_code=303)
     f = compute_project(db, project)
+    # Loose shelf parts only — a part inside a set is picked via that set.
     warehouse_parts = (
         db.query(Part)
-        .filter(Part.project_id.is_(None))
+        .filter(Part.project_id.is_(None), Part.set_id.is_(None))
         .order_by(Part.name)
         .all()
     )
@@ -227,12 +209,15 @@ async def project_detail(
             in_clients = invoiceninja.list_clients()
         except Exception:  # noqa: BLE001
             in_clients = []
-    loose_parts = (
-        db.query(Part)
-        .filter(Part.project_id == project.id, Part.device_id.is_(None))
-        .order_by(Part.name)
-        .all()
-    )
+    # Pickable from the shelf: anything not already on a project.
+    assignable_items = [
+        {"value": f"set:{ps.id}", "label": f"{ps.name} · {ps.code or ''}", "sale": ps.sale_price}
+        for ps in db.query(PartSet).filter(PartSet.project_id.is_(None))
+        .order_by(PartSet.name).all()
+    ] + [
+        {"value": f"part:{p.id}", "label": f"{p.name} · {p.code or ''}", "sale": p.sale_price}
+        for p in warehouse_parts
+    ]
     reports = (
         db.query(Report)
         .filter(Report.project_id == project.id)
@@ -248,12 +233,10 @@ async def project_detail(
             active="projects",
             f=f,
             project=project,
-            devices=sorted(project.devices, key=lambda d: d.id),
-            loose_parts=loose_parts,
+            items=f.items,  # same list the calculation uses
+            assignable_items=assignable_items,
             reports=reports,
             customers=customers,
-            device_statuses=DEVICE_STATUSES,
-            warehouse_parts=warehouse_parts,
             global_rate=global_hourly_rate(db),
             today=date.today().isoformat(),
             statuses=NEW_STATUSES,
@@ -263,6 +246,10 @@ async def project_detail(
             in_clients=in_clients,
             project_invoice=project_invoice,
             project_expenses=db.query(Expense).filter(Expense.project_id == project.id).order_by(Expense.expense_date.desc()).all(),
+            # Expenses not yet booked on any project, offered for linking.
+            assignable_expenses=db.query(Expense).filter(
+                Expense.project_id.is_(None)
+            ).order_by(Expense.expense_date.desc(), Expense.id.desc()).limit(100).all(),
             shop_sale=db.query(OrderInvoice).filter(
                 OrderInvoice.project_id == project.id, OrderInvoice.woo_order_id.isnot(None)
             ).first(),
@@ -334,108 +321,25 @@ async def delete_project(
 ):
     project = db.get(Project, project_id)
     if project:
-        # Move its parts to the warehouse (off any device and project) rather
-        # than deleting them; then the cascade removes devices + reports.
+        # Its items return to the warehouse rather than being deleted with it.
+        # Sets must be released too — both their project links are real foreign
+        # keys, so leaving them set makes the delete fail.
         for p in list(project.parts):
             p.project_id = None
             p.device_id = None
+        for ps in db.query(PartSet).filter(
+            (PartSet.project_id == project.id)
+            | (PartSet.source_project_id == project.id)
+        ).all():
+            ps.project_id = None
+            ps.source_project_id = None
+        # Expenses booked on the project keep their receipt but lose the link.
+        for e in db.query(Expense).filter(Expense.project_id == project.id).all():
+            e.project_id = None
+            e.bucket = "warehouse"
         db.delete(project)
         db.commit()
     return RedirectResponse("/projects", status_code=303)
-
-
-# ---- Devices ----
-
-@router.post("/{project_id}/devices")
-async def add_device(
-    project_id: int,
-    name: str = Form(...),
-    purchase_price: str = Form(""),
-    sale_price: str = Form(""),
-    status: str = Form("in_production"),
-    woo_product_id: str = Form(""),
-    image: UploadFile | None = File(None),
-    receipt: UploadFile | None = File(None),
-    db: Session = Depends(get_db),
-    user=Depends(require_login),
-):
-    project = db.get(Project, project_id)
-    if not project:
-        return RedirectResponse("/projects", status_code=303)
-    img_url, img_err = save_image_or_error(image, "device")
-    price = _parse_float(purchase_price) or 0.0
-    device = Device(
-        project_id=project.id,
-        name=name.strip(),
-        purchase_price=price,
-        sale_price=_parse_float(sale_price),
-        status=DeviceStatus(status) if status in DeviceStatus._value2member_map_ else DeviceStatus.in_production,
-        woo_product_id=int(woo_product_id) if woo_product_id.strip().isdigit() else None,
-        image_path=img_url,
-    )
-    db.add(device)
-    db.commit()
-    rpath = save_receipt(receipt, "receipt")
-    if rpath and price > 0:
-        exp_service.create(
-            db, amount=price, expense_date=date.today(), vendor="",
-            description=f"Device purchase: {device.name}", category="Device purchase",
-            project_id=project.id, receipt_path=rpath,
-        )
-    dest = f"/projects/{project_id}"
-    if img_err:
-        dest += f"?msg={img_err}"
-    return RedirectResponse(dest, status_code=303)
-
-
-@router.post("/{project_id}/devices/{device_id}/update")
-async def update_device(
-    project_id: int,
-    device_id: int,
-    name: str = Form(...),
-    purchase_price: str = Form(""),
-    sale_price: str = Form(""),
-    status: str = Form("in_production"),
-    woo_product_id: str = Form(""),
-    image: UploadFile | None = File(None),
-    db: Session = Depends(get_db),
-    user=Depends(require_login),
-):
-    device = db.get(Device, device_id)
-    dest = f"/projects/{project_id}"
-    if device and device.project_id == project_id:
-        device.name = name.strip()
-        device.purchase_price = _parse_float(purchase_price) or 0.0
-        device.sale_price = _parse_float(sale_price)
-        if status in DeviceStatus._value2member_map_:
-            device.status = DeviceStatus(status)
-        device.woo_product_id = int(woo_product_id) if woo_product_id.strip().isdigit() else None
-        new_image, img_err = save_image_or_error(image, "device")
-        if new_image:
-            delete_image(device.image_path)
-            device.image_path = new_image
-        db.commit()
-        if img_err:
-            dest += f"?msg={img_err}"
-    return RedirectResponse(dest, status_code=303)
-
-
-@router.post("/{project_id}/devices/{device_id}/delete")
-async def delete_device(
-    project_id: int,
-    device_id: int,
-    db: Session = Depends(get_db),
-    user=Depends(require_login),
-):
-    device = db.get(Device, device_id)
-    if device and device.project_id == project_id:
-        # Its parts go back to the warehouse rather than being deleted.
-        for p in db.query(Part).filter(Part.device_id == device_id).all():
-            p.device_id = None
-            p.project_id = None
-        db.delete(device)
-        db.commit()
-    return RedirectResponse(f"/projects/{project_id}", status_code=303)
 
 
 # ---- Reports (Markdown) ----
@@ -492,51 +396,6 @@ async def delete_report(
 
 # ---- Parts ----
 
-@router.post("/{project_id}/parts")
-async def add_part(
-    project_id: int,
-    name: str = Form(...),
-    device_id: str = Form(""),
-    purchase_price: str = Form(""),
-    sale_price: str = Form(""),
-    origin: str = Form("purchased"),
-    notes: str = Form(""),
-    image: UploadFile | None = File(None),
-    receipt: UploadFile | None = File(None),
-    db: Session = Depends(get_db),
-    user=Depends(require_login),
-):
-    project = db.get(Project, project_id)
-    if not project:
-        return RedirectResponse("/projects", status_code=303)
-    img_url, img_err = save_image_or_error(image, "part")
-    pp = _parse_float(purchase_price)
-    dev_id = int(device_id) if device_id.strip().isdigit() else None
-    part = Part(
-        name=name.strip(),
-        notes=notes.strip() or None,
-        project_id=project.id,
-        device_id=dev_id,
-        origin=PartOrigin(origin),
-        purchase_price=pp,
-        sale_price=_parse_float(sale_price) or 0.0,
-        image_path=img_url,
-    )
-    db.add(part)
-    db.commit()
-    rpath = save_receipt(receipt, "receipt")
-    if rpath and pp and pp > 0:
-        exp_service.create(
-            db, amount=pp, expense_date=date.today(), vendor="",
-            description=f"Part: {part.name}", category="Parts",
-            project_id=project.id, receipt_path=rpath,
-        )
-    dest = f"/projects/{project_id}"
-    if img_err:
-        dest += f"?msg={img_err}"
-    return RedirectResponse(dest, status_code=303)
-
-
 @router.post("/{project_id}/parts/{part_id}/remove")
 async def remove_part_to_warehouse(
     project_id: int,
@@ -569,20 +428,91 @@ async def delete_part(
     return RedirectResponse(f"/projects/{project_id}", status_code=303)
 
 
-@router.post("/{project_id}/parts/install")
-async def install_from_warehouse(
+@router.post("/{project_id}/items/assign")
+async def assign_item(
     project_id: int,
-    part_id: int = Form(...),
-    device_id: str = Form(""),
+    item: str = Form(...),
     db: Session = Depends(get_db),
     user=Depends(require_login),
 ):
-    """Install an existing warehouse part into this project (optionally onto a
-    specific device). Its stored sale price carries over automatically."""
-    part = db.get(Part, part_id)
-    if part and part.project_id is None:
-        part.project_id = project_id
-        part.device_id = int(device_id) if device_id.strip().isdigit() else None
+    """Assign an existing warehouse object — a part, a lot, a WIP build or a
+    finished good — to this project. Nothing is created here: items are made in
+    the warehouse and picked from it.
+
+    The purchase expense follows the item so the project shows what it actually
+    cost. It stays listed under Expenses either way; the link is traceability,
+    not a move. `item` is "part:<id>" or "set:<id>".
+    """
+    kind, _, raw = item.partition(":")
+    if not raw.isdigit():
+        return RedirectResponse(f"/projects/{project_id}", status_code=303)
+    oid, shared_receipt = int(raw), False
+
+    if kind == "part":
+        part = db.get(Part, oid)
+        if part and part.project_id is None:
+            part.project_id = project_id
+            part.device_id = None
+            shared_receipt = bool(part.source_expense_id) and not (
+                wh.carry_expense_to_project(db, part, project_id)
+            )
+            db.commit()
+    elif kind == "set":
+        ps = db.get(PartSet, oid)
+        if ps and ps.project_id is None:
+            ps.project_id = project_id
+            # Members come along — otherwise their cost stays in the warehouse.
+            for p in db.query(Part).filter(
+                Part.set_id == ps.id, Part.project_id.is_(None)
+            ).all():
+                p.project_id = project_id
+            if ps.expense_id:
+                exp = db.get(Expense, ps.expense_id)
+                if exp and exp.project_id is None:
+                    exp.project_id = project_id
+                    exp.bucket = "project"
+            db.commit()
+
+    if shared_receipt:
+        return RedirectResponse(
+            f"/projects/{project_id}?msg=Zugewiesen — der Beleg deckt mehrere Objekte ab und bleibt im Lager",
+            status_code=303,
+        )
+    return RedirectResponse(f"/projects/{project_id}", status_code=303)
+
+
+@router.post("/{project_id}/items/set/{set_id}/release")
+async def release_set(
+    project_id: int,
+    set_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(require_login),
+):
+    """Send a set back to the warehouse, taking its member parts with it."""
+    ps = db.get(PartSet, set_id)
+    if ps and ps.project_id == project_id:
+        ps.project_id = None
+        for p in db.query(Part).filter(
+            Part.set_id == ps.id, Part.project_id == project_id
+        ).all():
+            p.project_id = None
+            p.device_id = None
+        db.commit()
+    return RedirectResponse(f"/projects/{project_id}", status_code=303)
+
+
+@router.post("/{project_id}/expenses/assign")
+async def assign_expense(
+    project_id: int,
+    expense_id: int = Form(...),
+    db: Session = Depends(get_db),
+    user=Depends(require_login),
+):
+    """Book an existing expense onto this project instead of creating a new one."""
+    exp = db.get(Expense, expense_id)
+    if exp and exp.project_id != project_id:
+        exp.project_id = project_id
+        exp.bucket = "project"
         db.commit()
     return RedirectResponse(f"/projects/{project_id}", status_code=303)
 

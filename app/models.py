@@ -292,6 +292,11 @@ class PartSet(Base):
     source_project_id: Mapped[int | None] = mapped_column(
         ForeignKey("projects.id"), nullable=True, index=True
     )
+    # Currently assigned to this project (NULL == on the shelf). Distinct from
+    # source_project_id, which records origin and never changes.
+    project_id: Mapped[int | None] = mapped_column(
+        ForeignKey("projects.id"), nullable=True, index=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     parts: Mapped[list["Part"]] = relationship(
@@ -413,6 +418,11 @@ class Customer(Base):
 
 
 class Device(Base):
+    """Legacy. A device was a project-only container from before the warehouse
+    existed. `_migrate_devices_to_parts` in db.py turns each one into a plain
+    warehouse part on its project and deletes the row; this class survives only
+    so that migration can still read old databases. Nothing else uses it."""
+
     __tablename__ = "devices"
 
     id: Mapped[int] = mapped_column(primary_key=True)

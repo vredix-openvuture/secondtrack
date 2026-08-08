@@ -23,7 +23,7 @@
 <table class="grid view-list">
   <thead>
     <tr>
-      <th>{{ _('Device') }}</th><th>{{ _('Status') }}</th><th class="num">{{ _('Parts') }}</th>
+      <th>{{ _('Project') }}</th><th>{{ _('Status') }}</th><th class="num">{{ _('Items') }}</th>
       <th class="num">{{ _('Hours') }}</th><th class="num">{{ _('Sale price') }}</th>
       <th class="num">{{ _('Gross profit') }}</th>
     </tr>
@@ -33,7 +33,7 @@
     <tr onclick="location.href='/projects/{{ f.project.id }}'">
       <td>{% if f.project.image_path %}<img src="{{ f.project.image_path }}" class="row-img" alt="" onerror="this.style.display='none'">{% endif %}<strong>{{ f.project.name }}</strong>{% if f.project.kind.value == 'shop' %} <span class="badge archived">{{ _('Shop') }}</span>{% endif %}</td>
       <td><span class="badge {{ st_class.get(f.project.status.value, f.project.status.value) }}">{{ st_label.get(f.project.status.value, f.project.status.value) }}</span></td>
-      <td class="num">{{ f.parts|length }}</td>
+      <td class="num">{{ f.items|length }}</td>
       <td class="num">{{ f.hours|hours }}</td>
       <td class="num">{{ f.sale_price|money }} {{ currency }}</td>
       <td class="num {{ 'pos' if f.gross_profit >= 0 else 'neg' }}">{{ f.gross_profit|money }} {{ currency }}</td>
@@ -54,7 +54,7 @@
         <span>{{ f.sale_price|money }} {{ currency }}</span>
       </div>
       <div class="meta">
-        <span>{{ f.parts|length }} {{ _('Parts') }} · {{ f.hours|hours }} h</span>
+        <span>{{ f.items|length }} {{ _('Items') }} · {{ f.hours|hours }} h</span>
         <span class="{{ 'pos' if f.gross_profit >= 0 else 'neg' }}">{{ f.gross_profit|money }} {{ currency }}</span>
       </div>
     </div>
@@ -77,16 +77,13 @@
         </label>
         <div class="pf-fields">
           <input name="name" placeholder="{{ _('Project title') }}" required autofocus>
-          <input name="device_name" placeholder="{{ _('First device (optional, defaults to title)') }}">
         </div>
       </div>
-      <div class="row-form">
-        <select name="kind">
-          <option value="customer">{{ _('Customer order') }}</option>
-          <option value="shop">{{ _('Shop production') }}</option>
-        </select>
-        <input name="purchase_price" placeholder="{{ _('Purchase price') }}" inputmode="decimal">
-      </div>
+      {# No prices here — a project's cost comes from the items assigned to it. #}
+      <select name="kind">
+        <option value="customer">{{ _('Customer order') }}</option>
+        <option value="shop">{{ _('Shop production') }}</option>
+      </select>
       <label>{{ _('Customer') }}
         <select name="customer_id">
           <option value="">— {{ _('none / internal') }} —</option>
@@ -109,9 +106,6 @@
         </div>
       </details>
       <input name="description" placeholder="{{ _('Note (optional)') }}">
-      <label class="file-field">{{ _('Purchase receipt (optional → expense)') }}
-        <input type="file" name="receipt" accept="application/pdf,image/*">
-      </label>
       <button type="submit" class="primary">{{ _('Create') }}</button>
     </form>
   </div>

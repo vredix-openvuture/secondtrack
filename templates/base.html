@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}secondtrack{% endblock %}</title>
-  <link rel="stylesheet" href="/static/style.css">
-  {% set fonts = {"system":"system-ui,-apple-system,'Segoe UI',Roboto,sans-serif","mono":"ui-monospace,'SF Mono',Menlo,Consolas,monospace","serif":"Georgia,'Times New Roman',serif","rounded":"'Segoe UI Rounded','SF Pro Rounded',system-ui,sans-serif"} %}
+  <link rel="stylesheet" href="/static/style.css?v={{ asset_v }}">
+  {% set fonts = {"fredoka":"'Fredoka',system-ui,sans-serif","system":"system-ui,-apple-system,'Segoe UI',Roboto,sans-serif","mono":"ui-monospace,'SF Mono',Menlo,Consolas,monospace","serif":"Georgia,'Times New Roman',serif","rounded":"'Segoe UI Rounded','SF Pro Rounded',system-ui,sans-serif"} %}
   {% if style %}<style>
     :root{
       --accent: {{ style.accent }};
@@ -14,13 +14,15 @@
       --radius: {{ style.radius }}px;
       --card-alpha: {{ style.card_opacity }};
     }
-    body{ font-family: {{ fonts.get(style.font, fonts['system']) }}; }
+    {# |safe: the value always comes from the literal dict above, and inside a
+       <style> block escaped quotes (&#39;) are not decoded — they break the rule. #}
+    body{ font-family: {{ fonts.get(style.font, fonts['fredoka'])|safe }}; }
   </style>{% endif %}
   <script>window.ST_SIDEBAR_DEFAULT = "{{ style.sidebar if style else 'closed' }}"; window.ST_CURRENCY = "{{ currency }}";
   // Set the sidebar state before first paint so it never flickers on navigation.
   (function(){var s;try{s=localStorage.getItem('st-sidebar');}catch(e){}document.documentElement.setAttribute('data-sidebar', s || window.ST_SIDEBAR_DEFAULT || 'closed');})();</script>
   <script src="https://unpkg.com/htmx.org@2.0.4" defer></script>
-  <script src="/static/app.js" defer></script>
+  <script src="/static/app.js?v={{ asset_v }}" defer></script>
 </head>
 <body class="{{ 'density-compact' if style and style.density == 'compact' }} {{ 'glass' if style and style.glass == '1' }}">
   {% if wallpaper and wallpaper.url %}

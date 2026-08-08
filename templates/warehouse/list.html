@@ -418,6 +418,8 @@
   <div class="modal modal-wide">
     <div class="modal-head"><h2>{{ _('Create product') }}</h2><button class="modal-close" onclick="stCloseModal(this)">×</button></div>
     <form method="post" action="/warehouse" enctype="multipart/form-data">
+      {# Came from a project's "+ New": the finished item goes straight back. #}
+      {% if for_project %}<input type="hidden" name="for_project" value="{{ for_project }}">{% endif %}
       <div class="pf-top">
         <label class="img-square" title="{{ _('Choose image') }}">
           <input type="file" name="image" accept="image/*" onchange="stImgSquare(this)">
@@ -464,20 +466,26 @@
       </div>
       {{ opt_section() }}
 
-      <label class="chk-row gaptop" title="{{ _('Free / gift — no receipt needed') }}">
-        <input type="checkbox" name="free" id="wpFree" onchange="stToggleFree(this)"> {{ _('Free / gift — no receipt needed') }}
+      {# One receipt control: the mode picks which input applies, so only ever
+         one field is on screen. `free` rides along as a hidden field. #}
+      <label class="fld gaptop">{{ _('Purchase receipt') }}
+        <select id="wpRecMode" onchange="stRecMode()">
+          <option value="new">{{ _('Upload new receipt') }}</option>
+          {% if linkable_expenses %}<option value="existing">{{ _('Use existing receipt') }}</option>{% endif %}
+          <option value="free">{{ _('Free / gift — none needed') }}</option>
+        </select>
       </label>
-      <div id="wpReceiptBox">
-        <label class="fld" style="margin-top:.6rem">{{ _('Link existing receipt') }}
-          <select name="expense_id" id="wpExpense" onchange="stPickExpense(this)">
-            <option value="">{{ _('— upload a new receipt —') }}</option>
-            {% for e in linkable_expenses %}
-            <option value="{{ e.id }}">{{ e.expense_date.isoformat() }} · {{ e.name or e.vendor or e.description or _('Receipt') }} · {{ e.amount|money }} {{ currency }}</option>
-            {% endfor %}
-          </select>
-        </label>
-        <label class="file-field" id="wpReceiptWrap" style="margin-top:.6rem">{{ _('Purchase receipt (required)') }}<input type="file" name="receipt" id="wpReceipt" accept="application/pdf,image/*" required></label>
-      </div>
+      <input type="hidden" name="free" id="wpFree" value="">
+      <label class="file-field" id="wpRecNew"><input type="file" name="receipt" id="wpReceipt" accept="application/pdf,image/*" required></label>
+      {% if linkable_expenses %}
+      <label class="fld" id="wpRecPick" hidden>
+        <select name="expense_id" id="wpExpense" disabled>
+          {% for e in linkable_expenses %}
+          <option value="{{ e.id }}">{{ e.expense_date.isoformat() }} · {{ e.name or e.vendor or e.description or _('Receipt') }} · {{ e.amount|money }} {{ currency }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      {% endif %}
 
       <div class="pf-actions gaptop">
         <button type="submit" class="primary">{{ _('Create') }}</button>
@@ -694,5 +702,11 @@
   </div>
 </div>
 
-<script src="/static/warehouse.js" defer></script>
+<script src="/static/warehouse.js?v={{ asset_v }}" defer></script>
+{% if for_project %}
+<script>
+  // Opened from a project — go straight into the create dialog.
+  window.addEventListener('DOMContentLoaded', function () { stOpenModal('newPart'); });
+</script>
+{% endif %}
 {% endblock %}

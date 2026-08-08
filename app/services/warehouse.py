@@ -164,3 +164,30 @@ def display_attributes(part) -> list[tuple[str, str]]:
         text = f"{val} {unit}".strip() if unit else str(val)
         out.append((field.get("label", key), text))
     return out
+
+
+def carry_expense_to_project(db, part, project_id: int) -> bool:
+    """Move a part's purchase expense onto the project it was just installed in,
+    so the cost is booked where the part is used instead of staying in the
+    warehouse bucket.
+
+    Skipped when the expense also covers other parts or a whole set: one receipt
+    for a purchase lot must not land entirely on one project. Returns whether
+    the expense moved; the caller commits.
+    """
+    from ..models import Expense, Part, PartSet
+
+    if not part.source_expense_id:
+        return False
+    exp = db.get(Expense, part.source_expense_id)
+    if exp is None or exp.project_id is not None:
+        return False
+    shared = db.query(Part).filter(
+        Part.source_expense_id == exp.id, Part.id != part.id
+    ).count()
+    shared += db.query(PartSet).filter(PartSet.expense_id == exp.id).count()
+    if shared:
+        return False
+    exp.project_id = project_id
+    exp.bucket = "project"
+    return True

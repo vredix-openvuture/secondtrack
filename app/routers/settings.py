@@ -76,7 +76,7 @@ async def settings_page(
             style_accent2=get_setting(db, "accent2", "#ce3737"),
             style_bg=get_setting(db, "style_bg", "#26121b"),
             style_radius=get_setting(db, "style_radius", "10"),
-            style_font=get_setting(db, "style_font", "system"),
+            style_font=get_setting(db, "style_font", "fredoka"),
             style_density=get_setting(db, "style_density", "comfortable"),
             style_glass=get_setting(db, "style_glass", "0"),
             style_card_opacity=get_setting(db, "style_card_opacity", "100"),
@@ -153,7 +153,7 @@ async def update_style(
     set_setting(db, "accent2", hexcol(accent2, "#ce3737"))
     set_setting(db, "style_bg", hexcol(bg, "#26121b"))
     set_setting(db, "style_radius", clampi(radius, 0, 28, 10))
-    set_setting(db, "style_font", font if font in {"system", "mono", "serif", "rounded"} else "system")
+    set_setting(db, "style_font", font if font in {"fredoka", "system", "mono", "serif", "rounded"} else "fredoka")
     set_setting(db, "style_density", "compact" if density == "compact" else "comfortable")
     set_setting(db, "style_glass", _bx(glass))
     set_setting(db, "style_card_opacity", clampi(card_opacity, 40, 100, 100))

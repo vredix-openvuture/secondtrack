@@ -29,10 +29,24 @@ def md(value):
     return render(value)
 
 
+def _asset_version() -> str:
+    """Cache-busting token for /static: the newest mtime under static/.
+    Computed once at import, so a rebuilt container serves a new token and no
+    browser keeps a stale app.js/style.css after a deploy."""
+    from pathlib import Path
+
+    newest = 0.0
+    for p in Path("static").rglob("*"):
+        if p.is_file():
+            newest = max(newest, p.stat().st_mtime)
+    return str(int(newest))
+
+
 templates.env.filters["money"] = money
 templates.env.filters["hours"] = hours_fmt
 templates.env.filters["md"] = md
 templates.env.globals["currency"] = settings.currency
+templates.env.globals["asset_v"] = _asset_version()
 
 
 def ctx(request, db, active: str = "", **extra):
@@ -58,7 +72,7 @@ def ctx(request, db, active: str = "", **extra):
             "accent2": get_setting(db, "accent2", "#ce3737") or "#ce3737",
             "bg": get_setting(db, "style_bg", "#26121b") or "#26121b",
             "radius": get_setting(db, "style_radius", "10") or "10",
-            "font": get_setting(db, "style_font", "system") or "system",
+            "font": get_setting(db, "style_font", "fredoka") or "fredoka",
             "density": get_setting(db, "style_density", "comfortable") or "comfortable",
             "glass": get_setting(db, "style_glass", "0") or "0",
             "card_opacity": get_setting(db, "style_card_opacity", "100") or "100",

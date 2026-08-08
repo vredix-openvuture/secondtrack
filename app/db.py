@@ -112,6 +112,7 @@ def _ensure_columns() -> None:
             ("code", "VARCHAR(32)"),
             ("location_id", "INTEGER"),
             ("source_project_id", "INTEGER"),
+            ("project_id", "INTEGER"),
         ],
         "users": [("display_name", "VARCHAR(120)")],
         "work_sessions": [("hourly_rate", "FLOAT")],
@@ -253,6 +254,64 @@ def _backfill_codes() -> None:
         db.commit()
 
 
+def _migrate_devices_to_parts() -> None:
+    """Devices predate the warehouse: a project-only container with no code,
+    category, supplier, location or purchase expense. A device is just a
+    warehouse item, so each one becomes a Part assigned to its project and its
+    child parts become siblings on that same project — one flat item list.
+
+    The device row is removed once its data lives on the part; re-running finds
+    nothing left to do. The pre-update database backup is the way back.
+    """
+    from .models import Device, Part, PartOrigin
+    from .services import codes
+
+    with SessionLocal() as db:
+        devices = db.query(Device).all()
+        if not devices:
+            return
+        for dev in devices:
+            db.add(
+                Part(
+                    name=dev.name,
+                    project_id=dev.project_id,
+                    origin=(
+                        PartOrigin.purchased if dev.purchase_price
+                        else PartOrigin.harvested
+                    ),
+                    purchase_price=dev.purchase_price or None,
+                    sale_price=dev.sale_price,
+                    image_path=dev.image_path,
+                    quantity=1,
+                    code=codes.generate(db, "part"),
+                )
+            )
+            # A device could carry the shop listing; the project keeps it.
+            if dev.woo_product_id and dev.project and not dev.project.woo_product_id:
+                dev.project.woo_product_id = dev.woo_product_id
+            # Children become siblings — the hierarchy is what we are dropping.
+            for p in db.query(Part).filter(Part.device_id == dev.id).all():
+                p.device_id = None
+                if p.project_id is None:
+                    p.project_id = dev.project_id
+        db.flush()  # detach every part before the FK targets disappear
+        for dev in devices:
+            db.delete(dev)
+        db.commit()
+
+
+def _default_font_fredoka() -> None:
+    """One-time: Fredoka replaced the system stack as the app font, so installs
+    still carrying the old 'system' default move over. The marker makes it run
+    once, so switching back in the settings later sticks."""
+    with SessionLocal() as db:
+        if get_setting(db, "style_font_default_v2") == "1":
+            return
+        if get_setting(db, "style_font", "system") in (None, "", "system"):
+            set_setting(db, "style_font", "fredoka")
+        set_setting(db, "style_font_default_v2", "1")
+
+
 def init_db() -> None:
     """Create tables, seed the admin user and default settings."""
     from passlib.hash import bcrypt
@@ -283,3 +342,7 @@ def init_db() -> None:
     _remap_project_status()
     # Warehouse rework: give pre-existing parts/sets a scan code (idempotent).
     _backfill_codes()
+    # One-time: move installs off the old 'system' font default onto Fredoka.
+    _default_font_fredoka()
+    # Devices become plain warehouse items on their project (idempotent).
+    _migrate_devices_to_parts()

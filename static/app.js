@@ -149,10 +149,9 @@ function stResetPartModal() {
   if (f) f.reset();
   var sp = document.getElementById('setParts'); if (sp) sp.innerHTML = '';
   var panel = document.getElementById('setPanel'); if (panel) panel.setAttribute('hidden', '');
-  // undo the free-toggle side effects (form.reset unchecks it without firing onchange)
-  var pp = document.getElementById('wpPurchase'); if (pp) pp.disabled = false;
-  var rw = document.getElementById('wpReceiptWrap'); if (rw) rw.style.display = '';
-  var rc = document.getElementById('wpReceipt'); if (rc) rc.required = true;
+  // form.reset() restores the mode select without firing onchange — re-apply it
+  var rm = document.getElementById('wpRecMode'); if (rm) rm.value = 'new';
+  stRecMode();
   // clear the image preview back to its placeholder
   m.querySelectorAll('img.is-preview').forEach(function (i) { i.remove(); });
   m.querySelectorAll('.img-square .is-ph').forEach(function (p) { p.style.display = ''; });
@@ -224,31 +223,28 @@ function stImgSquare(input) {
   img.src = URL.createObjectURL(f);
   var ph = box.querySelector('.is-ph'); if (ph) ph.style.display = 'none';
 }
-function stToggleFree(cb) {
-  var box = document.getElementById('wpReceiptBox');
-  var sel = document.getElementById('wpExpense');
+// Receipt mode drives the whole block: exactly one input is shown, and the
+// unused one is disabled so it never reaches the server. Read the select
+// rather than trusting an event, so a browser-restored value stays honest.
+function stRecMode() {
+  var sel = document.getElementById('wpRecMode');
+  if (!sel) return;
+  var mode = sel.value || 'new';
+  var fileWrap = document.getElementById('wpRecNew');
+  var pickWrap = document.getElementById('wpRecPick');
   var rec = document.getElementById('wpReceipt');
+  var exp = document.getElementById('wpExpense');
+  var free = document.getElementById('wpFree');
   var pp = document.getElementById('wpPurchase');
-  if (cb.checked) {
-    if (rec) { rec.required = false; rec.value = ''; }
-    if (sel) sel.value = '';
-    if (box) box.style.display = 'none';
-    if (pp) { pp.value = ''; pp.disabled = true; }
-  } else {
-    if (box) box.style.display = '';
-    if (pp) pp.disabled = false;
-    if (sel) stPickExpense(sel); else if (rec) rec.required = true;
-  }
+  if (fileWrap) fileWrap.hidden = mode !== 'new';
+  if (pickWrap) pickWrap.hidden = mode !== 'existing';
+  if (rec) { rec.required = mode === 'new'; if (mode !== 'new') rec.value = ''; }
+  if (exp) exp.disabled = mode !== 'existing';
+  if (free) free.value = mode === 'free' ? '1' : '';
+  // A gift has no purchase price; every other mode does.
+  if (pp) { pp.disabled = mode === 'free'; if (mode === 'free') pp.value = ''; }
 }
-// Picking an existing receipt replaces the upload — the purchase is already
-// booked, so we link that expense instead of filing a second one.
-function stPickExpense(sel) {
-  var wrap = document.getElementById('wpReceiptWrap');
-  var rec = document.getElementById('wpReceipt');
-  var picked = !!sel.value;
-  if (rec) { rec.required = !picked; if (picked) rec.value = ''; }
-  if (wrap) wrap.style.display = picked ? 'none' : '';
-}
+document.addEventListener('DOMContentLoaded', stRecMode);
 // ---- Price fields: digits only, currency suffix, 2-decimal normalise ----
 function stIsMoney(inp) { return /price|amount|rate|sale|purchase|total/i.test(inp.name || ''); }
 function stWrapPrice(inp) {
