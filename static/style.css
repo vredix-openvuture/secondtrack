@@ -303,6 +303,24 @@ textarea.md-field { font-family: inherit; resize: vertical; }
 .detail-masonry { columns: 380px 2; column-gap: 1.25rem; }
 .detail-masonry > .card { break-inside: avoid; }
 
+/* Inline quantity booking on a project item */
+.qty-form { display: inline-flex; align-items: center; gap: .25rem; }
+.qty-form input { width: 3.6rem; text-align: right; padding: .2rem .35rem; }
+.qty-in { width: 4.2rem; text-align: right; }
+
+/* Work sessions are edited in place, so the inputs must not look like a form
+   dumped into a table — keep the row reading as a row. */
+.ws-table input, .ws-table textarea {
+  width: 100%; padding: .25rem .4rem; font: inherit;
+  background: transparent; border: 1px solid transparent; border-radius: 6px;
+}
+.ws-table input:hover, .ws-table textarea:hover,
+.ws-table input:focus, .ws-table textarea:focus {
+  background: var(--bg); border-color: var(--border);
+}
+.ws-table .ws-hrs, .ws-table .ws-rate { text-align: right; }
+.ws-table .ws-desc { resize: vertical; min-height: 1.9rem; }
+
 /* Summary sits below the masonry block — the columns above end flush, so it
    needs its own separation to read as a conclusion rather than one more card. */
 .summary-card { margin-top: 1.9rem; }

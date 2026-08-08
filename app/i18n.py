@@ -235,6 +235,12 @@ DE: dict[str, str] = {
     "Purchase receipt": "Kaufbeleg",
     "+ Link existing expense": "+ Vorhandene Ausgabe verknüpfen",
     "Items": "Objekte",
+    "Remove from project": "Aus dem Projekt entfernen",
+    "Remove from project? It goes back to the warehouse.":
+        "Aus dem Projekt entfernen? Es wandert zurück ins Lager.",
+    "Apply quantity": "Menge übernehmen",
+    "in stock": "im Bestand",
+    "An empty rate uses the project rate.": "Leerer Satz = Projektsatz.",
     "Items (sale value)": "Objekte (VK-Wert)",
     "Item": "Objekt",
     "Set": "Set",

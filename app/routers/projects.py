@@ -215,7 +215,8 @@ async def project_detail(
         for ps in db.query(PartSet).filter(PartSet.project_id.is_(None))
         .order_by(PartSet.name).all()
     ] + [
-        {"value": f"part:{p.id}", "label": f"{p.name} · {p.code or ''}", "sale": p.sale_price}
+        {"value": f"part:{p.id}", "label": f"{p.name} · {p.code or ''}",
+         "sale": p.sale_price, "stock": p.quantity or 1}
         for p in warehouse_parts
     ]
     reports = (
@@ -414,16 +415,19 @@ async def remove_part_to_warehouse(
     return RedirectResponse(f"/projects/{project_id}", status_code=303)
 
 
-@router.post("/{project_id}/parts/{part_id}/delete")
-async def delete_part(
+@router.post("/{project_id}/items/part/{part_id}/qty")
+async def set_item_quantity(
     project_id: int,
     part_id: int,
+    qty: str = Form(...),
     db: Session = Depends(get_db),
     user=Depends(require_login),
 ):
+    """Change how many units of an item are booked on this project. The rest
+    goes back on the shelf — a project takes a share of the stock, not the row."""
     part = db.get(Part, part_id)
-    if part and part.project_id == project_id:
-        db.delete(part)
+    if part and part.project_id == project_id and qty.strip().lstrip("-").isdigit():
+        wh.set_booked_units(db, part, int(qty))
         db.commit()
     return RedirectResponse(f"/projects/{project_id}", status_code=303)
 
@@ -432,6 +436,7 @@ async def delete_part(
 async def assign_item(
     project_id: int,
     item: str = Form(...),
+    qty: str = Form("1"),
     db: Session = Depends(get_db),
     user=Depends(require_login),
 ):
@@ -451,11 +456,8 @@ async def assign_item(
     if kind == "part":
         part = db.get(Part, oid)
         if part and part.project_id is None:
-            part.project_id = project_id
-            part.device_id = None
-            shared_receipt = bool(part.source_expense_id) and not (
-                wh.carry_expense_to_project(db, part, project_id)
-            )
+            want = int(qty) if qty.strip().isdigit() else 1
+            _, shared_receipt = wh.assign_units(db, part, want, project_id)
             db.commit()
     elif kind == "set":
         ps = db.get(PartSet, oid)
@@ -546,6 +548,35 @@ async def add_session(
         )
     )
     db.commit()
+    return RedirectResponse(f"/projects/{project_id}", status_code=303)
+
+
+@router.post("/{project_id}/sessions/{session_id}/update")
+async def update_session(
+    project_id: int,
+    session_id: int,
+    work_date: str = Form(""),
+    hours: str = Form(""),
+    hourly_rate: str = Form(""),
+    description: str = Form(""),
+    db: Session = Depends(get_db),
+    user=Depends(require_login),
+):
+    """Correct a logged session after the fact — hours get mistyped and the day
+    is often only written up later."""
+    s = db.get(WorkSession, session_id)
+    if s and s.project_id == project_id:
+        try:
+            s.work_date = date.fromisoformat(work_date) if work_date else s.work_date
+        except ValueError:
+            pass
+        hrs = _parse_float(hours)
+        if hrs is not None:
+            s.hours = hrs
+        # An empty rate means "use the project rate", so it must be clearable.
+        s.hourly_rate = _parse_float(hourly_rate)
+        s.description = description.strip() or None
+        db.commit()
     return RedirectResponse(f"/projects/{project_id}", status_code=303)
 
 

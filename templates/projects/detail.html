@@ -85,7 +85,7 @@
       <h2>{{ _('Items') }}</h2>
       {% if items %}
       <table class="grid tight">
-        <thead><tr><th>{{ _('Item') }}</th><th class="num">{{ _('Purchase') }}</th><th class="num">{{ _('Sale value') }}</th><th></th></tr></thead>
+        <thead><tr><th>{{ _('Item') }}</th><th class="num">{{ _('Qty') }}</th><th class="num">{{ _('Purchase') }}</th><th class="num">{{ _('Sale value') }}</th><th></th></tr></thead>
         <tbody>
         {% for it in items %}{% set o = it.obj %}
           <tr>
@@ -96,14 +96,23 @@
               {% if o.code %}<br><span class="muted small item-code">{{ o.code }}</span>{% endif %}
               {% if o.notes %}<br><span class="muted small">{{ o.notes }}</span>{% endif %}
             </td>
-            <td class="num">{{ it.purchase|money }} {% if it.purchase is not none %}{{ currency }}{% endif %}</td>
+            <td class="num">
+              {# Booking is a share of the stock: lowering this puts the rest
+                 back on the shelf, raising it takes more from there. #}
+              {% if it.kind == 'part' %}
+              <form method="post" action="/projects/{{ project.id }}/items/part/{{ o.id }}/qty" class="qty-form">
+                <input type="number" name="qty" value="{{ it.qty }}" min="0" step="1" inputmode="numeric" aria-label="{{ _('Qty') }}">
+                <button class="link" title="{{ _('Apply quantity') }}">✓</button>
+              </form>
+              {% else %}—{% endif %}
+            </td>
+            <td class="num">{{ it.purchase|money }} {{ currency }}</td>
             <td class="num">{{ it.sale|money }} {{ currency }}</td>
             <td class="actions">
               {% if it.kind == 'set' %}
-              <form method="post" action="/projects/{{ project.id }}/items/set/{{ o.id }}/release" onsubmit="return confirm('{{ _('Return to warehouse?') }}')"><button class="link">{{ _('→ Warehouse') }}</button></form>
+              <form method="post" action="/projects/{{ project.id }}/items/set/{{ o.id }}/release" onsubmit="return confirm('{{ _('Remove from project? It goes back to the warehouse.') }}')"><button class="link danger" title="{{ _('Remove from project') }}">✕</button></form>
               {% else %}
-              <form method="post" action="/projects/{{ project.id }}/parts/{{ o.id }}/remove" onsubmit="return confirm('{{ _('Return to warehouse?') }}')"><button class="link">{{ _('→ Warehouse') }}</button></form>
-              <form method="post" action="/projects/{{ project.id }}/parts/{{ o.id }}/delete" onsubmit="return confirm('{{ _('Delete part permanently?') }}')"><button class="link danger">✕</button></form>
+              <form method="post" action="/projects/{{ project.id }}/parts/{{ o.id }}/remove" onsubmit="return confirm('{{ _('Remove from project? It goes back to the warehouse.') }}')"><button class="link danger" title="{{ _('Remove from project') }}">✕</button></form>
               {% endif %}
             </td>
           </tr>
@@ -117,8 +126,9 @@
       <form method="post" action="/projects/{{ project.id }}/items/assign" class="row-form gaptop">
         <select name="item" required>
           <option value="" disabled selected>{{ _('Pick from warehouse…') }}</option>
-          {% for a in assignable_items %}<option value="{{ a.value }}">{{ a.label }}{% if a.sale %} ({{ a.sale|money }} {{ currency }}){% endif %}</option>{% endfor %}
+          {% for a in assignable_items %}<option value="{{ a.value }}">{{ a.label }}{% if a.stock and a.stock > 1 %} · {{ a.stock }} {{ _('in stock') }}{% endif %}{% if a.sale %} ({{ a.sale|money }} {{ currency }}){% endif %}</option>{% endfor %}
         </select>
+        <input type="number" name="qty" value="1" min="1" step="1" inputmode="numeric" class="qty-in" aria-label="{{ _('Qty') }}" title="{{ _('Qty') }}">
         <button type="submit" class="primary">{{ _('Assign') }}</button>
         <a class="btn" href="/warehouse?for_project={{ project.id }}">+ {{ _('New') }}</a>
       </form>
@@ -129,21 +139,28 @@
     <section class="card">
       <h2>{{ _('Work time') }}</h2>
       {% if f.sessions %}
-      <table class="grid tight">
+      {# Each row is an editable form. The forms live outside the table and the
+         cells reference them by id — a <form> cannot wrap a <tr>. #}
+      {% for s in f.sessions %}<form id="ws{{ s.id }}" method="post" action="/projects/{{ project.id }}/sessions/{{ s.id }}/update"></form>{% endfor %}
+      <table class="grid tight ws-table">
         <thead><tr><th>{{ _('Date') }}</th><th class="num">{{ _('Hrs') }}</th><th class="num">{{ _('Rate') }}</th><th>{{ _('Description') }}</th><th></th></tr></thead>
         <tbody>
         {% for s in f.sessions|sort(attribute='work_date') %}
           <tr>
-            <td>{{ s.work_date.isoformat() }}</td>
-            <td class="num">{{ s.hours|hours }}</td>
-            <td class="num">{{ (s.hourly_rate if s.hourly_rate is not none else f.rate)|money }} {{ currency }}</td>
-            <td class="md-content">{{ s.description|md }}</td>
-            <td class="actions"><form method="post" action="/projects/{{ project.id }}/sessions/{{ s.id }}/delete" onsubmit="return confirm('{{ _('Delete entry?') }}')"><button class="link danger">✕</button></form></td>
+            <td><input type="date" form="ws{{ s.id }}" name="work_date" value="{{ s.work_date.isoformat() }}"></td>
+            <td class="num"><input form="ws{{ s.id }}" name="hours" value="{{ s.hours|hours }}" inputmode="decimal" class="ws-hrs"></td>
+            <td class="num"><input form="ws{{ s.id }}" name="hourly_rate" value="{{ s.hourly_rate if s.hourly_rate is not none else '' }}" placeholder="{{ f.rate|money }}" inputmode="decimal" class="ws-rate"></td>
+            <td><textarea form="ws{{ s.id }}" name="description" rows="1" class="ws-desc">{{ s.description or '' }}</textarea></td>
+            <td class="actions">
+              <button form="ws{{ s.id }}" class="link" title="{{ _('Save') }}">✓</button>
+              <form method="post" action="/projects/{{ project.id }}/sessions/{{ s.id }}/delete" onsubmit="return confirm('{{ _('Delete entry?') }}')"><button class="link danger" title="{{ _('Delete') }}">✕</button></form>
+            </td>
           </tr>
         {% endfor %}
           <tr class="sum"><td>{{ _('Sum') }}</td><td class="num">{{ f.hours|hours }}</td><td colspan="3"></td></tr>
         </tbody>
       </table>
+      <p class="muted small">{{ _('An empty rate uses the project rate.') }}</p>
       {% else %}<p class="muted">{{ _('No sessions yet.') }}</p>{% endif %}
 
       <details class="adder">

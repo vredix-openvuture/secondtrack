@@ -19,13 +19,18 @@ def project_items(db: Session, project: Project) -> list[dict]:
     )
     grouped = {p.id for ps in sets for p in ps.parts}
     items: list[dict] = [
-        {"kind": "set", "obj": ps, "purchase": ps.purchase_price or 0.0,
+        {"kind": "set", "obj": ps, "qty": None, "purchase": ps.purchase_price or 0.0,
          "sale": ps.sale_price or 0.0, "bought": True}
         for ps in sets
     ]
+    # Part prices are per unit, so a project booking three of ten costs three
+    # times the unit price — the warehouse accounting already multiplies, the
+    # project side used to ignore quantity entirely.
     items += [
-        {"kind": "part", "obj": p, "purchase": p.purchase_price or 0.0,
-         "sale": p.sale_price or 0.0, "bought": p.origin == PartOrigin.purchased}
+        {"kind": "part", "obj": p, "qty": p.quantity or 1,
+         "purchase": (p.purchase_price or 0.0) * (p.quantity or 1),
+         "sale": (p.sale_price or 0.0) * (p.quantity or 1),
+         "bought": p.origin == PartOrigin.purchased}
         for p in db.query(Part).filter(Part.project_id == project.id)
         .order_by(Part.name).all()
         if p.id not in grouped

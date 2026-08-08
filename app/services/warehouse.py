@@ -191,3 +191,96 @@ def carry_expense_to_project(db, part, project_id: int) -> bool:
     exp.project_id = project_id
     exp.bucket = "project"
     return True
+
+
+def _shelf_sibling(db, part):
+    """The warehouse row a project row was split off from: same product, same
+    purchase, still on the shelf. Units move back into it instead of piling up
+    duplicate rows for one product."""
+    from ..models import Part
+
+    q = db.query(Part).filter(
+        Part.id != part.id,
+        Part.project_id.is_(None),
+        Part.set_id.is_(None),
+        Part.name == part.name,
+    )
+    if part.source_expense_id:
+        q = q.filter(Part.source_expense_id == part.source_expense_id)
+    else:
+        q = q.filter(Part.source_expense_id.is_(None))
+    return q.first()
+
+
+def _split_off(db, part, qty: int, project_id: int | None):
+    """A copy of `part` holding `qty` units, on `project_id` (None = shelf).
+    Prices are per unit, so they carry over untouched."""
+    from ..models import Part
+
+    from . import codes
+
+    clone = Part(
+        name=part.name, notes=part.notes, image_path=part.image_path,
+        project_id=project_id, source_expense_id=part.source_expense_id,
+        category_id=part.category_id, supplier_id=part.supplier_id,
+        location_id=part.location_id, attributes=part.attributes,
+        extra=part.extra, origin=part.origin, condition=part.condition,
+        serial_no=part.serial_no, mpn=part.mpn, ean=part.ean,
+        warranty_until=part.warranty_until, purchase_date=part.purchase_date,
+        min_stock=part.min_stock, unit=part.unit,
+        purchase_price=part.purchase_price, sale_price=part.sale_price,
+        quantity=qty, code=codes.generate(db, "part"),
+    )
+    db.add(clone)
+    return clone
+
+
+def assign_units(db, part, qty: int, project_id: int) -> tuple[object, bool]:
+    """Book `qty` units of a shelf part onto a project. Booking every unit moves
+    the row and takes the purchase expense along. Booking fewer splits the row
+    and leaves the expense on the shelf — one receipt covering ten units must
+    not land whole on a project that took three.
+
+    Returns (project row, whether a receipt was left behind unlinked).
+    """
+    have = part.quantity or 1
+    qty = max(1, min(int(qty), have))
+    if qty >= have:
+        part.project_id = project_id
+        part.device_id = None
+        moved = carry_expense_to_project(db, part, project_id)
+        return part, bool(part.source_expense_id) and not moved
+    booked = _split_off(db, part, qty, project_id)
+    part.quantity = have - qty
+    return booked, bool(part.source_expense_id)
+
+
+def set_booked_units(db, part, qty: int) -> None:
+    """Change how many units of a project item are booked. Units taken off go
+    back to the shelf row they came from (recreated if it is gone); units added
+    come from that row, capped by what is actually in stock. Zero releases the
+    item entirely."""
+    current = part.quantity or 1
+    qty = max(0, int(qty))
+    if qty == current:
+        return
+    sibling = _shelf_sibling(db, part)
+    if qty < current:
+        back = current - qty
+        if sibling:
+            sibling.quantity = (sibling.quantity or 0) + back
+        else:
+            _split_off(db, part, back, None)
+        if qty == 0:
+            db.delete(part)
+        else:
+            part.quantity = qty
+        return
+    available = (sibling.quantity or 0) if sibling else 0
+    take = min(qty - current, available)
+    if take <= 0:
+        return
+    sibling.quantity = available - take
+    part.quantity = current + take
+    if sibling.quantity <= 0:
+        db.delete(sibling)
