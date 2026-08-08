@@ -98,13 +98,15 @@
             </td>
             <td class="num">
               {# Booking is a share of the stock: lowering this puts the rest
-                 back on the shelf, raising it takes more from there. #}
+                 back on the shelf, raising it takes more from there. Committing
+                 on change keeps it to one field instead of a field and a button. #}
               {% if it.kind == 'part' %}
-              <form method="post" action="/projects/{{ project.id }}/items/part/{{ o.id }}/qty" class="qty-form">
-                <input type="number" name="qty" value="{{ it.qty }}" min="0" step="1" inputmode="numeric" aria-label="{{ _('Qty') }}">
-                <button class="link" title="{{ _('Apply quantity') }}">✓</button>
+              <form method="post" action="/projects/{{ project.id }}/items/part/{{ o.id }}/qty">
+                <input type="number" name="qty" value="{{ it.qty }}" min="0" step="1" inputmode="numeric"
+                       class="qty-in" aria-label="{{ _('Qty') }}" title="{{ _('Booked units — change to move the rest back to the warehouse') }}"
+                       onchange="this.form.submit()">
               </form>
-              {% else %}—{% endif %}
+              {% else %}<span class="muted">—</span>{% endif %}
             </td>
             <td class="num">{{ it.purchase|money }} {{ currency }}</td>
             <td class="num">{{ it.sale|money }} {{ currency }}</td>
@@ -123,14 +125,14 @@
 
       {# Nothing is created here: items live in the warehouse and are picked from
          it, so a purchase is booked once and in one place. #}
-      <form method="post" action="/projects/{{ project.id }}/items/assign" class="row-form gaptop">
+      <form method="post" action="/projects/{{ project.id }}/items/assign" class="assign-row">
         <select name="item" required>
           <option value="" disabled selected>{{ _('Pick from warehouse…') }}</option>
           {% for a in assignable_items %}<option value="{{ a.value }}">{{ a.label }}{% if a.stock and a.stock > 1 %} · {{ a.stock }} {{ _('in stock') }}{% endif %}{% if a.sale %} ({{ a.sale|money }} {{ currency }}){% endif %}</option>{% endfor %}
         </select>
         <input type="number" name="qty" value="1" min="1" step="1" inputmode="numeric" class="qty-in" aria-label="{{ _('Qty') }}" title="{{ _('Qty') }}">
         <button type="submit" class="primary">{{ _('Assign') }}</button>
-        <a class="btn" href="/warehouse?for_project={{ project.id }}">+ {{ _('New') }}</a>
+        <a class="btn ghost" href="/warehouse?for_project={{ project.id }}" title="{{ _('Create it in the warehouse, assigned to this project') }}">+ {{ _('New') }}</a>
       </form>
       <p class="muted small">{{ _('Its purchase expense is linked to this project for traceability and stays listed under Expenses.') }}</p>
     </section>
@@ -139,20 +141,23 @@
     <section class="card">
       <h2>{{ _('Work time') }}</h2>
       {% if f.sessions %}
-      {# Each row is an editable form. The forms live outside the table and the
-         cells reference them by id — a <form> cannot wrap a <tr>. #}
-      {% for s in f.sessions %}<form id="ws{{ s.id }}" method="post" action="/projects/{{ project.id }}/sessions/{{ s.id }}/update"></form>{% endfor %}
-      <table class="grid tight ws-table">
+      <table class="grid tight">
         <thead><tr><th>{{ _('Date') }}</th><th class="num">{{ _('Hrs') }}</th><th class="num">{{ _('Rate') }}</th><th>{{ _('Description') }}</th><th></th></tr></thead>
         <tbody>
         {% for s in f.sessions|sort(attribute='work_date') %}
           <tr>
-            <td><input type="date" form="ws{{ s.id }}" name="work_date" value="{{ s.work_date.isoformat() }}"></td>
-            <td class="num"><input form="ws{{ s.id }}" name="hours" value="{{ s.hours|hours }}" inputmode="decimal" class="ws-hrs"></td>
-            <td class="num"><input form="ws{{ s.id }}" name="hourly_rate" value="{{ s.hourly_rate if s.hourly_rate is not none else '' }}" placeholder="{{ f.rate|money }}" inputmode="decimal" class="ws-rate"></td>
-            <td><textarea form="ws{{ s.id }}" name="description" rows="1" class="ws-desc">{{ s.description or '' }}</textarea></td>
+            <td>{{ s.work_date.isoformat() }}</td>
+            <td class="num">{{ s.hours|hours }}</td>
+            <td class="num">{{ (s.hourly_rate if s.hourly_rate is not none else f.rate)|money }} {{ currency }}</td>
+            <td class="md-content">{{ s.description|md }}</td>
             <td class="actions">
-              <button form="ws{{ s.id }}" class="link" title="{{ _('Save') }}">✓</button>
+              {# Editing reuses the panel below instead of a second form. #}
+              <button type="button" class="link" title="{{ _('Edit') }}" onclick="stEditSession(this)"
+                      data-action="/projects/{{ project.id }}/sessions/{{ s.id }}/update"
+                      data-date="{{ s.work_date.isoformat() }}"
+                      data-hours="{{ s.hours|hours }}"
+                      data-rate="{{ s.hourly_rate if s.hourly_rate is not none else '' }}"
+                      data-description="{{ s.description or '' }}">✎</button>
               <form method="post" action="/projects/{{ project.id }}/sessions/{{ s.id }}/delete" onsubmit="return confirm('{{ _('Delete entry?') }}')"><button class="link danger" title="{{ _('Delete') }}">✕</button></form>
             </td>
           </tr>
@@ -160,20 +165,26 @@
           <tr class="sum"><td>{{ _('Sum') }}</td><td class="num">{{ f.hours|hours }}</td><td colspan="3"></td></tr>
         </tbody>
       </table>
-      <p class="muted small">{{ _('An empty rate uses the project rate.') }}</p>
       {% else %}<p class="muted">{{ _('No sessions yet.') }}</p>{% endif %}
 
-      <details class="adder">
-        <summary>{{ _('+ Work session') }}</summary>
-        <form method="post" action="/projects/{{ project.id }}/sessions" class="stack">
+      <details class="adder" id="wsPanel">
+        <summary onclick="stResetSession()">{{ _('+ Work session') }}</summary>
+        <form method="post" action="/projects/{{ project.id }}/sessions" class="stack" id="wsForm"
+              data-new-action="/projects/{{ project.id }}/sessions"
+              data-new-label="{{ _('Log') }}" data-edit-label="{{ _('Save') }}"
+              data-today="{{ today }}">
           <div class="row-form">
             <input type="date" name="work_date" value="{{ today }}">
             <input name="hours" placeholder="{{ _('Hours') }}" inputmode="decimal" required>
             <input name="hourly_rate" placeholder="{{ _('Rate (optional)') }}" inputmode="decimal">
           </div>
           <textarea name="description" class="md-field" rows="3" placeholder="{{ _('What was done? (type / for lists)') }}"></textarea>
-          <button type="submit" class="primary">{{ _('Log') }}</button>
+          <div class="row-form">
+            <button type="submit" class="primary" id="wsSubmit">{{ _('Log') }}</button>
+            <button type="button" class="btn ghost" id="wsCancel" hidden onclick="stResetSession(true)">{{ _('Cancel') }}</button>
+          </div>
         </form>
+        <p class="muted small">{{ _('An empty rate uses the project rate.') }}</p>
       </details>
     </section>
 

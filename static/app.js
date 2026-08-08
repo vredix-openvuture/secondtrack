@@ -245,6 +245,39 @@ function stRecMode() {
   if (pp) { pp.disabled = mode === 'free'; if (mode === 'free') pp.value = ''; }
 }
 document.addEventListener('DOMContentLoaded', stRecMode);
+
+// ---- Work sessions: one panel for logging and for correcting ----
+// The row's ✎ fills the same form that "+ Work session" opens, so there is one
+// layout to learn rather than a second, inline one.
+function stEditSession(btn) {
+  var form = document.getElementById('wsForm');
+  var panel = document.getElementById('wsPanel');
+  if (!form || !panel) return;
+  var d = btn.dataset;
+  form.action = d.action;
+  form.work_date.value = d.date || '';
+  form.hours.value = d.hours || '';
+  form.hourly_rate.value = d.rate || '';
+  form.description.value = d.description || '';
+  document.getElementById('wsSubmit').textContent = form.dataset.editLabel;
+  document.getElementById('wsCancel').hidden = false;
+  panel.open = true;
+  panel.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  form.hours.focus();
+}
+// Back to logging a new entry. `close` also collapses the panel (Cancel);
+// the summary calls it bare, because clicking it always means "new entry".
+function stResetSession(close) {
+  var form = document.getElementById('wsForm');
+  var panel = document.getElementById('wsPanel');
+  if (!form) return;
+  form.action = form.dataset.newAction;
+  form.reset();
+  form.work_date.value = form.dataset.today;
+  document.getElementById('wsSubmit').textContent = form.dataset.newLabel;
+  document.getElementById('wsCancel').hidden = true;
+  if (close && panel) panel.open = false;
+}
 // ---- Price fields: digits only, currency suffix, 2-decimal normalise ----
 function stIsMoney(inp) { return /price|amount|rate|sale|purchase|total/i.test(inp.name || ''); }
 function stWrapPrice(inp) {

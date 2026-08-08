@@ -238,7 +238,10 @@ DE: dict[str, str] = {
     "Remove from project": "Aus dem Projekt entfernen",
     "Remove from project? It goes back to the warehouse.":
         "Aus dem Projekt entfernen? Es wandert zurück ins Lager.",
-    "Apply quantity": "Menge übernehmen",
+    "Booked units — change to move the rest back to the warehouse":
+        "Gebuchte Einheiten — ändern legt den Rest zurück ins Lager",
+    "Create it in the warehouse, assigned to this project":
+        "Im Lager anlegen, direkt diesem Projekt zugewiesen",
     "in stock": "im Bestand",
     "An empty rate uses the project rate.": "Leerer Satz = Projektsatz.",
     "Items (sale value)": "Objekte (VK-Wert)",
