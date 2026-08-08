@@ -7,186 +7,200 @@
 <p class="crumb"><a href="/projects">← {{ _('Projects') }}</a></p>
 {% if request.query_params.get('msg') %}<p class="notice">{{ _(request.query_params.get('msg')) }}</p>{% endif %}
 
-<!-- ===== HEADER (full width) ===== -->
-<section class="card project-header">
-  <div class="ph-image {{ 'placeholder' if not project.image_path }}">
+<!-- ===== HEADER =====
+     One form spans the compact head and the edit panel: the image input has to
+     sit in the same form as the other fields, otherwise saving just the image
+     would post the rest at their defaults and wipe them. A hidden panel still
+     submits its inputs, so the values stay intact. -->
+<form method="post" action="/projects/{{ project.id }}/update" enctype="multipart/form-data" id="projForm">
+<section class="card project-head">
+  <label class="ph-image {{ 'placeholder' if not project.image_path }}" title="{{ _('Click to change the image') }}">
+    <input type="file" name="image" accept="image/*" class="ph-file" onchange="this.form.submit()">
     {% if project.image_path %}<img src="{{ project.image_path }}" alt="" onerror="this.style.display='none'; this.closest('.ph-image').classList.add('placeholder')">{% endif %}
-  </div>
+    <span class="ph-hint">{{ _('Change image') if project.image_path else _('Add image') }}</span>
+  </label>
 
-  <form method="post" action="/projects/{{ project.id }}/update" enctype="multipart/form-data" class="ph-form">
+  <div class="ph-summary">
     <div class="ph-top">
-      <input class="ph-name" name="name" value="{{ project.name }}" required>
+      <h1>{{ project.name }}</h1>
       <span class="badge {{ st_class.get(project.status.value, project.status.value) }}">{{ st_label.get(project.status.value, project.status.value) }}</span>
     </div>
-    {% if project.number %}<p class="muted small">{{ project.number }}</p>{% endif %}
-
-    <div class="ph-grid">
-      <label>{{ _('Status') }}
-        <select name="status">
-          {% for st in statuses %}<option value="{{ st.value }}" {{ 'selected' if project.status == st }}>{{ st_label.get(st.value, st.value) }}</option>{% endfor %}
-        </select>
-      </label>
-      <label>{{ _('Hourly rate (empty = {rate})').replace('{rate}', (global_rate|money) ~ ' ' ~ currency) }}<input name="hourly_rate" value="{{ project.hourly_rate if project.hourly_rate is not none else '' }}" inputmode="decimal"></label>
-      <label>{{ _('Project type') }}
-        <select name="kind">
-          {% for k in kinds %}<option value="{{ k.value }}" {{ 'selected' if project.kind == k }}>{{ _('Customer order') if k.value == 'customer' else _('Shop production') }}</option>{% endfor %}
-        </select>
-      </label>
-    </div>
-
-    <div class="ph-grid">
-      <label>{{ _('Customer') }}
-        <select name="customer_id">
-          <option value="none" {{ 'selected' if not project.customer_id }}>— {{ _('none / internal') }} —</option>
-          {% for c in customers %}<option value="{{ c.id }}" {{ 'selected' if project.customer_id == c.id }}>{{ c.name }}{% if c.kind.value == 'invoiceninja' %} (IN){% endif %}</option>{% endfor %}
-          {% if in_clients %}<optgroup label="InvoiceNinja">{% for ic in in_clients %}<option value="in:{{ ic.id }}">{{ ic.name }}</option>{% endfor %}</optgroup>{% endif %}
-        </select>
-      </label>
-    </div>
-    <details class="adder">
-      <summary>{{ _('+ New customer') }}</summary>
-      <div class="stack">
-        <input name="new_customer_name" placeholder="{{ _('Customer name') }}">
-        <div class="row-form">
-          <select name="customer_kind">
-            <option value="internal">{{ _('Internal (no invoicing)') }}</option>
-            <option value="invoiceninja">{{ _('InvoiceNinja client') }}</option>
-          </select>
-          <input name="customer_company" placeholder="{{ _('Company (optional)') }}">
-        </div>
-        <input name="customer_email" type="email" placeholder="{{ _('Email (optional)') }}">
-        <p class="muted small">{{ _('Fill this only to create a NEW customer; otherwise pick one above.') }}</p>
-      </div>
-    </details>
-
-    <label>{{ _('Description') }}<textarea name="description" rows="2">{{ project.description or "" }}</textarea></label>
-
-    <div class="ph-grid">
-      <label class="file-field">{{ _('Change image') }}<input type="file" name="image" accept="image/*" onchange="stPreview(this)"></label>
-      <label>{{ _('Vikunja task (ID or URL)') }}<input name="vikunja_task_id" value="{{ project.vikunja_task_id or '' }}" placeholder="z.B. 123"></label>
-    </div>
+    <dl class="ph-facts">
+      {% if project.number %}<div><dt>{{ _('Number') }}</dt><dd class="item-code">{{ project.number }}</dd></div>{% endif %}
+      <div><dt>{{ _('Project type') }}</dt><dd>{{ _('Customer order') if project.kind.value == 'customer' else _('Shop production') }}</dd></div>
+      <div><dt>{{ _('Customer') }}</dt><dd>{{ project.customer.name if project.customer else '—' }}</dd></div>
+      <div><dt>{{ _('Hourly rate') }}</dt><dd>{{ f.rate|money }} {{ currency }}</dd></div>
+    </dl>
+    {% if project.description %}<p class="ph-desc">{{ project.description }}</p>{% endif %}
     {% if project.vikunja_task_id and vikunja_url %}
-      <p class="muted small">🔗 <a href="{{ vikunja_url }}/tasks/{{ project.vikunja_task_id }}" target="_blank">{{ _('Open linked task in Vikunja ↗') }}</a></p>
+    <p class="muted small">🔗 <a href="{{ vikunja_url }}/tasks/{{ project.vikunja_task_id }}" target="_blank">{{ _('Open linked task in Vikunja ↗') }}</a></p>
     {% endif %}
+  </div>
 
-    <div class="ph-actions">
-      <button type="submit" class="primary">{{ _('Save') }}</button>
-      <button type="submit" formaction="/projects/{{ project.id }}/delete" class="link danger"
-              onclick="return confirm('{{ _('Delete project? Parts move to the warehouse.') }}')">{{ _('Delete project') }}</button>
-    </div>
-  </form>
+  <button type="button" class="btn ghost ph-edit" onclick="stToggleProjectEdit(this)"
+          data-open="{{ _('Close') }}" data-closed="✎ {{ _('Edit') }}">✎ {{ _('Edit') }}</button>
 </section>
 
-<!-- ===== MIDDLE (masonry) ===== -->
-<div class="detail-masonry">
+<section class="card" id="projEdit" hidden>
+  <div class="ph-grid">
+    <label>{{ _('Name') }}<input name="name" value="{{ project.name }}" required></label>
+    <label>{{ _('Status') }}
+      <select name="status">
+        {% for st in statuses %}<option value="{{ st.value }}" {{ 'selected' if project.status == st }}>{{ st_label.get(st.value, st.value) }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>{{ _('Project type') }}
+      <select name="kind">
+        {% for k in kinds %}<option value="{{ k.value }}" {{ 'selected' if project.kind == k }}>{{ _('Customer order') if k.value == 'customer' else _('Shop production') }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>{{ _('Hourly rate (empty = {rate})').replace('{rate}', (global_rate|money) ~ ' ' ~ currency) }}<input name="hourly_rate" value="{{ project.hourly_rate if project.hourly_rate is not none else '' }}" inputmode="decimal"></label>
+    <label>{{ _('Customer') }}
+      <select name="customer_id">
+        <option value="none" {{ 'selected' if not project.customer_id }}>— {{ _('none / internal') }} —</option>
+        {% for c in customers %}<option value="{{ c.id }}" {{ 'selected' if project.customer_id == c.id }}>{{ c.name }}{% if c.kind.value == 'invoiceninja' %} (IN){% endif %}</option>{% endfor %}
+        {% if in_clients %}<optgroup label="InvoiceNinja">{% for ic in in_clients %}<option value="in:{{ ic.id }}">{{ ic.name }}</option>{% endfor %}</optgroup>{% endif %}
+      </select>
+    </label>
+    <label>{{ _('Vikunja task (ID or URL)') }}<input name="vikunja_task_id" value="{{ project.vikunja_task_id or '' }}" placeholder="z.B. 123"></label>
+    <label class="span2">{{ _('Description') }}<textarea name="description" rows="3">{{ project.description or "" }}</textarea></label>
+  </div>
 
-    <!-- ===== ITEMS (everything comes from the warehouse) ===== -->
-    <section class="card">
-      <h2>{{ _('Items') }}</h2>
-      {% if items %}
-      <table class="grid tight">
-        <thead><tr><th>{{ _('Item') }}</th><th class="num">{{ _('Qty') }}</th><th class="num">{{ _('Purchase') }}</th><th class="num">{{ _('Sale value') }}</th><th></th></tr></thead>
-        <tbody>
-        {% for it in items %}{% set o = it.obj %}
-          <tr>
-            <td>
-              {% if o.image_path %}<img src="{{ o.image_path }}" class="row-img" alt="" onerror="this.style.display='none'">{% endif %}
-              <strong>{{ o.name }}</strong>
-              {% if it.kind == 'set' %}<span class="badge">{{ _('Set') }}{% if o.parts %} · {{ o.parts|length }} {{ _('parts') }}{% endif %}</span>{% endif %}
-              {% if o.code %}<br><span class="muted small item-code">{{ o.code }}</span>{% endif %}
-              {% if o.notes %}<br><span class="muted small">{{ o.notes }}</span>{% endif %}
-            </td>
-            <td class="num">
-              {# Booking is a share of the stock: lowering this puts the rest
-                 back on the shelf, raising it takes more from there. Committing
-                 on change keeps it to one field instead of a field and a button. #}
-              {% if it.kind == 'part' %}
-              <form method="post" action="/projects/{{ project.id }}/items/part/{{ o.id }}/qty">
-                <input type="number" name="qty" value="{{ it.qty }}" min="0" step="1" inputmode="numeric"
-                       class="qty-in" aria-label="{{ _('Qty') }}" title="{{ _('Booked units — change to move the rest back to the warehouse') }}"
-                       onchange="this.form.submit()">
-              </form>
-              {% else %}<span class="muted">—</span>{% endif %}
-            </td>
-            <td class="num">{{ it.purchase|money }} {{ currency }}</td>
-            <td class="num">{{ it.sale|money }} {{ currency }}</td>
-            <td class="actions">
-              {% if it.kind == 'set' %}
-              <form method="post" action="/projects/{{ project.id }}/items/set/{{ o.id }}/release" onsubmit="return confirm('{{ _('Remove from project? It goes back to the warehouse.') }}')"><button class="link danger" title="{{ _('Remove from project') }}">✕</button></form>
-              {% else %}
-              <form method="post" action="/projects/{{ project.id }}/parts/{{ o.id }}/remove" onsubmit="return confirm('{{ _('Remove from project? It goes back to the warehouse.') }}')"><button class="link danger" title="{{ _('Remove from project') }}">✕</button></form>
-              {% endif %}
-            </td>
-          </tr>
-        {% endfor %}
-        </tbody>
-      </table>
-      {% else %}<p class="muted">{{ _('Nothing assigned yet — pick it from the warehouse.') }}</p>{% endif %}
-
-      {# Nothing is created here: items live in the warehouse and are picked from
-         it, so a purchase is booked once and in one place. #}
-      <form method="post" action="/projects/{{ project.id }}/items/assign" class="assign-row">
-        <select name="item" required>
-          <option value="" disabled selected>{{ _('Pick from warehouse…') }}</option>
-          {% for a in assignable_items %}<option value="{{ a.value }}">{{ a.label }}{% if a.stock and a.stock > 1 %} · {{ a.stock }} {{ _('in stock') }}{% endif %}{% if a.sale %} ({{ a.sale|money }} {{ currency }}){% endif %}</option>{% endfor %}
+  <details class="adder">
+    <summary>{{ _('+ New customer') }}</summary>
+    <div class="stack">
+      <input name="new_customer_name" placeholder="{{ _('Customer name') }}">
+      <div class="row-form">
+        <select name="customer_kind">
+          <option value="internal">{{ _('Internal (no invoicing)') }}</option>
+          <option value="invoiceninja">{{ _('InvoiceNinja client') }}</option>
         </select>
-        <input type="number" name="qty" value="1" min="1" step="1" inputmode="numeric" class="qty-in" aria-label="{{ _('Qty') }}" title="{{ _('Qty') }}">
-        <button type="submit" class="primary">{{ _('Assign') }}</button>
-        <a class="btn ghost" href="/warehouse?for_project={{ project.id }}" title="{{ _('Create it in the warehouse, assigned to this project') }}">+ {{ _('New') }}</a>
-      </form>
-      <p class="muted small">{{ _('Its purchase expense is linked to this project for traceability and stays listed under Expenses.') }}</p>
-    </section>
+        <input name="customer_company" placeholder="{{ _('Company (optional)') }}">
+      </div>
+      <input name="customer_email" type="email" placeholder="{{ _('Email (optional)') }}">
+      <p class="muted small">{{ _('Fill this only to create a NEW customer; otherwise pick one above.') }}</p>
+    </div>
+  </details>
 
-    <!-- ===== WORK TIME ===== -->
-    <section class="card">
-      <h2>{{ _('Work time') }}</h2>
-      {% if f.sessions %}
-      <table class="grid tight">
-        <thead><tr><th>{{ _('Date') }}</th><th class="num">{{ _('Hrs') }}</th><th class="num">{{ _('Rate') }}</th><th>{{ _('Description') }}</th><th></th></tr></thead>
-        <tbody>
-        {% for s in f.sessions|sort(attribute='work_date') %}
-          <tr>
-            <td>{{ s.work_date.isoformat() }}</td>
-            <td class="num">{{ s.hours|hours }}</td>
-            <td class="num">{{ (s.hourly_rate if s.hourly_rate is not none else f.rate)|money }} {{ currency }}</td>
-            <td class="md-content">{{ s.description|md }}</td>
-            <td class="actions">
-              {# Editing reuses the panel below instead of a second form. #}
-              <button type="button" class="link" title="{{ _('Edit') }}" onclick="stEditSession(this)"
-                      data-action="/projects/{{ project.id }}/sessions/{{ s.id }}/update"
-                      data-date="{{ s.work_date.isoformat() }}"
-                      data-hours="{{ s.hours|hours }}"
-                      data-rate="{{ s.hourly_rate if s.hourly_rate is not none else '' }}"
-                      data-description="{{ s.description or '' }}">✎</button>
-              <form method="post" action="/projects/{{ project.id }}/sessions/{{ s.id }}/delete" onsubmit="return confirm('{{ _('Delete entry?') }}')"><button class="link danger" title="{{ _('Delete') }}">✕</button></form>
-            </td>
-          </tr>
-        {% endfor %}
-          <tr class="sum"><td>{{ _('Sum') }}</td><td class="num">{{ f.hours|hours }}</td><td colspan="3"></td></tr>
-        </tbody>
-      </table>
-      {% else %}<p class="muted">{{ _('No sessions yet.') }}</p>{% endif %}
+  <div class="ph-actions">
+    <button type="submit" class="primary">{{ _('Save') }}</button>
+    <button type="submit" formaction="/projects/{{ project.id }}/delete" class="link danger"
+            onclick="return confirm('{{ _('Delete project? Parts move to the warehouse.') }}')">{{ _('Delete project') }}</button>
+  </div>
+</section>
+</form>
 
-      <details class="adder" id="wsPanel">
-        <summary onclick="stResetSession()">{{ _('+ Work session') }}</summary>
-        <form method="post" action="/projects/{{ project.id }}/sessions" class="stack" id="wsForm"
-              data-new-action="/projects/{{ project.id }}/sessions"
-              data-new-label="{{ _('Log') }}" data-edit-label="{{ _('Save') }}"
-              data-today="{{ today }}">
-          <div class="row-form">
-            <input type="date" name="work_date" value="{{ today }}">
-            <input name="hours" placeholder="{{ _('Hours') }}" inputmode="decimal" required>
-            <input name="hourly_rate" placeholder="{{ _('Rate (optional)') }}" inputmode="decimal">
-          </div>
-          <textarea name="description" class="md-field" rows="3" placeholder="{{ _('What was done? (type / for lists)') }}"></textarea>
-          <div class="row-form">
-            <button type="submit" class="primary" id="wsSubmit">{{ _('Log') }}</button>
-            <button type="button" class="btn ghost" id="wsCancel" hidden onclick="stResetSession(true)">{{ _('Cancel') }}</button>
-          </div>
-        </form>
-        <p class="muted small">{{ _('An empty rate uses the project rate.') }}</p>
-      </details>
-    </section>
+<!-- ===== ITEMS (everything comes from the warehouse) ===== -->
+<section class="card">
+  <h2>{{ _('Items') }}</h2>
+  {% if items %}
+  <table class="grid tight fit-cols">
+    <thead><tr><th>{{ _('Item') }}</th><th class="num">{{ _('Qty') }}</th><th class="num">{{ _('Purchase') }}</th><th class="num">{{ _('Sale value') }}</th><th></th></tr></thead>
+    <tbody>
+    {% for it in items %}{% set o = it.obj %}
+      <tr>
+        <td>
+          {% if o.image_path %}<img src="{{ o.image_path }}" class="row-img" alt="" onerror="this.style.display='none'">{% endif %}
+          <strong>{{ o.name }}</strong>
+          {% if it.kind == 'set' %}<span class="badge">{{ _('Set') }}{% if o.parts %} · {{ o.parts|length }} {{ _('parts') }}{% endif %}</span>{% endif %}
+          {% if o.code %}<br><span class="muted small item-code">{{ o.code }}</span>{% endif %}
+          {% if o.notes %}<br><span class="muted small">{{ o.notes }}</span>{% endif %}
+        </td>
+        <td class="num">
+          {# Booking is a share of the stock: lowering this puts the rest
+             back on the shelf, raising it takes more from there. Committing
+             on change keeps it to one field instead of a field and a button. #}
+          {% if it.kind == 'part' %}
+          <form method="post" action="/projects/{{ project.id }}/items/part/{{ o.id }}/qty">
+            <input type="number" name="qty" value="{{ it.qty }}" min="0" step="1" inputmode="numeric"
+                   class="qty-in" aria-label="{{ _('Qty') }}" title="{{ _('Booked units — change to move the rest back to the warehouse') }}"
+                   onchange="this.form.submit()">
+          </form>
+          {% else %}<span class="muted">—</span>{% endif %}
+        </td>
+        <td class="num">{{ it.purchase|money }} {{ currency }}</td>
+        <td class="num">{{ it.sale|money }} {{ currency }}</td>
+        <td class="actions">
+          {% if it.kind == 'set' %}
+          <form method="post" action="/projects/{{ project.id }}/items/set/{{ o.id }}/release" onsubmit="return confirm('{{ _('Remove from project? It goes back to the warehouse.') }}')"><button class="link danger" title="{{ _('Remove from project') }}">✕</button></form>
+          {% else %}
+          <form method="post" action="/projects/{{ project.id }}/parts/{{ o.id }}/remove" onsubmit="return confirm('{{ _('Remove from project? It goes back to the warehouse.') }}')"><button class="link danger" title="{{ _('Remove from project') }}">✕</button></form>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="muted">{{ _('Nothing assigned yet — pick it from the warehouse.') }}</p>{% endif %}
+
+  {# Nothing is created here: items live in the warehouse and are picked from
+     it, so a purchase is booked once and in one place. #}
+  <form method="post" action="/projects/{{ project.id }}/items/assign" class="assign-row">
+    <select name="item" required>
+      <option value="" disabled selected>{{ _('Pick from warehouse…') }}</option>
+      {% for a in assignable_items %}<option value="{{ a.value }}">{{ a.label }}{% if a.stock and a.stock > 1 %} · {{ a.stock }} {{ _('in stock') }}{% endif %}{% if a.sale %} ({{ a.sale|money }} {{ currency }}){% endif %}</option>{% endfor %}
+    </select>
+    <input type="number" name="qty" value="1" min="1" step="1" inputmode="numeric" class="qty-in" aria-label="{{ _('Qty') }}" title="{{ _('Qty') }}">
+    <button type="submit" class="primary">{{ _('Assign') }}</button>
+    <a class="btn ghost" href="/warehouse?for_project={{ project.id }}" title="{{ _('Create it in the warehouse, assigned to this project') }}">+ {{ _('New') }}</a>
+  </form>
+  <p class="muted small">{{ _('Its purchase expense is linked to this project for traceability and stays listed under Expenses.') }}</p>
+</section>
+
+
+<!-- ===== WORK TIME ===== -->
+<section class="card">
+  <h2>{{ _('Work time') }}</h2>
+  {% if f.sessions %}
+  <table class="grid tight">
+    <thead><tr><th>{{ _('Date') }}</th><th class="num">{{ _('Hrs') }}</th><th class="num">{{ _('Rate') }}</th><th>{{ _('Description') }}</th><th></th></tr></thead>
+    <tbody>
+    {% for s in f.sessions|sort(attribute='work_date') %}
+      <tr>
+        <td>{{ s.work_date.isoformat() }}</td>
+        <td class="num">{{ s.hours|hours }}</td>
+        <td class="num">{{ (s.hourly_rate if s.hourly_rate is not none else f.rate)|money }} {{ currency }}</td>
+        <td class="md-content">{{ s.description|md }}</td>
+        <td class="actions">
+          {# Editing reuses the panel below instead of a second form. #}
+          <button type="button" class="link" title="{{ _('Edit') }}" onclick="stEditSession(this)"
+                  data-action="/projects/{{ project.id }}/sessions/{{ s.id }}/update"
+                  data-date="{{ s.work_date.isoformat() }}"
+                  data-hours="{{ s.hours|hours }}"
+                  data-rate="{{ s.hourly_rate if s.hourly_rate is not none else '' }}"
+                  data-description="{{ s.description or '' }}">✎</button>
+          <form method="post" action="/projects/{{ project.id }}/sessions/{{ s.id }}/delete" onsubmit="return confirm('{{ _('Delete entry?') }}')"><button class="link danger" title="{{ _('Delete') }}">✕</button></form>
+        </td>
+      </tr>
+    {% endfor %}
+      <tr class="sum"><td>{{ _('Sum') }}</td><td class="num">{{ f.hours|hours }}</td><td colspan="3"></td></tr>
+    </tbody>
+  </table>
+  {% else %}<p class="muted">{{ _('No sessions yet.') }}</p>{% endif %}
+
+  <details class="adder" id="wsPanel">
+    <summary onclick="stResetSession()">{{ _('+ Work session') }}</summary>
+    <form method="post" action="/projects/{{ project.id }}/sessions" class="stack" id="wsForm"
+          data-new-action="/projects/{{ project.id }}/sessions"
+          data-new-label="{{ _('Log') }}" data-edit-label="{{ _('Save') }}"
+          data-today="{{ today }}">
+      <div class="row-form">
+        <input type="date" name="work_date" value="{{ today }}">
+        <input name="hours" placeholder="{{ _('Hours') }}" inputmode="decimal" required>
+        <input name="hourly_rate" placeholder="{{ _('Rate (optional)') }}" inputmode="decimal">
+      </div>
+      <textarea name="description" class="md-field" rows="3" placeholder="{{ _('What was done? (type / for lists)') }}"></textarea>
+      <div class="row-form">
+        <button type="submit" class="primary" id="wsSubmit">{{ _('Log') }}</button>
+        <button type="button" class="btn ghost" id="wsCancel" hidden onclick="stResetSession(true)">{{ _('Cancel') }}</button>
+      </div>
+    </form>
+    <p class="muted small">{{ _('An empty rate uses the project rate.') }}</p>
+  </details>
+</section>
+
+
+<div class="detail-grid">
 
     <!-- ===== REPORTS ===== -->
     <section class="card">
@@ -316,7 +330,7 @@
     <!-- ===== EXPORT ===== -->
     <section class="card">
       <h2>{{ _('Export') }}</h2>
-      <div class="row-form">
+      <div class="btn-row">
         <a class="btn" href="/projects/{{ project.id }}/export.md">⬇ Markdown</a>
         <form method="post" action="/projects/{{ project.id }}/export"><button type="submit">{{ _('→ Vault') }}</button></form>
       </div>

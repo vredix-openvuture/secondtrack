@@ -266,11 +266,28 @@ def _migrate_devices_to_parts() -> None:
     from .models import Device, Part, PartOrigin
     from .services import codes
 
+    def _is_placeholder(dev, has_parts: bool) -> bool:
+        """The old create_project gave every project a device named after it,
+        priced at zero. Those carry nothing — migrating them would put a 0.00
+        item named like the project into every single project."""
+        return (
+            not has_parts
+            and not dev.purchase_price
+            and not dev.sale_price
+            and not dev.image_path
+            and not dev.woo_product_id
+            and dev.project is not None
+            and dev.name in (dev.project.name, dev.project.title)
+        )
+
     with SessionLocal() as db:
         devices = db.query(Device).all()
         if not devices:
             return
         for dev in devices:
+            kids = db.query(Part).filter(Part.device_id == dev.id).all()
+            if _is_placeholder(dev, bool(kids)):
+                continue  # nothing to carry over
             db.add(
                 Part(
                     name=dev.name,
@@ -290,13 +307,55 @@ def _migrate_devices_to_parts() -> None:
             if dev.woo_product_id and dev.project and not dev.project.woo_product_id:
                 dev.project.woo_product_id = dev.woo_product_id
             # Children become siblings — the hierarchy is what we are dropping.
-            for p in db.query(Part).filter(Part.device_id == dev.id).all():
+            for p in kids:
                 p.device_id = None
                 if p.project_id is None:
                     p.project_id = dev.project_id
         db.flush()  # detach every part before the FK targets disappear
         for dev in devices:
             db.delete(dev)
+        db.commit()
+
+
+def _drop_placeholder_project_items() -> None:
+    """Undo the first cut of _migrate_devices_to_parts, which still converted the
+    auto-created placeholder devices. It left every project holding an item named
+    after itself at 0.00, carrying nothing else.
+
+    Only rows that are empty in every respect are removed, so there is nothing to
+    lose by construction: no price, image, receipt, note, category, supplier,
+    location or attribute, a single unit, and a name that duplicates the project.
+    """
+    from .models import Part, Project
+
+    with SessionLocal() as db:
+        if get_setting(db, "placeholder_items_dropped") == "1":
+            return
+        for p in db.query(Part).filter(Part.project_id.isnot(None)).all():
+            project: Project | None = db.get(Project, p.project_id)
+            if (
+                project is not None
+                and p.name in (project.name, project.title)
+                and not p.purchase_price
+                and not p.sale_price
+                and not p.image_path
+                and p.source_expense_id is None
+                and p.set_id is None
+                and p.category_id is None
+                and p.supplier_id is None
+                and p.location_id is None
+                and not p.notes
+                and not p.serial_no
+                and not p.mpn
+                and not p.ean
+                and not p.attributes
+                # _backfill_codes fills `extra` with an empty object on a later
+                # startup, so both spellings of "nothing" have to count.
+                and (p.extra or "").strip() in ("", "{}")
+                and (p.quantity or 1) <= 1
+            ):
+                db.delete(p)
+        set_setting(db, "placeholder_items_dropped", "1")
         db.commit()
 
 
@@ -346,3 +405,5 @@ def init_db() -> None:
     _default_font_fredoka()
     # Devices become plain warehouse items on their project (idempotent).
     _migrate_devices_to_parts()
+    # Clean up the empty placeholders the first cut of that migration created.
+    _drop_placeholder_project_items()

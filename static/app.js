@@ -246,6 +246,19 @@ function stRecMode() {
 }
 document.addEventListener('DOMContentLoaded', stRecMode);
 
+// The project head shows the facts; the edit form is on request.
+function stToggleProjectEdit(btn) {
+  var panel = document.getElementById('projEdit');
+  if (!panel) return;
+  panel.hidden = !panel.hidden;
+  btn.textContent = panel.hidden ? btn.dataset.closed : btn.dataset.open;
+  if (!panel.hidden) {
+    panel.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    var first = panel.querySelector('input, select, textarea');
+    if (first) first.focus();
+  }
+}
+
 // ---- Work sessions: one panel for logging and for correcting ----
 // The row's ✎ fills the same form that "+ Work session" opens, so there is one
 // layout to learn rather than a second, inline one.
