@@ -613,6 +613,8 @@ def build_hub_view(
 
     if view.in_enabled:
         try:
+            from ..db import get_setting
+
             view.kpis = invoiceninja.get_company_totals(period)
             # Invoice ids we've already uploaded to Nextcloud (see
             # archive_paid_invoices) — used to show a per-row sync indicator.
