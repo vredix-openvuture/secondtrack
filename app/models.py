@@ -36,8 +36,27 @@ class ProjectStatus(str, enum.Enum):
 
 
 class ProjectKind(str, enum.Enum):
+    """Legacy. Superseded by the user-editable ProjectType; kept so the
+    migration can read the old column."""
+
     customer = "customer"  # built for a specific customer → invoice them
     shop = "shop"          # in-house production for the shop → sold via shop
+
+
+class ProjectType(Base):
+    """A project category the user can extend — "Repair", "Conversion", …
+
+    `shop_stock` is the one thing a type has to declare: whether its builds may
+    be stocked as sellable finished goods. Customer work never can, it gets
+    invoiced; in-house production does. Without that flag a custom type would
+    have no defined behaviour."""
+
+    __tablename__ = "project_types"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(80), unique=True, index=True)
+    shop_stock: Mapped[bool] = mapped_column(Boolean, default=False)
+    position: Mapped[int] = mapped_column(Integer, default=0)
 
 
 class CustomerKind(str, enum.Enum):
@@ -106,6 +125,9 @@ class Project(Base):
     )
     kind: Mapped[ProjectKind] = mapped_column(
         Enum(ProjectKind), default=ProjectKind.customer, index=True
+    )  # legacy, migrated into type_id
+    type_id: Mapped[int | None] = mapped_column(
+        ForeignKey("project_types.id"), nullable=True, index=True
     )
     # What the whole device cost to acquire.
     purchase_price: Mapped[float] = mapped_column(Float, default=0.0)
@@ -129,6 +151,7 @@ class Project(Base):
         back_populates="project", cascade="all, delete-orphan"
     )
     customer: Mapped["Customer | None"] = relationship(back_populates="projects")
+    type: Mapped["ProjectType | None"] = relationship(foreign_keys=[type_id])
     devices: Mapped[list["Device"]] = relationship(
         back_populates="project", cascade="all, delete-orphan"
     )

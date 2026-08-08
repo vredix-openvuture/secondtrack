@@ -76,6 +76,7 @@ def _ensure_columns() -> None:
             ("number", "VARCHAR(32)"),
             ("title", "VARCHAR(200)"),
             ("customer_id", "INTEGER"),
+            ("type_id", "INTEGER"),
         ],
         "parts": [
             ("image_path", "VARCHAR(255)"),
@@ -359,6 +360,27 @@ def _drop_placeholder_project_items() -> None:
         db.commit()
 
 
+def _seed_project_types() -> None:
+    """The two hard-coded kinds become editable rows, so the user can add their
+    own (Repair, Conversion, …). Idempotent: seeds only what is missing and
+    assigns a type to projects that still have none."""
+    from .models import Project, ProjectKind, ProjectType
+
+    with SessionLocal() as db:
+        wanted = [("Customer order", False, 0), ("Shop production", True, 1)]
+        for name, shop_stock, pos in wanted:
+            if not db.query(ProjectType).filter(ProjectType.name == name).first():
+                db.add(ProjectType(name=name, shop_stock=shop_stock, position=pos))
+        db.commit()
+
+        by_shop = {
+            t.shop_stock: t for t in db.query(ProjectType).order_by(ProjectType.position)
+        }
+        for p in db.query(Project).filter(Project.type_id.is_(None)).all():
+            p.type_id = by_shop[p.kind == ProjectKind.shop].id
+        db.commit()
+
+
 def _default_font_fredoka() -> None:
     """One-time: Fredoka replaced the system stack as the app font, so installs
     still carrying the old 'system' default move over. The marker makes it run
@@ -407,3 +429,5 @@ def init_db() -> None:
     _migrate_devices_to_parts()
     # Clean up the empty placeholders the first cut of that migration created.
     _drop_placeholder_project_items()
+    # The fixed customer/shop kinds become editable project types.
+    _seed_project_types()

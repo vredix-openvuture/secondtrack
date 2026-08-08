@@ -27,7 +27,7 @@
     </div>
     <dl class="ph-facts">
       {% if project.number %}<div><dt>{{ _('Number') }}</dt><dd class="item-code">{{ project.number }}</dd></div>{% endif %}
-      <div><dt>{{ _('Project type') }}</dt><dd>{{ _('Customer order') if project.kind.value == 'customer' else _('Shop production') }}</dd></div>
+      <div><dt>{{ _('Project type') }}</dt><dd>{{ project.type.name if project.type else '—' }}</dd></div>
       <div><dt>{{ _('Customer') }}</dt><dd>{{ project.customer.name if project.customer else '—' }}</dd></div>
       <div><dt>{{ _('Hourly rate') }}</dt><dd>{{ f.rate|money }} {{ currency }}</dd></div>
     </dl>
@@ -50,8 +50,8 @@
       </select>
     </label>
     <label>{{ _('Project type') }}
-      <select name="kind">
-        {% for k in kinds %}<option value="{{ k.value }}" {{ 'selected' if project.kind == k }}>{{ _('Customer order') if k.value == 'customer' else _('Shop production') }}</option>{% endfor %}
+      <select name="type_id">
+        {% for t in project_types %}<option value="{{ t.id }}" {{ 'selected' if project.type_id == t.id }}>{{ t.name }}</option>{% endfor %}
       </select>
     </label>
     <label>{{ _('Hourly rate (empty = {rate})').replace('{rate}', (global_rate|money) ~ ' ' ~ currency) }}<input name="hourly_rate" value="{{ project.hourly_rate if project.hourly_rate is not none else '' }}" inputmode="decimal"></label>
@@ -65,6 +65,15 @@
     <label>{{ _('Vikunja task (ID or URL)') }}<input name="vikunja_task_id" value="{{ project.vikunja_task_id or '' }}" placeholder="z.B. 123"></label>
     <label class="span2">{{ _('Description') }}<textarea name="description" rows="3">{{ project.description or "" }}</textarea></label>
   </div>
+
+  <details class="adder">
+    <summary>{{ _('+ New project type') }}</summary>
+    <div class="stack">
+      <input name="new_type_name" placeholder="{{ _('Type name (e.g. Repair)') }}">
+      <label class="chk-row"><input type="checkbox" name="new_type_shop" value="1"> {{ _('Builds of this type can be stocked as shop goods') }}</label>
+      <p class="muted small">{{ _('Leave the name empty to keep the type selected above.') }}</p>
+    </div>
+  </details>
 
   <details class="adder">
     <summary>{{ _('+ New customer') }}</summary>
@@ -173,7 +182,9 @@
         </td>
       </tr>
     {% endfor %}
-      <tr class="sum"><td>{{ _('Sum') }}</td><td class="num">{{ f.hours|hours }}</td><td colspan="3"></td></tr>
+    {# The rate column sums to the labour value — adding up rates themselves
+       would be meaningless when sessions carry their own. #}
+    <tr class="sum"><td>{{ _('Sum') }}</td><td class="num">{{ f.hours|hours }}</td><td class="num">{{ f.labor_value|money }} {{ currency }}</td><td colspan="2"></td></tr>
     </tbody>
   </table>
   {% else %}<p class="muted">{{ _('No sessions yet.') }}</p>{% endif %}
@@ -338,7 +349,7 @@
 
     {# Only shop production becomes a finished good. A customer order is built
        for one customer and invoiced — it never goes into the shop. #}
-    {% if project.kind.value == 'shop' %}
+    {% if project.type and project.type.shop_stock %}
     <!-- ===== FINISHED GOOD ===== -->
     <section class="card">
       <h2>{{ _('Finished good') }}</h2>
@@ -360,7 +371,10 @@
     <div class="statement">
       <h3>{{ _('Price calculation') }}</h3>
       <div class="line"><span>{{ _('Items (sale value)') }}</span><span>{{ f.parts_value|money }} {{ currency }}</span></div>
-      <div class="line"><span>{{ _('Work time') }} ({{ f.hours|hours }} h × {{ f.rate|money }} {{ currency }})</span><span>{{ f.labor_value|money }} {{ currency }}</span></div>
+      {# Only show the multiplier when it actually applies to every session —
+         with a per-session rate in play "3,5 h × 45 €" would not equal the sum. #}
+      {% set own_rate = f.sessions|selectattr('hourly_rate')|list %}
+      <div class="line"><span>{{ _('Work time') }} ({{ f.hours|hours }} h{% if not own_rate %} × {{ f.rate|money }} {{ currency }}{% endif %})</span><span>{{ f.labor_value|money }} {{ currency }}</span></div>
       <div class="line total"><span>{{ _('Suggested total price') }}</span><span>{{ f.build_total|money }} {{ currency }}</span></div>
     </div>
     <div class="statement">

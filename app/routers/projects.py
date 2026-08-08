@@ -12,7 +12,8 @@ from ..config import get_settings as get_app_settings
 from ..db import get_db, new_project_number
 from ..models import (
     Customer, CustomerKind, Expense, OrderInvoice, Part, PartSet,
-    PartOrigin, Project, ProjectKind, ProjectStatus, Report, WorkSession,
+    PartOrigin, Project, ProjectStatus, ProjectType, Report,
+    WorkSession,
 )
 from ..services import hub
 from ..services import warehouse as wh
@@ -45,6 +46,29 @@ def _parse_float(value: str | None) -> float | None:
         return float(value.replace(",", ".").strip())
     except ValueError:
         return None
+
+
+def _resolve_type(
+    db: Session, type_id: str = "", new_name: str = "", new_shop: str = ""
+) -> int | None:
+    """A project type id: an existing one, or a newly created one. Same shape as
+    _resolve_customer, so the form can offer "+ New" without a nested form."""
+    name = (new_name or "").strip()
+    if name:
+        existing = db.query(ProjectType).filter(ProjectType.name == name).first()
+        if existing:
+            return existing.id
+        last = db.query(ProjectType).order_by(ProjectType.position.desc()).first()
+        t = ProjectType(
+            name=name,
+            shop_stock=new_shop.strip().lower() in ("1", "on", "true", "yes"),
+            position=(last.position + 1) if last else 0,
+        )
+        db.add(t)
+        db.commit()
+        return t.id
+    tid = (type_id or "").strip()
+    return int(tid) if tid.isdigit() else None
 
 
 def _resolve_customer(
@@ -137,7 +161,8 @@ async def list_projects(
     return templates.TemplateResponse(
         "projects/list.html",
         ctx(request, db, active="projects", rows=rows, status=status,
-            customers=customers, in_clients=in_clients),
+            customers=customers, in_clients=in_clients,
+            project_types=db.query(ProjectType).order_by(ProjectType.position, ProjectType.name).all()),
     )
 
 
@@ -146,7 +171,9 @@ async def create_project(
     request: Request,
     name: str = Form(...),
     description: str = Form(""),
-    kind: str = Form("customer"),
+    type_id: str = Form(""),
+    new_type_name: str = Form(""),
+    new_type_shop: str = Form(""),
     customer_id: str = Form(""),
     new_customer_name: str = Form(""),
     customer_kind: str = Form("internal"),
@@ -168,7 +195,7 @@ async def create_project(
         customer_id=cust_id,
         description=description.strip() or None,
         status=ProjectStatus.open,
-        kind=ProjectKind(kind) if kind in ProjectKind._value2member_map_ else ProjectKind.customer,
+        type_id=_resolve_type(db, type_id, new_type_name, new_type_shop),
         image_path=img_url,
     )
     db.add(project)
@@ -241,7 +268,7 @@ async def project_detail(
             global_rate=global_hourly_rate(db),
             today=date.today().isoformat(),
             statuses=NEW_STATUSES,
-            kinds=list(ProjectKind),
+            project_types=db.query(ProjectType).order_by(ProjectType.position, ProjectType.name).all(),
             in_enabled=invoiceninja.is_enabled(),
             in_url=invoiceninja.base_url(),
             in_clients=in_clients,
@@ -269,7 +296,9 @@ async def update_project(
     status: str = Form("open"),
     hourly_rate: str = Form(""),
     vikunja_task_id: str = Form(""),
-    kind: str = Form("customer"),
+    type_id: str = Form(""),
+    new_type_name: str = Form(""),
+    new_type_shop: str = Form(""),
     customer_id: str = Form(""),
     new_customer_name: str = Form(""),
     customer_kind: str = Form("internal"),
@@ -283,8 +312,11 @@ async def update_project(
     if not project:
         return RedirectResponse("/projects", status_code=303)
     project.vikunja_task_id = vikunja_task_id.strip() or None
-    if kind in ProjectKind._value2member_map_:
-        project.kind = ProjectKind(kind)
+    # Only touch the type when the form actually carried one, so an untouched
+    # dropdown cannot clear it.
+    resolved_type = _resolve_type(db, type_id, new_type_name, new_type_shop)
+    if resolved_type is not None:
+        project.type_id = resolved_type
     new_image, img_err = save_image_or_error(image, "project")
     if new_image:
         delete_image(project.image_path)

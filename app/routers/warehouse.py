@@ -818,17 +818,16 @@ async def stock_from_project(
     shelf: an assembly (kind=assembly, sellable). Its component parts are booked
     onto it afterwards in the finished-good editor; cost then follows the parts.
 
-    Shop production only — a customer order is built for one customer and
-    invoiced, so it never becomes shop stock."""
-    from ..models import ProjectKind
+    Only project types that declare shop_stock — customer work is built for one
+    customer and invoiced, so it never becomes shop stock."""
     from ..services import finance
 
     project = db.get(Project, project_id)
     if not project:
         return RedirectResponse("/warehouse", status_code=303)
-    if project.kind != ProjectKind.shop:
+    if not (project.type and project.type.shop_stock):
         return RedirectResponse(
-            f"/projects/{project_id}?msg=Nur Shop-Produktionen werden Fertigware — ein Kundenauftrag wird abgerechnet",
+            f"/projects/{project_id}?msg=Dieser Projekttyp erzeugt keine Shop-Ware — er wird abgerechnet",
             status_code=303,
         )
     f = finance.compute_project(db, project)

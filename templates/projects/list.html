@@ -31,7 +31,7 @@
   <tbody>
     {% for f in rows %}
     <tr onclick="location.href='/projects/{{ f.project.id }}'">
-      <td>{% if f.project.image_path %}<img src="{{ f.project.image_path }}" class="row-img" alt="" onerror="this.style.display='none'">{% endif %}<strong>{{ f.project.name }}</strong>{% if f.project.kind.value == 'shop' %} <span class="badge archived">{{ _('Shop') }}</span>{% endif %}</td>
+      <td>{% if f.project.image_path %}<img src="{{ f.project.image_path }}" class="row-img" alt="" onerror="this.style.display='none'">{% endif %}<strong>{{ f.project.name }}</strong>{% if f.project.type %} <span class="badge archived">{{ f.project.type.name }}</span>{% endif %}</td>
       <td><span class="badge {{ st_class.get(f.project.status.value, f.project.status.value) }}">{{ st_label.get(f.project.status.value, f.project.status.value) }}</span></td>
       <td class="num">{{ f.items|length }}</td>
       <td class="num">{{ f.hours|hours }}</td>
@@ -80,9 +80,8 @@
         </div>
       </div>
       {# No prices here — a project's cost comes from the items assigned to it. #}
-      <select name="kind">
-        <option value="customer">{{ _('Customer order') }}</option>
-        <option value="shop">{{ _('Shop production') }}</option>
+      <select name="type_id">
+        {% for t in project_types %}<option value="{{ t.id }}">{{ t.name }}</option>{% endfor %}
       </select>
       <label>{{ _('Customer') }}
         <select name="customer_id">

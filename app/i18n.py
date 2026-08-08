@@ -235,6 +235,14 @@ DE: dict[str, str] = {
     "Purchase receipt": "Kaufbeleg",
     "+ Link existing expense": "+ Vorhandene Ausgabe verknüpfen",
     "Items": "Objekte",
+    "+ New project type": "+ Neuer Projekttyp",
+    "Type name (e.g. Repair)": "Typname (z.B. Reparatur)",
+    "Builds of this type can be stocked as shop goods":
+        "Projekte dieses Typs können als Shop-Ware eingelagert werden",
+    "Leave the name empty to keep the type selected above.":
+        "Name leer lassen, um den oben gewählten Typ zu behalten.",
+    "Dieser Projekttyp erzeugt keine Shop-Ware — er wird abgerechnet":
+        "Dieser Projekttyp erzeugt keine Shop-Ware — er wird abgerechnet",
     "Click to change the image": "Zum Ändern des Bildes klicken",
     "Add image": "Bild hinzufügen",
     "Number": "Nummer",

@@ -1,4 +1,8 @@
 :root {
+  /* Tells the browser to draw every native widget dark: select popups, date
+     pickers, scrollbars, autofill. Without it they come back OS-white. */
+  color-scheme: dark;
+
   /* Palette: Aubergine / Claret / Madder Lake / Rain Boots / Prussian Blue.
      Cards are a muted, elevated claret (not the loud flat block) so surfaces
      read as depth, and bright claret/accent is reserved for emphasis. */
@@ -334,13 +338,12 @@ textarea.md-field { font-family: inherit; resize: vertical; }
 /* Wide tables (items, work time) take the full width above; the short cards sit
    in a grid below. A grid keeps card order readable — CSS columns reflowed them
    into whichever column had room. */
-.detail-grid {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
-  gap: 0 1.25rem; align-items: start;
-}
-/* Two columns beyond tablet width: the tallest card sets the row height, and
-   with four short cards three columns left a wide hole under the shortest. */
-@media (min-width: 1100px) { .detail-grid { grid-template-columns: 1fr 1fr; } }
+/* Columns, not a grid: in a grid the tallest card sets the row height and
+   everything shorter leaves a hole underneath. Columns pack vertically with no
+   gaps. The trade is reading order — cards fill the first column, then the
+   second — which is fine for a handful of independent panels. */
+.detail-grid { columns: 330px 2; column-gap: 1.25rem; }
+.detail-grid > .card { break-inside: avoid; }
 .new-client { padding-top: .2rem; }
 
 /* Detail middle section: masonry so cards pack and avoid big gaps */
@@ -438,6 +441,12 @@ input, select, textarea {
   padding: .68rem .85rem; font: inherit; width: 100%;
   transition: border-color .12s ease, box-shadow .12s ease, background .12s ease;
 }
+/* A <select>'s drop-down list is drawn by the OS, not by us — CSS cannot reach
+   it. `color-scheme` is the one switch it does obey, and it also fixes date
+   pickers, scrollbars and autofill. The option colours are for Firefox, which
+   otherwise keeps the popup on the page background. */
+select option, select optgroup { background: var(--surface); color: var(--text); }
+select optgroup { font-weight: 700; }
 input::placeholder, textarea::placeholder { color: rgba(255,255,255,.38); }
 /* checkboxes/radios must not stretch to full width */
 input[type=checkbox], input[type=radio] {
