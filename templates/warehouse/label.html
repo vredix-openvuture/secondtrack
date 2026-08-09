@@ -15,7 +15,7 @@
   <button type="button" class="primary" onclick="window.print()">🖨 {{ _('Print') }}</button>
   <details class="adder" style="margin:0">
     <summary class="btn ghost">{{ _('Other formats') }}</summary>
-    <div class="stack" style="position:absolute;z-index:5;background:var(--surface);padding:.6rem;border:1px solid var(--border);border-radius:10px">
+    <div class="stack menu-pop">
       <a class="btn ghost" href="/label/{{ code }}.png?fmt={{ fmt }}" download>⬇ PNG</a>
       <a class="btn ghost" href="/label/{{ code }}.svg?fmt={{ fmt }}" download>⬇ SVG</a>
       <a class="btn ghost" href="/label/{{ code }}.pdf?fmt={{ fmt }}" download>⬇ PDF</a>
