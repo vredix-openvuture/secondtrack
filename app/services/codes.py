@@ -124,6 +124,7 @@ def barcode_svg(payload: str) -> str:
 # 2 x 1 inch at 203 dpi — the native resolution of the common thermal label
 # printers, so the image maps to printer dots one to one and needs no rescaling.
 LABEL_DPI = 203
+QUIET_MODULES = 10   # Code128 clear space either side, in module widths
 LABEL_W, LABEL_H = 2 * LABEL_DPI, 1 * LABEL_DPI
 _FONT = "static/fonts/fredoka.ttf"
 
@@ -132,34 +133,36 @@ def label_png(payload: str, code: str, name: str, subtitle: str = "",
               fmt: str = "qr") -> bytes:
     """The finished 2x1in label as a bitmap.
 
-    A browser print goes through the OS driver, which is where these Bluetooth
-    thermal printers tend to lose the job and eject a blank label. A plain image
-    at the printer's own resolution sidesteps that: it prints from the vendor
-    app, from an image viewer, or straight through CUPS.
+    The code is drawn module by module at a whole number of pixels. Rendering it
+    as an image and resizing to fit lands on a fractional module width, and
+    since a nearest-neighbour resize cannot split a pixel some modules come out
+    a pixel wider than others — an irregular grid that a scanner rejects.
     """
     from PIL import Image, ImageDraw, ImageFont
 
-    pad = 10
-    im = Image.new("1", (LABEL_W, LABEL_H), 1)   # 1-bit: exactly what it prints
+    pad = 16          # inner margin, kept generous so nothing crowds the edge
+    gap = 14          # between the code and the text column
+    im = Image.new("L", (LABEL_W, LABEL_H), 255)   # greyscale: clean glyphs
     d = ImageDraw.Draw(im)
 
     box = LABEL_H - 2 * pad
-    if fmt == "barcode":
-        art = Image.open(io.BytesIO(_barcode_png(code))).convert("1")
-        art = art.resize((int(box * 1.05), box), Image.NEAREST)
-    else:
-        art = Image.open(io.BytesIO(qr_png(payload, box_size=10, border=1))).convert("1")
-        art = art.resize((box, box), Image.NEAREST)
-    im.paste(art, (pad, pad))
-
-    x = pad + art.width + 12
-    avail = LABEL_W - x - pad
     f_code = ImageFont.truetype(_FONT, 30)
     f_name = ImageFont.truetype(_FONT, 21)
     f_path = ImageFont.truetype(_FONT, 17)
 
+    if fmt == "barcode":
+        # Code128 needs 123 modules for an 8-character code. Beside the text
+        # that is 0.18mm per module — below the standard minimum and finer than
+        # a 203dpi dot, so nothing reads it. It gets the full width instead and
+        # the text sits above.
+        return _label_barcode(im, d, code, name, pad, f_code, f_name)
+
+    art_w = _draw_qr(d, payload, pad, pad, box)
+    x = pad + art_w + gap
+    avail = LABEL_W - x - pad
+
     def wrap(text, font, width, max_lines):
-        words, lines, cur = text.split(), [], ""
+        words, lines, cur = (text or "").split(), [], ""
         for w in words:
             probe = f"{cur} {w}".strip()
             if d.textlength(probe, font=font) <= width or not cur:
@@ -168,27 +171,84 @@ def label_png(payload: str, code: str, name: str, subtitle: str = "",
                 lines.append(cur)
                 cur = w
                 if len(lines) == max_lines:
-                    break
+                    return lines
         if cur and len(lines) < max_lines:
             lines.append(cur)
-        # Anything that did not fit is signalled rather than silently dropped.
-        if lines and len(" ".join(lines)) < len(text):
-            lines[-1] = lines[-1][: max(0, len(lines[-1]) - 1)] + "…"
         return lines
 
     y = pad
     d.text((x, y), code, font=f_code, fill=0)
     y += 34
-    for line in wrap(name or "", f_name, avail, 2):
+    for line in wrap(name, f_name, avail, 2):
         d.text((x, y), line, font=f_name, fill=0)
         y += 24
     if subtitle:
-        d.text((x, LABEL_H - pad - 20), wrap(subtitle, f_path, avail, 1)[0],
-               font=f_path, fill=0)
+        line = wrap(subtitle, f_path, avail, 1)
+        if line:
+            d.text((x, LABEL_H - pad - 18), line[0], font=f_path, fill=0)
 
+    # Threshold last: the glyphs are rasterised with antialiasing first, then
+    # reduced in one step, which keeps them legible at this size.
     buf = io.BytesIO()
-    im.save(buf, format="PNG", dpi=(LABEL_DPI, LABEL_DPI))
+    im.point(lambda v: 0 if v < 160 else 255, mode="1").save(
+        buf, format="PNG", dpi=(LABEL_DPI, LABEL_DPI)
+    )
     return buf.getvalue()
+
+
+def _label_barcode(im, d, code: str, name: str, pad: int, f_code, f_name) -> bytes:
+    """Stacked layout: identifier and name on top, barcode across the width."""
+    d.text((pad, pad - 2), code, font=f_code, fill=0)
+    if name:
+        w = LABEL_W - 2 * pad - int(d.textlength(code, font=f_code)) - 14
+        text = name
+        while text and d.textlength(text, font=f_name) > w:
+            text = text[:-1]
+        if text != name:
+            text = text[:-1] + "…"
+        d.text((pad + int(d.textlength(code, font=f_code)) + 14, pad + 8),
+               text, font=f_name, fill=0)
+    top = pad + 38
+    _draw_barcode(d, code, pad, top, LABEL_W - 2 * pad, LABEL_H - top - pad)
+    buf = io.BytesIO()
+    im.point(lambda v: 0 if v < 160 else 255, mode="1").save(
+        buf, format="PNG", dpi=(LABEL_DPI, LABEL_DPI)
+    )
+    return buf.getvalue()
+
+
+def _draw_qr(d, payload: str, x: int, y: int, box: int) -> int:
+    """Draw the QR as whole-pixel modules; returns the width actually used."""
+    import qrcode
+
+    q = qrcode.QRCode(border=1)
+    q.add_data(payload)
+    q.make(fit=True)
+    grid = q.get_matrix()
+    n = len(grid)
+    unit = max(1, box // n)          # whole pixels per module, never fractional
+    size = unit * n
+    off = (box - size) // 2          # centre the rounding slack
+    for r, row in enumerate(grid):
+        for c, on in enumerate(row):
+            if on:
+                px, py = x + off + c * unit, y + off + r * unit
+                d.rectangle([px, py, px + unit - 1, py + unit - 1], fill=0)
+    return box
+
+
+def _draw_barcode(d, payload: str, x: int, y: int, width: int, height: int) -> int:
+    """Code128 bars at whole-pixel width, same reasoning as the QR."""
+    import barcode
+
+    bars = barcode.get("code128", payload).build()[0]
+    unit = max(1, width // (len(bars) + 2 * QUIET_MODULES))
+    left = x + QUIET_MODULES * unit
+    for i, bit in enumerate(bars):
+        if bit == "1":
+            px = left + i * unit
+            d.rectangle([px, y, px + unit - 1, y + height - 1], fill=0)
+    return unit * (len(bars) + 2 * QUIET_MODULES)
 
 
 def _barcode_png(payload: str) -> bytes:
@@ -225,16 +285,34 @@ def label_svg(payload: str, code: str, name: str, subtitle: str = "",
     from there — the route that is already known to work on this printer."""
     import html as _html
 
-    w, h, pad = LABEL_W, LABEL_H, 10
+    # Same generous inner margin as the bitmap: the code was sitting too close
+    # to the top edge, which reads as a printing error even when it is not.
+    w, h, pad = LABEL_W, LABEL_H, 16
     box = h - 2 * pad
-    if fmt == "barcode":
-        art, art_w = _barcode_svg_inner(code, box), int(box * 1.05)
-    else:
-        art, art_w = _qr_svg_inner(payload, box), box
-    x = pad + art_w + 12
 
     def esc(t):
         return _html.escape(t or "")
+
+    if fmt == "barcode":
+        # Full width, text above — see _label_barcode for why.
+        top = pad + 38
+        return "\n".join([
+            '<?xml version="1.0" encoding="UTF-8"?>',
+            f'<svg xmlns="http://www.w3.org/2000/svg" '
+            f'xmlns:xlink="http://www.w3.org/1999/xlink" width="2in" height="1in" '
+            f'viewBox="0 0 {w} {h}">',
+            f'<rect width="{w}" height="{h}" fill="#fff"/>',
+            f'<text x="{pad}" y="{pad + 24}" font-family="sans-serif" '
+            f'font-size="30" font-weight="700" fill="#000">{esc(code)}</text>',
+            f'<text x="{pad + 150}" y="{pad + 24}" font-family="sans-serif" '
+            f'font-size="19" fill="#000">{esc((name or "")[:20])}</text>',
+            f'<g transform="translate({pad},{top})">'
+            f'{_barcode_svg_inner(code, h - top - pad, w - 2 * pad)}</g>',
+            "</svg>",
+        ])
+
+    art, art_w = _qr_svg_inner(payload, box), box
+    x = pad + art_w + 14
 
     lines = [
         f'<?xml version="1.0" encoding="UTF-8"?>',
@@ -242,11 +320,11 @@ def label_svg(payload: str, code: str, name: str, subtitle: str = "",
         f'viewBox="0 0 {w} {h}">',
         f'<rect width="{w}" height="{h}" fill="#fff"/>',
         f'<g transform="translate({pad},{pad})">{art}</g>',
-        f'<text x="{x}" y="{pad + 26}" font-family="sans-serif" font-size="30" '
+        f'<text x="{x}" y="{pad + 24}" font-family="sans-serif" font-size="30" '
         f'font-weight="700" fill="#000">{esc(code)}</text>',
     ]
-    y = pad + 52
-    for chunk in _wrap_svg(name, 18, 2):
+    y = pad + 50
+    for chunk in _wrap_svg(name, 17, 2):
         lines.append(
             f'<text x="{x}" y="{y}" font-family="sans-serif" font-size="21" '
             f'fill="#000">{esc(chunk)}</text>'
@@ -254,7 +332,7 @@ def label_svg(payload: str, code: str, name: str, subtitle: str = "",
         y += 24
     if subtitle:
         lines.append(
-            f'<text x="{x}" y="{h - pad - 4}" font-family="sans-serif" '
+            f'<text x="{x}" y="{h - pad - 2}" font-family="sans-serif" '
             f'font-size="17" fill="#333">{esc(subtitle[:34])}</text>'
         )
     lines.append("</svg>")
@@ -295,15 +373,19 @@ def _qr_svg_inner(payload: str, size: int) -> str:
     return f'<g fill="#000">{rects}</g>'
 
 
-def _barcode_svg_inner(payload: str, height: int) -> str:
-    """Code128 bars as rects, sized to the label rather than to millimetres."""
-    import barcode
+def _barcode_svg_inner(payload: str, height: int, width: int) -> str:
+    """The library's own barcode, embedded as an image.
 
-    bars = barcode.get("code128", payload).build()[0]
-    unit = (height * 1.05) / len(bars)
-    x, rects = 0.0, []
-    for bit in bars:
-        if bit == "1":
-            rects.append(f'<rect x="{x:.2f}" y="0" width="{unit:.2f}" height="{height}"/>')
-        x += unit
-    return f'<g fill="#000">{"".join(rects)}</g>'
+    Drawing the bars by hand from build() reproduces that string faithfully and
+    still will not decode — python-barcode's writer does more than paint the
+    pattern. Rather than reverse-engineer it, the label embeds what the library
+    renders, which is verified to scan. It is a bitmap inside the SVG, but a
+    barcode nothing can read is worse than one that is not vector.
+    """
+    b64 = base64.b64encode(_barcode_png(payload)).decode()
+    return (
+        f'<image x="0" y="0" width="{width}" height="{height}" '
+        f'preserveAspectRatio="none" '
+        f'xlink:href="data:image/png;base64,{b64}" '
+        f'href="data:image/png;base64,{b64}"/>'
+    )
