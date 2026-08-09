@@ -178,7 +178,9 @@ def label_png(payload: str, code: str, name: str, subtitle: str = "",
 
     y = pad
     d.text((x, y), code, font=f_code, fill=0)
-    y += 34
+    y += 36
+    d.line([(x, y), (LABEL_W - pad, y)], fill=0, width=2)
+    y += 8
     for line in wrap(name, f_name, avail, 2):
         d.text((x, y), line, font=f_name, fill=0)
         y += 24
@@ -200,14 +202,15 @@ def _label_barcode(im, d, code: str, name: str, pad: int, f_code, f_name) -> byt
     """Stacked layout: identifier and name on top, barcode across the width."""
     d.text((pad, pad - 2), code, font=f_code, fill=0)
     if name:
-        w = LABEL_W - 2 * pad - int(d.textlength(code, font=f_code)) - 14
+        cw = int(d.textlength(code, font=f_code))
+        d.line([(pad + cw + 11, pad + 2), (pad + cw + 11, pad + 32)], fill=0, width=2)
+        w = LABEL_W - 2 * pad - cw - 22
         text = name
         while text and d.textlength(text, font=f_name) > w:
             text = text[:-1]
         if text != name:
             text = text[:-1] + "…"
-        d.text((pad + int(d.textlength(code, font=f_code)) + 14, pad + 8),
-               text, font=f_name, fill=0)
+        d.text((pad + cw + 20, pad + 8), text, font=f_name, fill=0)
     top = pad + 38
     _draw_barcode(d, code, pad, top, LABEL_W - 2 * pad, LABEL_H - top - pad)
     buf = io.BytesIO()
@@ -304,6 +307,8 @@ def label_svg(payload: str, code: str, name: str, subtitle: str = "",
             f'<rect width="{w}" height="{h}" fill="#fff"/>',
             f'<text x="{pad}" y="{pad + 24}" font-family="sans-serif" '
             f'font-size="30" font-weight="700" fill="#000">{esc(code)}</text>',
+            f'<line x1="{pad + 140}" y1="{pad + 2}" x2="{pad + 140}" y2="{pad + 30}" '
+            f'stroke="#000" stroke-width="2"/>',
             f'<text x="{pad + 150}" y="{pad + 24}" font-family="sans-serif" '
             f'font-size="19" fill="#000">{esc((name or "")[:20])}</text>',
             f'<g transform="translate({pad},{top})">'
@@ -322,8 +327,10 @@ def label_svg(payload: str, code: str, name: str, subtitle: str = "",
         f'<g transform="translate({pad},{pad})">{art}</g>',
         f'<text x="{x}" y="{pad + 24}" font-family="sans-serif" font-size="30" '
         f'font-weight="700" fill="#000">{esc(code)}</text>',
+        f'<line x1="{x}" y1="{pad + 33}" x2="{w - pad}" y2="{pad + 33}" '
+        f'stroke="#000" stroke-width="2"/>',
     ]
-    y = pad + 50
+    y = pad + 54
     for chunk in _wrap_svg(name, 17, 2):
         lines.append(
             f'<text x="{x}" y="{y}" font-family="sans-serif" font-size="21" '

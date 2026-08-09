@@ -1350,7 +1350,7 @@ a.nt-ic:hover { box-shadow:0 0 0 2px var(--accent); }
   flex:1; min-width:0; display:flex; flex-direction:column;
   justify-content:flex-start; gap:0.4mm; overflow:hidden; padding-top:0.4mm;
 }
-.label-2x1 .l2-code { font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace; font-weight:700; font-size:11pt; letter-spacing:.01em; line-height:1.05; white-space:nowrap; }
+.label-2x1 .l2-code { font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace; font-weight:700; font-size:11pt; letter-spacing:.01em; line-height:1.05; white-space:nowrap; border-bottom:1.5px solid #111; padding-bottom:2px; margin-bottom:2px; }
 .label-2x1 .l2-name { font-size:8pt; line-height:1.15; overflow:hidden; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; }
 .label-2x1 .l2-path { font-size:6.5pt; color:#444; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:auto; }
 @media print {
