@@ -46,6 +46,62 @@ async def scan_resolve(
     return RedirectResponse("/warehouse?msg=Code not found", status_code=303)
 
 
+def _label_parts(db, code: str, request):
+    """(object, payload URL, subtitle) for any label format, or None."""
+    kind, obj = codes.resolve(db, code)
+    if obj is None:
+        return None
+    subtitle = obj.path if kind == "location" else (
+        obj.location.path if getattr(obj, "location", None) else ""
+    )
+    return obj, f"{_base_url(request, db)}/s/{obj.code}", subtitle
+
+
+@router.get("/label/{code}.svg")
+async def label_svg(
+    code: str,
+    request: Request,
+    fmt: str = "qr",
+    db: Session = Depends(get_db),
+    user=Depends(require_login),
+):
+    """Vector label, exactly 2x1in. Opens in a drawing program and prints from
+    there — the route already proven to work on this printer."""
+    from fastapi.responses import Response
+
+    parts = _label_parts(db, code, request)
+    if parts is None:
+        return RedirectResponse("/warehouse?msg=Code not found", status_code=303)
+    obj, url, subtitle = parts
+    svg = codes.label_svg(url, obj.code, obj.name, subtitle,
+                          "barcode" if fmt == "barcode" else "qr")
+    return Response(svg, media_type="image/svg+xml", headers={
+        "Content-Disposition": f'attachment; filename="{obj.code}.svg"',
+    })
+
+
+@router.get("/label/{code}.pdf")
+async def label_pdf(
+    code: str,
+    request: Request,
+    fmt: str = "qr",
+    db: Session = Depends(get_db),
+    user=Depends(require_login),
+):
+    """A PDF page is bindingly 2x1in, unlike a PNG whose dpi most viewers drop."""
+    from fastapi.responses import Response
+
+    parts = _label_parts(db, code, request)
+    if parts is None:
+        return RedirectResponse("/warehouse?msg=Code not found", status_code=303)
+    obj, url, subtitle = parts
+    pdf = codes.label_pdf(url, obj.code, obj.name, subtitle,
+                          "barcode" if fmt == "barcode" else "qr")
+    return Response(pdf, media_type="application/pdf", headers={
+        "Content-Disposition": f'attachment; filename="{obj.code}.pdf"',
+    })
+
+
 @router.get("/label/{code}.png")
 async def label_png(
     code: str,

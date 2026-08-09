@@ -235,6 +235,8 @@ DE: dict[str, str] = {
     "Purchase receipt": "Kaufbeleg",
     "+ Link existing expense": "+ Vorhandene Ausgabe verknüpfen",
     "Items": "Objekte",
+    "If printing from the browser fails, download the SVG and print it from Inkscape, or the PDF from any viewer — both are bindingly 2×1 inch.":
+        "Wenn der Druck aus dem Browser scheitert: SVG herunterladen und aus Inkscape drucken, oder das PDF aus einem beliebigen Betrachter — beide sind verbindlich 2×1 Zoll.",
     "If the printer ejects a blank label, download the PNG and print that — it is already 2×1 inch at 203 dpi.":
         "Wenn der Drucker ein leeres Etikett auswirft: das PNG herunterladen und das drucken — es ist bereits 2×1 Zoll bei 203 dpi.",
     "+ Expense": "+ Ausgabe",

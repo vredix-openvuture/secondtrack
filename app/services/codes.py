@@ -200,3 +200,110 @@ def _barcode_png(payload: str) -> bytes:
         "module_height": 12.0, "quiet_zone": 1.0, "write_text": False,
     })
     return buf.getvalue()
+
+
+def label_pdf(payload: str, code: str, name: str, subtitle: str = "",
+              fmt: str = "qr") -> bytes:
+    """The same label as a PDF whose page is exactly 2x1 inch.
+
+    A PNG carries its physical size only as metadata, which most image viewers
+    ignore — they assume 96 dpi and the label comes out at twice the size or
+    cropped. A PDF page size is binding, so the printer gets 2x1in either way.
+    """
+    from PIL import Image
+
+    im = Image.open(io.BytesIO(label_png(payload, code, name, subtitle, fmt)))
+    buf = io.BytesIO()
+    # Greyscale rather than 1-bit: some RIPs refuse a 1-bit image inside a PDF.
+    im.convert("L").save(buf, format="PDF", resolution=LABEL_DPI)
+    return buf.getvalue()
+
+
+def label_svg(payload: str, code: str, name: str, subtitle: str = "",
+              fmt: str = "qr") -> str:
+    """Vector version, 2x1in, for opening in a drawing program and printing
+    from there — the route that is already known to work on this printer."""
+    import html as _html
+
+    w, h, pad = LABEL_W, LABEL_H, 10
+    box = h - 2 * pad
+    if fmt == "barcode":
+        art, art_w = _barcode_svg_inner(code, box), int(box * 1.05)
+    else:
+        art, art_w = _qr_svg_inner(payload, box), box
+    x = pad + art_w + 12
+
+    def esc(t):
+        return _html.escape(t or "")
+
+    lines = [
+        f'<?xml version="1.0" encoding="UTF-8"?>',
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="2in" height="1in" '
+        f'viewBox="0 0 {w} {h}">',
+        f'<rect width="{w}" height="{h}" fill="#fff"/>',
+        f'<g transform="translate({pad},{pad})">{art}</g>',
+        f'<text x="{x}" y="{pad + 26}" font-family="sans-serif" font-size="30" '
+        f'font-weight="700" fill="#000">{esc(code)}</text>',
+    ]
+    y = pad + 52
+    for chunk in _wrap_svg(name, 18, 2):
+        lines.append(
+            f'<text x="{x}" y="{y}" font-family="sans-serif" font-size="21" '
+            f'fill="#000">{esc(chunk)}</text>'
+        )
+        y += 24
+    if subtitle:
+        lines.append(
+            f'<text x="{x}" y="{h - pad - 4}" font-family="sans-serif" '
+            f'font-size="17" fill="#333">{esc(subtitle[:34])}</text>'
+        )
+    lines.append("</svg>")
+    return "\n".join(lines)
+
+
+def _wrap_svg(text: str, per_line: int, max_lines: int) -> list[str]:
+    words, out, cur = (text or "").split(), [], ""
+    for word in words:
+        probe = f"{cur} {word}".strip()
+        if len(probe) <= per_line or not cur:
+            cur = probe
+        else:
+            out.append(cur)
+            cur = word
+            if len(out) == max_lines:
+                return out
+    if cur and len(out) < max_lines:
+        out.append(cur)
+    return out
+
+
+def _qr_svg_inner(payload: str, size: int) -> str:
+    """QR as scaled rects — vector, so it stays crisp at any printer density."""
+    import qrcode
+
+    matrix = qrcode.QRCode(border=1)
+    matrix.add_data(payload)
+    matrix.make(fit=True)
+    grid = matrix.get_matrix()
+    n = len(grid)
+    unit = size / n
+    rects = "".join(
+        f'<rect x="{c * unit:.2f}" y="{r * unit:.2f}" '
+        f'width="{unit:.2f}" height="{unit:.2f}"/>'
+        for r, row in enumerate(grid) for c, on in enumerate(row) if on
+    )
+    return f'<g fill="#000">{rects}</g>'
+
+
+def _barcode_svg_inner(payload: str, height: int) -> str:
+    """Code128 bars as rects, sized to the label rather than to millimetres."""
+    import barcode
+
+    bars = barcode.get("code128", payload).build()[0]
+    unit = (height * 1.05) / len(bars)
+    x, rects = 0.0, []
+    for bit in bars:
+        if bit == "1":
+            rects.append(f'<rect x="{x:.2f}" y="0" width="{unit:.2f}" height="{height}"/>')
+        x += unit
+    return f'<g fill="#000">{"".join(rects)}</g>'

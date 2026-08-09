@@ -8,6 +8,8 @@
     <a href="/label/{{ code }}?fmt=qr" class="{{ 'on' if fmt == 'qr' }}">{{ _('QR code') }}</a>
     <a href="/label/{{ code }}?fmt=barcode" class="{{ 'on' if fmt == 'barcode' }}">{{ _('Barcode') }}</a>
   </div>
+  <a class="btn ghost" href="/label/{{ code }}.svg?fmt={{ fmt }}" download>⬇ SVG</a>
+  <a class="btn ghost" href="/label/{{ code }}.pdf?fmt={{ fmt }}" download>⬇ PDF</a>
   <a class="btn ghost" href="/label/{{ code }}.png?fmt={{ fmt }}" download>⬇ PNG</a>
   <button type="button" class="btn" onclick="window.print()">{{ _('Print') }}</button>
 </div>
@@ -27,7 +29,7 @@
 </div>
 
 <p class="muted small no-print" style="text-align:center">
-  {{ _('If the printer ejects a blank label, download the PNG and print that — it is already 2×1 inch at 203 dpi.') }}
+  {{ _('If printing from the browser fails, download the SVG and print it from Inkscape, or the PDF from any viewer — both are bindingly 2×1 inch.') }}
 </p>
 <p class="muted small no-print" style="text-align:center">
   {% if fmt == 'barcode' %}
