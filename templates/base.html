@@ -5,6 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}secondtrack{% endblock %}</title>
   <link rel="stylesheet" href="/static/style.css?v={{ asset_v }}">
+  {# Installable on a tablet: manifest + icons, and theme-color so the system
+     bars match the app instead of flashing white. #}
+  <link rel="manifest" href="/static/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/static/icon-192.png">
+  <meta name="theme-color" content="{{ style.bg if style else '#201019' }}">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="secondtrack">
   {% set fonts = {"fredoka":"'Fredoka',system-ui,sans-serif","system":"system-ui,-apple-system,'Segoe UI',Roboto,sans-serif","mono":"ui-monospace,'SF Mono',Menlo,Consolas,monospace","serif":"Georgia,'Times New Roman',serif","rounded":"'Segoe UI Rounded','SF Pro Rounded',system-ui,sans-serif"} %}
   {% if style %}<style>
     :root{
@@ -29,6 +37,13 @@
   <div class="bg-wallpaper" style="background-image:url('{{ wallpaper.url }}'); filter: blur({{ wallpaper.blur }}px);"></div>
   <div class="bg-overlay" style="background: rgba(10,12,16,{{ (wallpaper.dark|float)/100 }});"></div>
   {% endif %}
+
+  {# Mobile only: the sidebar becomes an off-canvas drawer, so a phone screen is
+     not permanently 64px narrower. Both elements are hidden on desktop. #}
+  <button class="nav-toggle" onclick="stToggleNav()" aria-label="{{ _('Menu') }}" title="{{ _('Menu') }}">
+    <svg viewBox="0 0 24 24"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+  </button>
+  <div class="nav-backdrop" onclick="stToggleNav()" aria-hidden="true"></div>
 
   <aside class="sidebar">
     <a class="brand" href="/" title="{{ _('Dashboard') }}">

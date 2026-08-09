@@ -246,6 +246,33 @@ function stRecMode() {
 }
 document.addEventListener('DOMContentLoaded', stRecMode);
 
+// Install the service worker so the app can be added to a home screen. Failing
+// registration is not worth surfacing — the app works exactly the same without.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('/sw.js').catch(function () {});
+  });
+}
+
+// Mobile drawer. Deliberately not persisted like the desktop collapse state —
+// a menu that is still open on the next page load is in the way, not helpful.
+function stToggleNav() {
+  var r = document.documentElement;
+  r.setAttribute('data-nav', r.getAttribute('data-nav') === 'open' ? 'closed' : 'open');
+}
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape') document.documentElement.setAttribute('data-nav', 'closed');
+});
+// Following a link inside the drawer should close it, otherwise it covers the
+// page it just navigated to.
+document.addEventListener('DOMContentLoaded', function () {
+  document.querySelectorAll('.sidebar nav a').forEach(function (a) {
+    a.addEventListener('click', function () {
+      document.documentElement.setAttribute('data-nav', 'closed');
+    });
+  });
+});
+
 // A "+ New …" entry inside a dropdown reveals that dropdown's create fields,
 // so picking an existing one and adding one are the same control.
 function stPickNew(sel, fieldsId) {

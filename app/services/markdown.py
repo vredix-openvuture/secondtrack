@@ -32,7 +32,13 @@ def _slug(name: str) -> str:
 
 
 def render_project_markdown(db: Session, project: Project) -> str:
+    from ..db import get_setting
+
     f = compute_project(db, project)
+    # Relative /uploads paths mean nothing once the file sits in a vault, so the
+    # export needs absolute ones. Without a public base URL configured the
+    # gallery is skipped rather than exported broken.
+    base = (get_setting(db, "public_base_url", "") or "").rstrip("/")
     lines: list[str] = []
 
     # YAML frontmatter for Obsidian.
@@ -82,6 +88,13 @@ def render_project_markdown(db: Session, project: Project) -> str:
     else:
         lines.append("_Keine Teile erfasst._")
     lines.append("")
+
+    # Reference photos
+    if project.images and base:
+        lines += ["## Referenzbilder", ""]
+        for img in sorted(project.images, key=lambda i: i.id):
+            lines.append(f"![{img.caption or ''}]({base}{img.path})")
+        lines.append("")
 
     # Work sessions
     lines += ["## Arbeitszeiten", ""]

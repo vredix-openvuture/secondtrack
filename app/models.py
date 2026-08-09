@@ -155,6 +155,9 @@ class Project(Base):
     devices: Mapped[list["Device"]] = relationship(
         back_populates="project", cascade="all, delete-orphan"
     )
+    images: Mapped[list["ProjectImage"]] = relationship(
+        back_populates="project", cascade="all, delete-orphan"
+    )
     reports: Mapped[list["Report"]] = relationship(
         back_populates="project", cascade="all, delete-orphan"
     )
@@ -466,6 +469,22 @@ class Device(Base):
     parts: Mapped[list["Part"]] = relationship(
         back_populates="device", foreign_keys="Part.device_id"
     )
+
+
+class ProjectImage(Base):
+    """A reference photo on a project: condition at handover, cable routing
+    before disassembly, the type plate. Distinct from `Project.image_path`,
+    which is the single picture identifying the project itself."""
+
+    __tablename__ = "project_images"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
+    path: Mapped[str] = mapped_column(String(255))
+    caption: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    project: Mapped["Project"] = relationship(back_populates="images")
 
 
 class Report(Base):

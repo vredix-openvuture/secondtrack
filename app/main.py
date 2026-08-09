@@ -125,6 +125,25 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/uploads", StaticFiles(directory=settings.upload_dir), name="uploads")
 
+
+@app.get("/sw.js", include_in_schema=False)
+async def service_worker():
+    """Served from the root, not /static, because a worker can only control
+    paths at or below its own URL — from /static/sw.js it would see nothing.
+    No login required: the browser fetches it before any session exists.
+    The asset version is stamped in so a deploy invalidates the old cache."""
+    from fastapi.responses import Response
+
+    from .templating import _asset_version
+
+    with open("static/sw.js", encoding="utf-8") as fh:
+        body = fh.read().replace("__ASSET_V__", _asset_version())
+    return Response(
+        body,
+        media_type="application/javascript",
+        headers={"Cache-Control": "no-cache", "Service-Worker-Allowed": "/"},
+    )
+
 app.include_router(auth.router)
 app.include_router(dashboard.router)
 app.include_router(projects.router)

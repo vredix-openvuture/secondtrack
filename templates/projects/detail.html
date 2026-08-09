@@ -97,6 +97,7 @@
 <section class="card">
   <h2>{{ _('Items') }}</h2>
   {% if items %}
+  <div class="table-scroll">
   <table class="grid tight fit-cols">
     <thead><tr><th>{{ _('Item') }}</th><th class="num">{{ _('Qty') }}</th><th class="num">{{ _('Purchase') }}</th><th class="num">{{ _('Sale value') }}</th><th></th></tr></thead>
     <tbody>
@@ -140,6 +141,7 @@
     {% endfor %}
     </tbody>
   </table>
+  </div>
   {% else %}<p class="muted">{{ _('Nothing assigned yet — pick it from the warehouse.') }}</p>{% endif %}
 
   {# Nothing is created here: items live in the warehouse and are picked from
@@ -161,6 +163,7 @@
 <section class="card">
   <h2>{{ _('Work time') }}</h2>
   {% if f.sessions %}
+  <div class="table-scroll">
   <table class="grid tight">
     <thead><tr><th>{{ _('Date') }}</th><th class="num">{{ _('Hrs') }}</th><th class="num">{{ _('Rate') }}</th><th>{{ _('Description') }}</th><th></th></tr></thead>
     <tbody>
@@ -187,6 +190,7 @@
     <tr class="sum"><td>{{ _('Sum') }}</td><td class="num">{{ f.hours|hours }}</td><td class="num">{{ f.labor_value|money }} {{ currency }}</td><td colspan="2"></td></tr>
     </tbody>
   </table>
+  </div>
   {% else %}<p class="muted">{{ _('No sessions yet.') }}</p>{% endif %}
 
   <details class="adder" id="wsPanel">
@@ -213,29 +217,74 @@
 
 <div class="detail-grid">
 
-    <!-- ===== REPORTS ===== -->
+    <!-- ===== GALLERY ===== -->
     <section class="card">
-      <h2>{{ _('Reports') }}</h2>
-      {% for r in reports %}
-      <details class="adder">
-        <summary>{{ r.title }}{% if r.created_at %} <span class="muted small">{{ r.created_at.strftime('%Y-%m-%d') }}</span>{% endif %}</summary>
-        {% if r.body_md %}<div class="md-content">{{ r.body_md|md }}</div>{% endif %}
-        <form method="post" action="/projects/{{ project.id }}/reports/{{ r.id }}/update" class="stack">
-          <input name="title" value="{{ r.title }}">
-          <textarea name="body_md" class="md-field" rows="4">{{ r.body_md or '' }}</textarea>
-          <div class="row-form">
-            <button type="submit" class="primary">{{ _('Save') }}</button>
-            <button type="submit" formaction="/projects/{{ project.id }}/reports/{{ r.id }}/delete" class="link danger" onclick="return confirm('{{ _('Delete report?') }}')">✕</button>
-          </div>
-        </form>
-      </details>
-      {% else %}<p class="muted">{{ _('No reports yet.') }}</p>{% endfor %}
+      <h2>{{ _('Reference photos') }}</h2>
+      {% if gallery %}
+      <div class="gallery">
+        {% for g in gallery %}
+        <figure class="gal-item">
+          <a href="{{ g.path }}" target="_blank" title="{{ _('Open full size') }}">
+            <img src="{{ g.path }}" alt="{{ g.caption or '' }}" loading="lazy">
+          </a>
+          <figcaption>
+            {# Caption edits in place — a photo without context is a photo you
+               will not understand in six months. #}
+            <form method="post" action="/projects/{{ project.id }}/gallery/{{ g.id }}/update">
+              <input name="caption" value="{{ g.caption or '' }}" placeholder="{{ _('Caption…') }}" onchange="this.form.submit()">
+            </form>
+            <form method="post" action="/projects/{{ project.id }}/gallery/{{ g.id }}/delete" onsubmit="return confirm('{{ _('Delete photo?') }}')">
+              <button class="link danger" title="{{ _('Delete') }}">✕</button>
+            </form>
+          </figcaption>
+        </figure>
+        {% endfor %}
+      </div>
+      {% else %}<p class="muted">{{ _('No photos yet — condition on handover, cable routing, the type plate.') }}</p>{% endif %}
 
       <details class="adder">
-        <summary>{{ _('+ Report') }}</summary>
+        <summary>{{ _('+ Photos') }}</summary>
+        <form method="post" action="/projects/{{ project.id }}/gallery" enctype="multipart/form-data" class="stack">
+          {# capture= lets a phone go straight to the camera. #}
+          <input type="file" name="images" accept="image/*" multiple capture="environment">
+          <input name="caption" placeholder="{{ _('Caption for this batch (optional)') }}">
+          <button type="submit" class="primary">{{ _('Upload') }}</button>
+        </form>
+        <p class="muted small">{{ _('Images are scaled down and stored as WebP.') }}</p>
+      </details>
+    </section>
+
+    <!-- ===== NOTES ===== -->
+    <section class="card">
+      <h2>{{ _('Notes') }}</h2>
+      {# A note is there to be read, so the text shows and only editing is
+         behind a click — the reverse of how this card used to work. #}
+      {% for r in reports %}
+      <article class="note">
+        <div class="note-head">
+          <strong>{{ r.title or _('Note') }}</strong>
+          {% if r.created_at %}<span class="muted small">{{ r.created_at.strftime('%Y-%m-%d') }}</span>{% endif %}
+        </div>
+        {% if r.body_md %}<div class="md-content">{{ r.body_md|md }}</div>{% endif %}
+        <details class="adder">
+          <summary>{{ _('Edit') }}</summary>
+          <form method="post" action="/projects/{{ project.id }}/reports/{{ r.id }}/update" class="stack">
+            <input name="title" value="{{ r.title }}" placeholder="{{ _('Title (optional)') }}">
+            <textarea name="body_md" class="md-field" rows="5">{{ r.body_md or '' }}</textarea>
+            <div class="row-form">
+              <button type="submit" class="primary">{{ _('Save') }}</button>
+              <button type="submit" formaction="/projects/{{ project.id }}/reports/{{ r.id }}/delete" class="link danger" onclick="return confirm('{{ _('Delete note?') }}')">✕</button>
+            </div>
+          </form>
+        </details>
+      </article>
+      {% else %}<p class="muted">{{ _('No notes yet.') }}</p>{% endfor %}
+
+      <details class="adder">
+        <summary>{{ _('+ Note') }}</summary>
         <form method="post" action="/projects/{{ project.id }}/reports" class="stack">
-          <input name="title" placeholder="{{ _('Title') }}">
-          <textarea name="body_md" class="md-field" rows="4" placeholder="Markdown…"></textarea>
+          <input name="title" placeholder="{{ _('Title (optional)') }}">
+          <textarea name="body_md" class="md-field" rows="5" placeholder="{{ _('Markdown — type / for lists') }}"></textarea>
           <button type="submit" class="primary">{{ _('Add') }}</button>
         </form>
       </details>
@@ -336,15 +385,6 @@
           <button type="submit" class="primary">{{ _('Save') }}</button>
         </form>
       </details>
-    </section>
-
-    <!-- ===== EXPORT ===== -->
-    <section class="card">
-      <h2>{{ _('Export') }}</h2>
-      <div class="btn-row">
-        <a class="btn" href="/projects/{{ project.id }}/export.md">⬇ Markdown</a>
-        <form method="post" action="/projects/{{ project.id }}/export"><button type="submit">{{ _('→ Vault') }}</button></form>
-      </div>
     </section>
 
     {# Only shop production becomes a finished good. A customer order is built

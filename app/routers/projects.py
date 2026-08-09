@@ -12,7 +12,7 @@ from ..config import get_settings as get_app_settings
 from ..db import get_db, new_project_number
 from ..models import (
     Customer, CustomerKind, Expense, OrderInvoice, Part, PartSet,
-    PartOrigin, Project, ProjectStatus, ProjectType, Report,
+    PartOrigin, Project, ProjectImage, ProjectStatus, ProjectType, Report,
     WorkSession,
 )
 from ..services import hub
@@ -20,7 +20,7 @@ from ..services import warehouse as wh
 from ..services.finance import compute_project, global_hourly_rate
 from ..services.integrations import invoiceninja, vikunja
 from ..services.markdown import export_project_to_file, render_project_markdown
-from ..services.uploads import delete_image, save_image_or_error
+from ..services.uploads import delete_image, save_image, save_image_or_error
 from ..templating import ctx, templates
 
 app_settings = get_app_settings()
@@ -264,6 +264,7 @@ async def project_detail(
             items=f.items,  # same list the calculation uses
             assignable_items=assignable_items,
             reports=reports,
+            gallery=sorted(project.images, key=lambda i: i.id),
             customers=customers,
             global_rate=global_hourly_rate(db),
             today=date.today().isoformat(),
@@ -324,9 +325,14 @@ async def update_project(
     project.name = name.strip()
     project.title = name.strip()
     project.description = description.strip() or None
+    # Closing stamps the date; reopening clears it again, otherwise an active
+    # project keeps claiming it was archived on some past day.
     new_status = ProjectStatus(status)
-    if new_status == ProjectStatus.done and project.status != ProjectStatus.done:
+    closed = (ProjectStatus.done, ProjectStatus.invoiced)
+    if new_status in closed and project.status not in closed:
         project.archived_at = datetime.utcnow()
+    elif new_status not in closed:
+        project.archived_at = None
     project.status = new_status
     project.hourly_rate = _parse_float(hourly_rate)
     # Customer: assign an existing one or create a new one (only when provided,
@@ -366,6 +372,9 @@ async def delete_project(
         ).all():
             ps.project_id = None
             ps.source_project_id = None
+        # The gallery rows cascade, but their files would be orphaned on disk.
+        for img in list(project.images):
+            delete_image(img.path)
         # Expenses booked on the project keep their receipt but lose the link.
         for e in db.query(Expense).filter(Expense.project_id == project.id).all():
             e.project_id = None
@@ -373,6 +382,70 @@ async def delete_project(
         db.delete(project)
         db.commit()
     return RedirectResponse("/projects", status_code=303)
+
+
+# ---- Gallery (reference photos) ----
+
+@router.post("/{project_id}/gallery")
+async def add_gallery_images(
+    project_id: int,
+    caption: str = Form(""),
+    images: list[UploadFile] = File(default=[]),
+    db: Session = Depends(get_db),
+    user=Depends(require_login),
+):
+    """Attach reference photos: condition at handover, cable routing before
+    disassembly, the type plate. Several at once, because that is how you shoot
+    them. The caption applies to the whole batch — one note per upload beats no
+    note at all, and per-image editing is a click away."""
+    project = db.get(Project, project_id)
+    if not project:
+        return RedirectResponse("/projects", status_code=303)
+    added = 0
+    for f in images:
+        url = save_image(f, "proj")
+        if url:
+            db.add(ProjectImage(
+                project_id=project.id, path=url, caption=caption.strip() or None
+            ))
+            added += 1
+    db.commit()
+    if not added and any(f.filename for f in images):
+        return RedirectResponse(
+            f"/projects/{project_id}?msg=Bild abgelehnt – erlaubt: JPG/PNG/WebP/GIF/AVIF, max. 25 MB.",
+            status_code=303,
+        )
+    return RedirectResponse(f"/projects/{project_id}", status_code=303)
+
+
+@router.post("/{project_id}/gallery/{image_id}/update")
+async def update_gallery_image(
+    project_id: int,
+    image_id: int,
+    caption: str = Form(""),
+    db: Session = Depends(get_db),
+    user=Depends(require_login),
+):
+    img = db.get(ProjectImage, image_id)
+    if img and img.project_id == project_id:
+        img.caption = caption.strip() or None
+        db.commit()
+    return RedirectResponse(f"/projects/{project_id}", status_code=303)
+
+
+@router.post("/{project_id}/gallery/{image_id}/delete")
+async def delete_gallery_image(
+    project_id: int,
+    image_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(require_login),
+):
+    img = db.get(ProjectImage, image_id)
+    if img and img.project_id == project_id:
+        delete_image(img.path)  # the row is worthless without the file
+        db.delete(img)
+        db.commit()
+    return RedirectResponse(f"/projects/{project_id}", status_code=303)
 
 
 # ---- Reports (Markdown) ----
@@ -387,9 +460,11 @@ async def add_report(
 ):
     project = db.get(Project, project_id)
     if project:
+        # An empty title stays empty — the view falls back to a neutral label,
+        # so a quick note is not stamped with a word the user never typed.
         db.add(Report(
             project_id=project.id,
-            title=title.strip() or "Report",
+            title=title.strip(),
             body_md=body_md.strip() or None,
         ))
         db.commit()

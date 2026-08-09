@@ -336,6 +336,38 @@ textarea.md-field { font-family: inherit; resize: vertical; }
 }
 /* A project item is a physical thing you want to recognise at a glance — 40px
    is a favicon, not a product shot. */
+/* A wide table scrolls inside its card rather than pushing the whole page
+   sideways — on a phone the numeric columns would otherwise be unreachable. */
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.table-scroll > table { min-width: 100%; }
+
+/* Notes read as separate entries without needing a box each. */
+.note + .note, .note + .adder { margin-top: 1.1rem; }
+.note { padding-top: 1.1rem; border-top: 1px solid var(--border); }
+.note:first-of-type { padding-top: 0; border-top: none; }
+.note-head { display: flex; align-items: baseline; gap: .6rem; margin-bottom: .3rem; }
+
+/* Reference photos. auto-fill (not auto-fit) keeps a single photo at thumbnail
+   size instead of blowing it across the whole card. */
+.gallery {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: .8rem;
+}
+.gal-item { margin: 0; }
+.gal-item img {
+  width: 100%; aspect-ratio: 1; object-fit: cover;
+  border-radius: 10px; border: 1px solid var(--border); display: block;
+}
+.gal-item figcaption { display: flex; align-items: center; gap: .2rem; margin-top: .3rem; }
+.gal-item figcaption form:first-child { flex: 1; min-width: 0; }
+.gal-item figcaption input {
+  padding: .2rem .35rem; font-size: .76rem;
+  background: transparent; border-color: transparent;
+}
+.gal-item figcaption input:hover, .gal-item figcaption input:focus {
+  background: var(--surface-2); border-color: var(--border);
+}
+
 /* Create fields belong to the dropdown above them, so they are indented under
    it rather than reading as another top-level field. */
 .new-fields {
@@ -1343,3 +1375,84 @@ a.nt-ic:hover { box-shadow:0 0 0 2px var(--accent); }
 /* Note textareas + department view tools */
 .fld > textarea, .pf-grid textarea, textarea[name="notes"] { width:100%; resize:vertical; min-height:2.6rem; }
 .wh-dept-tools { display:flex; align-items:center; gap:.6rem; margin-left:auto; }
+
+/* ---- Mobile: must stay last, see above ---- */
+
+/* The hamburger and its backdrop exist only below the breakpoint. */
+.nav-toggle, .nav-backdrop { display: none; }
+
+/* Touch, not width: a tablet, a phone and a touch laptop all need bigger
+   targets, while a narrow desktop window does not. The icon buttons in tables
+   are ~20px, well under the 44px that a fingertip reliably hits. */
+@media (pointer: coarse) {
+  button.link { min-width: 44px; min-height: 44px; padding: .5rem; }
+  .actions { display: flex; align-items: center; gap: .1rem; justify-content: flex-end; }
+  .act-btn { width: 42px; height: 42px; }
+  .sidebar nav a, .side-act { padding: .85rem .65rem; }
+  .grid.tight th, .grid.tight td { padding-top: .6rem; padding-bottom: .6rem; }
+  input, select, textarea { padding: .8rem .85rem; }
+  .qty-in { min-height: 42px; padding: .5rem .45rem; }
+  /* A summary is the only way into these panels, so it needs a real hit area. */
+  details.adder > summary { padding: .5rem 0; }
+  .gal-item figcaption input { min-height: 36px; }
+}
+
+/* Tablet: the cards keep wrapping their text into narrow ribbons at two
+   columns, so the second column only starts once there is real room for it. */
+@media (min-width: 721px) and (max-width: 1024px) {
+  main { padding: 1.4rem 1.25rem 4rem; }
+  .detail-grid { columns: 380px 2; }
+  .summary-cols { gap: 1.2rem 2rem; }
+}
+
+@media (max-width: 720px) {
+  /* Off-canvas drawer: the rail costs 64px of a 390px screen permanently, and
+     the icons are unlabelled at that width anyway. */
+  .sidebar,
+  :root[data-sidebar="open"] .sidebar {
+    width: var(--side-w-open);
+    transform: translateX(-100%);
+    transition: transform .18s ease;
+  }
+  :root[data-nav="open"] .sidebar { transform: none; }
+  /* Inside the drawer there is room for labels, whatever the desktop state. */
+  .sidebar .lbl, .brand-text { opacity: 1; }
+  /* The hamburger stays put and doubles as the close button, so the brand has
+     to start to the right of it instead of underneath. */
+  .brand { padding-left: 3.5rem; }
+  .brand .logo-box { display: none; }
+  .side-toggle { display: none; }  /* collapsing a drawer means nothing */
+
+  .content-wrap,
+  :root[data-sidebar="open"] .content-wrap { margin-left: 0; }
+  main { padding-top: 3.6rem; }    /* clear of the fixed hamburger */
+
+  .nav-toggle {
+    display: grid; place-items: center; position: fixed; z-index: 31;
+    top: .6rem; left: .7rem; width: 40px; height: 40px; padding: 0;
+    border-radius: 10px; background: var(--surface); border: 1px solid var(--border);
+  }
+  .nav-toggle svg {
+    width: 22px; height: 22px; fill: none; stroke: currentColor;
+    stroke-width: 2; stroke-linecap: round;
+  }
+  :root[data-nav="open"] .nav-backdrop {
+    display: block; position: fixed; inset: 0; z-index: 29;
+    background: rgba(0,0,0,.5);
+  }
+}
+
+@media (max-width: 700px) {
+  /* The head keeps its shape; only the picture shrinks, so the facts stay
+     readable instead of being pushed below a full-width photo. */
+  .project-head { grid-template-columns: 92px 1fr; gap: .9rem; }
+  .ph-image { aspect-ratio: 1; }
+  .ph-top h1 { font-size: 1.15rem; }
+  .ph-edit { grid-column: 1 / -1; width: 100%; }
+  .ph-facts { gap: .4rem 1.1rem; }
+  /* An item name must not break one word per line in a narrow first column. */
+  .fit-cols td:first-child { min-width: 13rem; }
+  .item-cell .row-img { width: 44px; height: 44px; }
+  .assign-row select { flex: 1 1 100%; }
+  .gallery { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: .5rem; }
+}
