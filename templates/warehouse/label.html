@@ -11,28 +11,25 @@
   <button type="button" class="btn" onclick="window.print()">{{ _('Print') }}</button>
 </div>
 
-{% if fmt == 'barcode' %}
-{# ---- 2 x 1 inch label: barcode left · identifier + name right ---- #}
+{# One 2x1in label for both formats — code on the left, text on the right. The
+   QR variant used to be a large sheet; since @page applies to the whole
+   document it inherited the 2x1 page size and spilled across three pages. #}
 <div class="label-2x1">
-  <div class="bc">{{ barcode|safe }}</div>
+  <div class="bc">
+    {% if fmt == 'barcode' %}{{ barcode|safe }}{% else %}<img src="{{ qr }}" alt="QR {{ code }}">{% endif %}
+  </div>
   <div class="l2-info">
     <div class="l2-code">{{ code }}</div>
     <div class="l2-name">{{ name }}</div>
     {% if subtitle %}<div class="l2-path">{{ subtitle }}</div>{% endif %}
   </div>
 </div>
+
 <p class="muted small no-print" style="text-align:center">
+  {% if fmt == 'barcode' %}
   {{ _('Code128 — reads') }} <code>{{ code }}</code> {{ _('on a handheld scanner. Use the QR code for phone-camera links.') }}
-</p>
-{% else %}
-<div class="label-sheet">
-  <img src="{{ qr }}" alt="QR {{ code }}">
-  <div class="label-code">{{ code }}</div>
-  <div class="label-name">{{ name }}</div>
-  {% if subtitle %}<div class="label-path">{{ subtitle }}</div>{% endif %}
-</div>
-<p class="muted small no-print" style="text-align:center">
+  {% else %}
   {{ _('Scanning opens') }}: <code>{{ scan_url }}</code>
+  {% endif %}
 </p>
-{% endif %}
 {% endblock %}
