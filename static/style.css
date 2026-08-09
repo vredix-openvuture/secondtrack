@@ -1361,7 +1361,10 @@ a.nt-ic:hover { box-shadow:0 0 0 2px var(--accent); }
   html, body, .content-wrap, main { margin:0 !important; padding:0 !important;
     background:#fff !important; width:auto !important; max-width:none !important;
     height:auto !important; }
-  .sidebar, .nav-toggle, .nav-backdrop, .no-print, .fab { display:none !important; }
+  .sidebar, .nav-toggle, .nav-backdrop, .no-print, .fab,
+  .bg-wallpaper, .bg-overlay { display:none !important; }
+  /* Force the code to be painted even with "print backgrounds" switched off. */
+  .label-2x1, .label-2x1 * { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   .label-2x1 { margin:0; border:none; border-radius:0; width:2in; height:1in; overflow:hidden; }
 }
 

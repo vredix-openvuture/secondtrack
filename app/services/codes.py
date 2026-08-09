@@ -119,3 +119,84 @@ def barcode_svg(payload: str) -> str:
         "write_text": False,     # the identifier is printed beside it
     })
     return buf.getvalue().decode("utf-8")
+
+
+# 2 x 1 inch at 203 dpi — the native resolution of the common thermal label
+# printers, so the image maps to printer dots one to one and needs no rescaling.
+LABEL_DPI = 203
+LABEL_W, LABEL_H = 2 * LABEL_DPI, 1 * LABEL_DPI
+_FONT = "static/fonts/fredoka.ttf"
+
+
+def label_png(payload: str, code: str, name: str, subtitle: str = "",
+              fmt: str = "qr") -> bytes:
+    """The finished 2x1in label as a bitmap.
+
+    A browser print goes through the OS driver, which is where these Bluetooth
+    thermal printers tend to lose the job and eject a blank label. A plain image
+    at the printer's own resolution sidesteps that: it prints from the vendor
+    app, from an image viewer, or straight through CUPS.
+    """
+    from PIL import Image, ImageDraw, ImageFont
+
+    pad = 10
+    im = Image.new("1", (LABEL_W, LABEL_H), 1)   # 1-bit: exactly what it prints
+    d = ImageDraw.Draw(im)
+
+    box = LABEL_H - 2 * pad
+    if fmt == "barcode":
+        art = Image.open(io.BytesIO(_barcode_png(code))).convert("1")
+        art = art.resize((int(box * 1.05), box), Image.NEAREST)
+    else:
+        art = Image.open(io.BytesIO(qr_png(payload, box_size=10, border=1))).convert("1")
+        art = art.resize((box, box), Image.NEAREST)
+    im.paste(art, (pad, pad))
+
+    x = pad + art.width + 12
+    avail = LABEL_W - x - pad
+    f_code = ImageFont.truetype(_FONT, 30)
+    f_name = ImageFont.truetype(_FONT, 21)
+    f_path = ImageFont.truetype(_FONT, 17)
+
+    def wrap(text, font, width, max_lines):
+        words, lines, cur = text.split(), [], ""
+        for w in words:
+            probe = f"{cur} {w}".strip()
+            if d.textlength(probe, font=font) <= width or not cur:
+                cur = probe
+            else:
+                lines.append(cur)
+                cur = w
+                if len(lines) == max_lines:
+                    break
+        if cur and len(lines) < max_lines:
+            lines.append(cur)
+        # Anything that did not fit is signalled rather than silently dropped.
+        if lines and len(" ".join(lines)) < len(text):
+            lines[-1] = lines[-1][: max(0, len(lines[-1]) - 1)] + "…"
+        return lines
+
+    y = pad
+    d.text((x, y), code, font=f_code, fill=0)
+    y += 34
+    for line in wrap(name or "", f_name, avail, 2):
+        d.text((x, y), line, font=f_name, fill=0)
+        y += 24
+    if subtitle:
+        d.text((x, LABEL_H - pad - 20), wrap(subtitle, f_path, avail, 1)[0],
+               font=f_path, fill=0)
+
+    buf = io.BytesIO()
+    im.save(buf, format="PNG", dpi=(LABEL_DPI, LABEL_DPI))
+    return buf.getvalue()
+
+
+def _barcode_png(payload: str) -> bytes:
+    import barcode
+    from barcode.writer import ImageWriter
+
+    buf = io.BytesIO()
+    barcode.get("code128", payload, writer=ImageWriter()).write(buf, options={
+        "module_height": 12.0, "quiet_zone": 1.0, "write_text": False,
+    })
+    return buf.getvalue()

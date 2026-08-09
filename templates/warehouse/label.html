@@ -8,6 +8,7 @@
     <a href="/label/{{ code }}?fmt=qr" class="{{ 'on' if fmt == 'qr' }}">{{ _('QR code') }}</a>
     <a href="/label/{{ code }}?fmt=barcode" class="{{ 'on' if fmt == 'barcode' }}">{{ _('Barcode') }}</a>
   </div>
+  <a class="btn ghost" href="/label/{{ code }}.png?fmt={{ fmt }}" download>⬇ PNG</a>
   <button type="button" class="btn" onclick="window.print()">{{ _('Print') }}</button>
 </div>
 
@@ -25,6 +26,9 @@
   </div>
 </div>
 
+<p class="muted small no-print" style="text-align:center">
+  {{ _('If the printer ejects a blank label, download the PNG and print that — it is already 2×1 inch at 203 dpi.') }}
+</p>
 <p class="muted small no-print" style="text-align:center">
   {% if fmt == 'barcode' %}
   {{ _('Code128 — reads') }} <code>{{ code }}</code> {{ _('on a handheld scanner. Use the QR code for phone-camera links.') }}

@@ -46,6 +46,36 @@ async def scan_resolve(
     return RedirectResponse("/warehouse?msg=Code not found", status_code=303)
 
 
+@router.get("/label/{code}.png")
+async def label_png(
+    code: str,
+    request: Request,
+    fmt: str = "qr",
+    db: Session = Depends(get_db),
+    user=Depends(require_login),
+):
+    """The label as a ready-to-print bitmap at the printer's own resolution.
+
+    Browser printing hands the job to the OS driver, which is where Bluetooth
+    thermal printers tend to eject a blank label. An image prints from the
+    vendor app or an image viewer without that pipeline in between."""
+    from fastapi.responses import Response
+
+    kind, obj = codes.resolve(db, code)
+    if obj is None:
+        return RedirectResponse("/warehouse?msg=Code not found", status_code=303)
+    subtitle = obj.path if kind == "location" else (
+        obj.location.path if getattr(obj, "location", None) else ""
+    )
+    png = codes.label_png(
+        f"{_base_url(request, db)}/s/{obj.code}", obj.code, obj.name, subtitle,
+        "barcode" if fmt == "barcode" else "qr",
+    )
+    return Response(png, media_type="image/png", headers={
+        "Content-Disposition": f'attachment; filename="{obj.code}.png"',
+    })
+
+
 @router.get("/label/{code}")
 async def label(
     code: str,

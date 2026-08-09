@@ -235,6 +235,8 @@ DE: dict[str, str] = {
     "Purchase receipt": "Kaufbeleg",
     "+ Link existing expense": "+ Vorhandene Ausgabe verknüpfen",
     "Items": "Objekte",
+    "If the printer ejects a blank label, download the PNG and print that — it is already 2×1 inch at 203 dpi.":
+        "Wenn der Drucker ein leeres Etikett auswirft: das PNG herunterladen und das drucken — es ist bereits 2×1 Zoll bei 203 dpi.",
     "+ Expense": "+ Ausgabe",
     "New expense": "Neue Ausgabe",
     "Create in warehouse": "Im Lager neu anlegen",
