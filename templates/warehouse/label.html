@@ -8,10 +8,17 @@
     <a href="/label/{{ code }}?fmt=qr" class="{{ 'on' if fmt == 'qr' }}">{{ _('QR code') }}</a>
     <a href="/label/{{ code }}?fmt=barcode" class="{{ 'on' if fmt == 'barcode' }}">{{ _('Barcode') }}</a>
   </div>
-  <a class="btn ghost" href="/label/{{ code }}.svg?fmt={{ fmt }}" download>⬇ SVG</a>
-  <a class="btn ghost" href="/label/{{ code }}.pdf?fmt={{ fmt }}" download>⬇ PDF</a>
-  <a class="btn ghost" href="/label/{{ code }}.png?fmt={{ fmt }}" download>⬇ PNG</a>
-  <button type="button" class="btn" onclick="window.print()">{{ _('Print') }}</button>
+  {# SVG first and prominent: on the printer this is used with, it is the only
+     path that produces a label. The others stay for other setups. #}
+  <a class="btn" href="/label/{{ code }}.svg?fmt={{ fmt }}" download>⬇ SVG</a>
+  <details class="adder" style="margin:0">
+    <summary class="btn ghost">{{ _('Other formats') }}</summary>
+    <div class="stack" style="position:absolute;z-index:5;background:var(--surface);padding:.6rem;border:1px solid var(--border);border-radius:10px">
+      <a class="btn ghost" href="/label/{{ code }}.pdf?fmt={{ fmt }}" download>⬇ PDF</a>
+      <a class="btn ghost" href="/label/{{ code }}.png?fmt={{ fmt }}" download>⬇ PNG</a>
+      <button type="button" class="btn ghost" onclick="window.print()">{{ _('Print from browser') }}</button>
+    </div>
+  </details>
 </div>
 
 {# One 2x1in label for both formats — code on the left, text on the right. The
@@ -29,7 +36,7 @@
 </div>
 
 <p class="muted small no-print" style="text-align:center">
-  {{ _('If printing from the browser fails, download the SVG and print it from Inkscape, or the PDF from any viewer — both are bindingly 2×1 inch.') }}
+  {{ _('Download the SVG and print it from a drawing program — it is bindingly 2×1 inch. Printing images through an image viewer produces a blank label on some thermal printers, whatever created the image.') }}
 </p>
 <p class="muted small no-print" style="text-align:center">
   {% if fmt == 'barcode' %}

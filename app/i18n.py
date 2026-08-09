@@ -235,6 +235,10 @@ DE: dict[str, str] = {
     "Purchase receipt": "Kaufbeleg",
     "+ Link existing expense": "+ Vorhandene Ausgabe verknüpfen",
     "Items": "Objekte",
+    "Other formats": "Andere Formate",
+    "Print from browser": "Aus dem Browser drucken",
+    "Download the SVG and print it from a drawing program — it is bindingly 2×1 inch. Printing images through an image viewer produces a blank label on some thermal printers, whatever created the image.":
+        "SVG herunterladen und aus einem Zeichenprogramm drucken — es ist verbindlich 2×1 Zoll. Bilder über einen Bildbetrachter zu drucken ergibt auf manchen Thermodruckern ein leeres Etikett, egal womit das Bild erzeugt wurde.",
     "If printing from the browser fails, download the SVG and print it from Inkscape, or the PDF from any viewer — both are bindingly 2×1 inch.":
         "Wenn der Druck aus dem Browser scheitert: SVG herunterladen und aus Inkscape drucken, oder das PDF aus einem beliebigen Betrachter — beide sind verbindlich 2×1 Zoll.",
     "If the printer ejects a blank label, download the PNG and print that — it is already 2×1 inch at 203 dpi.":
