@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import os
 import secrets
 
@@ -20,7 +21,11 @@ _CT = {
     "image/avif": ".avif",
 }
 _EXT = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif"}
-MAX_BYTES = 25 * 1024 * 1024  # 25 MB
+MAX_BYTES = 25 * 1024 * 1024  # 25 MB accepted from the browser
+MAX_EDGE = 1600               # longest side kept after compression
+WEBP_QUALITY = 82
+# A receipt is a document you have to read, so it keeps more detail.
+RECEIPT_EDGE = 2400
 
 
 def attempted(file: UploadFile | None) -> bool:
@@ -39,6 +44,36 @@ def _ext_for(file: UploadFile) -> str | None:
     return None
 
 
+def compress(data: bytes, ext: str, max_edge: int = MAX_EDGE) -> tuple[bytes, str]:
+    """Downscale to `max_edge` and re-encode as WebP.
+
+    A phone photo is 3-5 MB and gets shown at a few hundred pixels; storing the
+    original fills the data volume and every backup with nothing anyone sees.
+    Animated GIFs are left alone (a still frame would lose the animation), and
+    anything Pillow cannot read is passed through unchanged rather than lost.
+    Returns (bytes, extension).
+    """
+    if ext == ".gif":
+        return data, ext
+    try:
+        from PIL import Image
+
+        with Image.open(io.BytesIO(data)) as im:
+            im.load()
+            if getattr(im, "n_frames", 1) > 1:
+                return data, ext
+            # WebP has no CMYK/palette mode; RGB(A) covers both with alpha kept.
+            im = im.convert("RGBA" if "A" in im.getbands() else "RGB")
+            im.thumbnail((max_edge, max_edge), Image.LANCZOS)
+            out = io.BytesIO()
+            im.save(out, format="WEBP", quality=WEBP_QUALITY, method=4)
+        encoded = out.getvalue()
+    except Exception:  # noqa: BLE001 - an unreadable image is still the user's file
+        return data, ext
+    # A tiny PNG icon can come out larger as WebP; keep whichever is smaller.
+    return (encoded, ".webp") if len(encoded) < len(data) else (data, ext)
+
+
 def save_image(file: UploadFile | None, prefix: str) -> str | None:
     """Save an uploaded image and return its public URL path (/uploads/...).
 
@@ -53,6 +88,7 @@ def save_image(file: UploadFile | None, prefix: str) -> str | None:
     data = file.file.read(MAX_BYTES + 1)
     if not data or len(data) > MAX_BYTES:
         return None
+    data, ext = compress(data, ext)
 
     os.makedirs(settings.upload_dir, exist_ok=True)
     name = f"{prefix}-{secrets.token_hex(8)}{ext}"
@@ -96,6 +132,8 @@ def save_receipt(file: UploadFile | None, prefix: str = "receipt") -> str | None
     data = file.file.read(MAX_BYTES + 1)
     if not data or len(data) > MAX_BYTES:
         return None
+    if ext != ".pdf":  # a photographed receipt is a phone photo like any other
+        data, ext = compress(data, ext, RECEIPT_EDGE)
     os.makedirs(settings.upload_dir, exist_ok=True)
     name = f"{prefix}-{secrets.token_hex(8)}{ext}"
     with open(os.path.join(settings.upload_dir, name), "wb") as fh:
