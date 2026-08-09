@@ -349,6 +349,15 @@ textarea.md-field { font-family: inherit; resize: vertical; }
 }
 .set-member-full .img-square { width: 84px; height: 84px; }
 
+/* Dashboard scan widget: one big target. */
+.scan-big {
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:.5rem; padding:1.2rem; border:1px dashed var(--border); border-radius:14px;
+  color:var(--text); font-weight:600;
+}
+.scan-big svg { width:44px; height:44px; color:var(--accent); }
+.scan-big:hover { border-color:var(--accent); text-decoration:none; background:rgba(255,255,255,.04); }
+
 /* Notes read as separate entries without needing a box each. */
 .note + .note, .note + .adder { margin-top: 1.1rem; }
 .note { padding-top: 1.1rem; border-top: 1px solid var(--border); }

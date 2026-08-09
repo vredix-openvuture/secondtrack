@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Scan') }} · secondtrack{% endblock %}
+{% block content %}
+
+<div class="page-head"><h1>{{ _('Scan') }}</h1></div>
+
+<section class="card" style="max-width:640px">
+  {# Manual entry first: it works over plain HTTP, and a handheld USB/Bluetooth
+     scanner types the code and presses Enter — exactly this form. #}
+  <form method="get" action="/scan" class="row-form">
+    <input name="code" placeholder="{{ _('Code (e.g. PRT-ABCD) — or use a handheld scanner') }}" autofocus
+           autocomplete="off" autocapitalize="characters" spellcheck="false">
+    <button type="submit" class="primary">{{ _('Open') }}</button>
+  </form>
+  {% if not_found %}<p class="notice" style="margin-top:.6rem">{{ _('Code not found') }}: <code>{{ not_found }}</code></p>{% endif %}
+
+  <div id="camWrap" class="gaptop">
+    <button type="button" class="btn" id="camBtn" onclick="stScanStart()">📷 {{ _('Scan with camera') }}</button>
+    <p class="muted small" id="camHint" hidden></p>
+    <video id="camVideo" playsinline muted hidden
+           style="width:100%;border-radius:12px;margin-top:.6rem;border:1px solid var(--border)"></video>
+  </div>
+</section>
+
+<script>
+// Camera scanning via BarcodeDetector (Chrome/Android). Not a library —
+// external CDNs are the wrong dependency for a self-hosted tool, and the
+// manual field above covers every browser as a fallback.
+var stScanStream = null;
+function stScanHint(msg) {
+  var h = document.getElementById('camHint');
+  h.textContent = msg; h.hidden = false;
+}
+async function stScanStart() {
+  if (!window.isSecureContext) {
+    stScanHint('{{ _("Camera access needs HTTPS. Type the code above, or scan the QR with the phone camera app instead.") }}');
+    return;
+  }
+  if (!('BarcodeDetector' in window)) {
+    stScanHint('{{ _("This browser has no barcode detector (try Chrome). Type the code above instead.") }}');
+    return;
+  }
+  var video = document.getElementById('camVideo');
+  try {
+    stScanStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment' }, audio: false
+    });
+  } catch (e) {
+    stScanHint('{{ _("Camera not available or permission denied.") }}');
+    return;
+  }
+  video.srcObject = stScanStream;
+  video.hidden = false;
+  document.getElementById('camBtn').hidden = true;
+  await video.play();
+  var detector = new BarcodeDetector({ formats: ['qr_code', 'code_128'] });
+  var tick = async function () {
+    if (!stScanStream) return;
+    try {
+      var found = await detector.detect(video);
+      if (found.length) {
+        var raw = found[0].rawValue || '';
+        // A QR carries the full /s/<code> URL; a Code128 carries the raw code.
+        var m = raw.match(/\/s\/([A-Za-z0-9-]+)/);
+        var code = m ? m[1] : raw.trim();
+        if (code) {
+          stScanStop();
+          location.href = '/s/' + encodeURIComponent(code);
+          return;
+        }
+      }
+    } catch (e) { /* a frame that fails to decode is just the next frame */ }
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+function stScanStop() {
+  if (stScanStream) { stScanStream.getTracks().forEach(function (t) { t.stop(); }); stScanStream = null; }
+}
+window.addEventListener('pagehide', stScanStop);
+</script>
+{% endblock %}

@@ -90,7 +90,18 @@
           <a class="qa" href="/warehouse"><span class="qa-ico">📦</span><span>+ {{ _('Part') }}</span></a>
           <a class="qa" href="/hub"><span class="qa-ico">🧾</span><span>{{ _('Finances') }}</span></a>
           <a class="qa" href="/tasks"><span class="qa-ico">✅</span><span>{{ _('Tasks') }}</span></a>
+          <a class="qa" href="/scan"><span class="qa-ico">📷</span><span>{{ _('Scan') }}</span></a>
         </div>
+      </div>
+
+      {% elif w.key == "scan" %}
+      <div class="card widget scan-widget">
+        <h2><span class="wico">📷</span> {{ _('Scan') }}</h2>
+        {# The whole card is the target — on a tablet you aim, not squint. #}
+        <a class="scan-big" href="/scan">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><line x1="7" y1="12" x2="17" y2="12"/></svg>
+          <span>{{ _('Scan code') }}</span>
+        </a>
       </div>
 
       {% elif w.key == "logo" %}

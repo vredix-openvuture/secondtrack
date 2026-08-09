@@ -235,6 +235,17 @@ DE: dict[str, str] = {
     "Purchase receipt": "Kaufbeleg",
     "+ Link existing expense": "+ Vorhandene Ausgabe verknüpfen",
     "Items": "Objekte",
+    "Scan": "Scannen",
+    "Scan code": "Code scannen",
+    "Open": "Öffnen",
+    "Code (e.g. PRT-ABCD) — or use a handheld scanner": "Code (z.B. PRT-ABCD) — oder Handscanner verwenden",
+    "Scan with camera": "Mit Kamera scannen",
+    "Camera access needs HTTPS. Type the code above, or scan the QR with the phone camera app instead.":
+        "Kamerazugriff braucht HTTPS. Code oben eintippen, oder den QR mit der Kamera-App des Geräts scannen.",
+    "This browser has no barcode detector (try Chrome). Type the code above instead.":
+        "Dieser Browser hat keinen Barcode-Detektor (Chrome verwenden). Stattdessen den Code oben eintippen.",
+    "Camera not available or permission denied.":
+        "Kamera nicht verfügbar oder Zugriff verweigert.",
     "Print via server": "Über den Server drucken",
     "Label printer (CUPS queue)": "Etikettendrucker (CUPS-Warteschlange)",
     "CUPS server (empty = local)": "CUPS-Server (leer = lokal)",

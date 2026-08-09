@@ -26,6 +26,28 @@ def _base_url(request: Request, db: Session) -> str:
     return (configured or str(request.base_url)).rstrip("/")
 
 
+@router.get("/scan")
+async def scan_page(
+    request: Request,
+    code: str = "",
+    db: Session = Depends(get_db),
+    user=Depends(require_login),
+):
+    """In-app scanning: camera (BarcodeDetector, needs HTTPS) plus a manual
+    field that doubles as the input for handheld USB/Bluetooth scanners."""
+    code = code.strip()
+    if code:
+        kind, obj = codes.resolve(db, code)
+        if obj is not None:
+            return RedirectResponse(f"/s/{obj.code}", status_code=303)
+        return templates.TemplateResponse(
+            "scan.html", ctx(request, db, active="scan", not_found=code)
+        )
+    return templates.TemplateResponse(
+        "scan.html", ctx(request, db, active="scan", not_found="")
+    )
+
+
 @router.get("/s/{code}")
 async def scan_resolve(
     code: str,

@@ -26,9 +26,10 @@ ALL_WIDGETS = [
     ("orders", "Shop orders"),
     ("tasks", "Tasks"),
     ("quick", "Quick access"),
+    ("scan", "Scan"),
     ("logo", "Logo"),
 ]
-DEFAULT_WIDGETS = "welcome:4,finance:2,projects:2,warehouse:1,invoices:1,orders:2,tasks:1,quick:2"
+DEFAULT_WIDGETS = "welcome:4,finance:2,projects:2,warehouse:1,invoices:1,orders:2,tasks:1,quick:2,scan:1"
 
 
 def _enabled_widgets(db: Session) -> list[dict]:

@@ -595,10 +595,13 @@ function stScanFocus() {
   const el = document.getElementById("row-" + code) || document.getElementById("card-" + code);
   if (!el) return;
   el.classList.add("scan-focus");
-  const det = el.querySelector("details.inline-edit");
-  if (det) { det.open = true; stAttrLazy(det.querySelector(".attr-fields[data-cat]")); }
   el.scrollIntoView({ behavior: "smooth", block: "center" });
   setTimeout(() => el.classList.remove("scan-focus"), 2600);
+  // A scan means "show me THIS thing", so the object's editor opens directly.
+  // Every row names its opener on the title, which routes to the right editor
+  // per object type (part / lot / WIP / finished good).
+  const opener = el.querySelector(".nt-title, .pcard-nm");
+  if (opener) opener.click();
 }
 
 (function () {
