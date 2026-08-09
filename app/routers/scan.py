@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from ..auth import require_login
 from ..db import get_db, get_setting
 from ..services import codes
+from ..services import printing
 from ..templating import ctx, templates
 
 router = APIRouter()
@@ -55,6 +56,31 @@ def _label_parts(db, code: str, request):
         obj.location.path if getattr(obj, "location", None) else ""
     )
     return obj, f"{_base_url(request, db)}/s/{obj.code}", subtitle
+
+
+@router.post("/label/{code}/print")
+async def label_print(
+    code: str,
+    request: Request,
+    fmt: str = "qr",
+    db: Session = Depends(get_db),
+    user=Depends(require_login),
+):
+    """Print the label server-side via CUPS. The browser never renders anything
+    here — its print pipeline is exactly what blanked labels on the D520 — so
+    this works the same from a tablet as from a desktop."""
+    from ..services import printing
+
+    parts = _label_parts(db, code, request)
+    if parts is None:
+        return RedirectResponse("/warehouse?msg=Code not found", status_code=303)
+    obj, url, subtitle = parts
+    fmt = "barcode" if fmt == "barcode" else "qr"
+    pdf = codes.label_pdf(url, obj.code, obj.name, subtitle, fmt)
+    ok, msg = printing.print_pdf(db, pdf, obj.code)
+    return RedirectResponse(
+        f"/label/{obj.code}?fmt={fmt}&msg={msg}", status_code=303
+    )
 
 
 @router.get("/label/{code}.svg")
@@ -158,6 +184,6 @@ async def label(
             request, db, active="warehouse",
             code=obj.code, name=name, subtitle=subtitle, kind=kind, fmt=fmt,
             qr=codes.qr_data_uri(url), barcode=codes.barcode_svg(obj.code),
-            scan_url=url,
+            scan_url=url, print_ready=bool(printing.queue(db)),
         ),
     )

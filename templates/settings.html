@@ -19,6 +19,15 @@
     <label>{{ _('Default hourly rate') }}<input name="hourly_rate" value="{{ hourly_rate }}" inputmode="decimal"></label>
     <label>{{ _('Currency symbol') }}<input name="currency" value="{{ currency }}" maxlength="4"></label>
     <label>{{ _('Public base URL (for scan labels)') }}<input name="public_base_url" value="{{ public_base_url }}" placeholder="https://secondtrack.example.com"></label>
+    {# Server-side label printing: the app submits to CUPS itself, so the
+       browser's print pipeline — which blanks labels on some drivers — is
+       never involved, and printing works from a tablet too. #}
+    <div class="row-form">
+      <label>{{ _('Label printer (CUPS queue)') }}<input name="label_print_queue" value="{{ label_print_queue }}" placeholder="D520"></label>
+      <label>{{ _('CUPS server (empty = local)') }}<input name="label_print_host" value="{{ label_print_host }}" placeholder="192.168.1.10:631"></label>
+      <label>{{ _('Label media (PPD name)') }}<input name="label_print_media" value="{{ label_print_media }}" placeholder="w144h72 (2×1&quot;)"></label>
+    </div>
+    <p class="muted small">{{ _('The machine the printer is attached to must share it: cupsctl --share-printers, and mark the queue shared. List media names with: lpoptions -p <queue> -l') }}</p>
     <button type="submit" class="primary">{{ _('Save') }}</button>
   </form>
 </section>

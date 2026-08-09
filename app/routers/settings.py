@@ -63,6 +63,9 @@ async def settings_page(
             hourly_rate=get_setting(db, "hourly_rate", "0"),
             currency=get_setting(db, "currency", app_settings.currency),
             public_base_url=get_setting(db, "public_base_url", "") or "",
+            label_print_host=get_setting(db, "label_print_host", "") or "",
+            label_print_queue=get_setting(db, "label_print_queue", "") or "",
+            label_print_media=get_setting(db, "label_print_media", "") or "",
             languages=LANGUAGES,
             current_lang=get_setting(db, "language", DEFAULT_LANG) or DEFAULT_LANG,
             rt=rt,
@@ -109,6 +112,9 @@ async def update_general(
     currency: str = Form("€"),
     language: str = Form(DEFAULT_LANG),
     public_base_url: str = Form(""),
+    label_print_host: str = Form(""),
+    label_print_queue: str = Form(""),
+    label_print_media: str = Form(""),
     db: Session = Depends(get_db),
     user: User = Depends(require_login),
 ):
@@ -121,6 +127,9 @@ async def update_general(
     set_setting(db, "currency", currency.strip() or "€")
     set_setting(db, "language", language if language in LANGUAGES else DEFAULT_LANG)
     set_setting(db, "public_base_url", public_base_url.strip())
+    set_setting(db, "label_print_host", label_print_host.strip())
+    set_setting(db, "label_print_queue", label_print_queue.strip())
+    set_setting(db, "label_print_media", label_print_media.strip())
     return RedirectResponse("/settings?tab=general&msg=Saved", status_code=303)
 
 

@@ -235,6 +235,14 @@ DE: dict[str, str] = {
     "Purchase receipt": "Kaufbeleg",
     "+ Link existing expense": "+ Vorhandene Ausgabe verknüpfen",
     "Items": "Objekte",
+    "Label printer (CUPS queue)": "Etikettendrucker (CUPS-Warteschlange)",
+    "CUPS server (empty = local)": "CUPS-Server (leer = lokal)",
+    "Label media (PPD name)": "Etikettenformat (PPD-Name)",
+    "The machine the printer is attached to must share it: cupsctl --share-printers, and mark the queue shared. List media names with: lpoptions -p <queue> -l":
+        "Der Rechner am Drucker muss ihn freigeben: cupsctl --share-printers, und die Warteschlange als geteilt markieren. Formatnamen auflisten mit: lpoptions -p <queue> -l",
+    "Set up printer": "Drucker einrichten",
+    "Configure the label printer in Settings to print directly.":
+        "Etikettendrucker in den Einstellungen konfigurieren, um direkt zu drucken.",
     "Other formats": "Andere Formate",
     "Print from browser": "Aus dem Browser drucken",
     "Download the SVG and print it from a drawing program — it is bindingly 2×1 inch. Printing images through an image viewer produces a blank label on some thermal printers, whatever created the image.":
