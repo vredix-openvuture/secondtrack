@@ -1336,17 +1336,23 @@ a.nt-ic:hover { box-shadow:0 0 0 2px var(--accent); }
 .label-2x1 {
   width:2in; height:1in; box-sizing:border-box; margin:2rem auto;
   background:#fff; color:#111; border:1px solid #ccc; border-radius:4px;
-  display:flex; align-items:center; gap:2.5mm; padding:1.6mm 2mm;
+  display:flex; align-items:stretch; gap:1.5mm; padding:1.2mm;
 }
-/* The slot takes only the width its code needs — a square QR is narrower than
-   a Code128, and the difference belongs to the name. */
+/* The code fills the label height — on a 2x1in sticker the readable area is
+   the whole sticker, and a small code centred in white space is what made it
+   look wrong. */
 .label-2x1 .bc { flex:0 0 auto; display:flex; align-items:center; justify-content:center; }
-.label-2x1 .bc svg { width:0.95in !important; height:auto !important; max-height:0.8in; display:block; }
-.label-2x1 .bc img { width:0.8in; height:0.8in; display:block; image-rendering:pixelated; }
-.label-2x1 .l2-info { flex:1; min-width:0; display:flex; flex-direction:column; justify-content:center; gap:0.5mm; overflow:hidden; }
-.label-2x1 .l2-code { font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace; font-weight:700; font-size:10pt; letter-spacing:.01em; line-height:1.05; white-space:nowrap; }
-.label-2x1 .l2-name { font-size:8.5pt; line-height:1.15; overflow:hidden; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; }
-.label-2x1 .l2-path { font-size:7pt; color:#555; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.label-2x1 .bc img { width:0.88in; height:0.88in; display:block; image-rendering:pixelated; }
+.label-2x1 .bc svg { width:0.9in !important; height:0.88in !important; display:block; }
+/* Text starts at the top instead of floating in the middle, so a one-line name
+   does not leave the label looking half empty. */
+.label-2x1 .l2-info {
+  flex:1; min-width:0; display:flex; flex-direction:column;
+  justify-content:flex-start; gap:0.4mm; overflow:hidden; padding-top:0.4mm;
+}
+.label-2x1 .l2-code { font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace; font-weight:700; font-size:11pt; letter-spacing:.01em; line-height:1.05; white-space:nowrap; }
+.label-2x1 .l2-name { font-size:8pt; line-height:1.15; overflow:hidden; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; }
+.label-2x1 .l2-path { font-size:6.5pt; color:#444; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:auto; }
 @media print {
   @page { size:2in 1in; margin:0; }
   /* Everything that is not the label has to be gone, and nothing may exceed
