@@ -235,6 +235,7 @@ DE: dict[str, str] = {
     "Purchase receipt": "Kaufbeleg",
     "+ Link existing expense": "+ Vorhandene Ausgabe verknüpfen",
     "Items": "Objekte",
+    "Print via server": "Über den Server drucken",
     "Label printer (CUPS queue)": "Etikettendrucker (CUPS-Warteschlange)",
     "CUPS server (empty = local)": "CUPS-Server (leer = lokal)",
     "Label media (PPD name)": "Etikettenformat (PPD-Name)",
