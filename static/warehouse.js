@@ -105,9 +105,12 @@ function stShowModalImage(scope, url) {
 
 // Fetch a category's field schema and render inputs into `container`, keeping
 // any current values passed in `preset` (key → value).
-async function stLoadAttrFields(container, catId, preset) {
+// `prefix` lets a set-member row scope its inputs (part_attr_<i>_<key>) so N
+// rows with N different categories do not collide in one form.
+async function stLoadAttrFields(container, catId, preset, prefix) {
   if (!container) return;
   preset = preset || {};
+  prefix = prefix || "attr_";
   if (!catId) { container.innerHTML = ""; return; }
   container.innerHTML = '<p class="muted small">…</p>';
   let fields = [];
@@ -118,7 +121,7 @@ async function stLoadAttrFields(container, catId, preset) {
   if (!fields.length) { container.innerHTML = ""; return; }
   container.innerHTML = "";
   fields.forEach((f) => {
-    const name = "attr_" + f.key;
+    const name = prefix + f.key;
     const val = preset[f.key];
     const lbl = document.createElement("label");
     lbl.className = "attr-field";
@@ -142,6 +145,8 @@ async function stLoadAttrFields(container, catId, preset) {
       inner = head + '<input name="' + name + '" value="' + stEsc(val) + '">';
     }
     lbl.innerHTML = inner;
+    const inp = lbl.querySelector("input, select");
+    if (inp) inp.dataset.attrKey = f.key;
     container.appendChild(lbl);
   });
 }
@@ -452,17 +457,38 @@ function stSetRemovePart(partId) {
 }
 
 // ---- New set (purchase lot) ----
+// A lot member is a full product, so the row is the product form — cloned from
+// the server-rendered template rather than assembled from strings here.
 function stNewSetAddRow() {
   const box = document.getElementById("newSetParts");
-  if (!box) return;
-  const row = document.createElement("div");
-  row.className = "set-member";
-  row.innerHTML =
-    '<input name="part_name" placeholder="' + (window.ST_PARTNAME || "Part name") + '">' +
-    '<input name="part_sale" class="r" inputmode="decimal" placeholder="' + (window.ST_SALE || "Sale") + '" style="max-width:130px">' +
-    '<button type="button" class="act-btn danger" onclick="this.closest(\'.set-member\').remove()"><svg class="ic"><use href="#ic-x"/></svg></button>';
-  box.appendChild(row);
-  row.querySelector("input").focus();
+  const tpl = document.getElementById("setMemberTpl");
+  if (!box || !tpl) return;
+  box.appendChild(tpl.content.cloneNode(true));
+  const row = box.lastElementChild;
+  if (window.stWrapPricesIn) stWrapPricesIn(row);
+  const first = row.querySelector('input[name="part_name"]');
+  if (first) first.focus();
+}
+
+// Category picked on one member row: load that category's fields into this row
+// only, named for this row's position.
+function stSetMemberCat(sel) {
+  const row = sel.closest(".set-member-full");
+  if (!row) return;
+  const rows = Array.from(row.parentNode.children);
+  stLoadAttrFields(row.querySelector(".attr-fields"), sel.value, {},
+                   "part_attr_" + rows.indexOf(row) + "_");
+}
+
+// Removing a row shifts every later row's position, so the per-row field names
+// are rewritten just before the form is submitted.
+function stNumberSetMembers(form) {
+  form.querySelectorAll(".set-member-full").forEach((row, i) => {
+    row.querySelectorAll("[data-attr-key]").forEach((el) => {
+      el.name = "part_attr_" + i + "_" + el.dataset.attrKey;
+    });
+  });
+  return true;
 }
 function stToggleSetFree(cb) {
   const wrap = document.getElementById("nsReceiptWrap");

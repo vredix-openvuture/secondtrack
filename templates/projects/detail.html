@@ -146,14 +146,16 @@
 
   {# Nothing is created here: items live in the warehouse and are picked from
      it, so a purchase is booked once and in one place. #}
+  {# Creating a new item is the same intent as picking one, so it is the last
+     entry of the same list rather than a button standing next to it. #}
   <form method="post" action="/projects/{{ project.id }}/items/assign" class="assign-row">
-    <select name="item" required>
+    <select name="item" required onchange="stItemPick(this, '/warehouse?for_project={{ project.id }}')">
       <option value="" disabled selected>{{ _('Pick from warehouse…') }}</option>
       {% for a in assignable_items %}<option value="{{ a.value }}">{{ a.label }}{% if a.stock and a.stock > 1 %} · {{ a.stock }} {{ _('in stock') }}{% endif %}{% if a.sale %} ({{ a.sale|money }} {{ currency }}){% endif %}</option>{% endfor %}
+      <option value="__new">+ {{ _('Create in warehouse') }}…</option>
     </select>
     <input type="number" name="qty" value="1" min="1" step="1" inputmode="numeric" class="qty-in" aria-label="{{ _('Qty') }}" title="{{ _('Qty') }}">
     <button type="submit" class="primary">{{ _('Assign') }}</button>
-    <a class="btn ghost" href="/warehouse?for_project={{ project.id }}" title="{{ _('Create it in the warehouse, assigned to this project') }}">+ {{ _('New') }}</a>
   </form>
   <p class="muted small">{{ _('Its purchase expense is linked to this project for traceability and stays listed under Expenses.') }}</p>
 </section>
@@ -358,31 +360,32 @@
       </table>
       {% else %}<p class="muted">{{ _('No expenses yet.') }}</p>{% endif %}
 
-      {% if assignable_expenses %}
+      {# One way in, not two buttons for the same intent: pick an expense that
+         already exists, or switch the same form over to creating one. #}
       <details class="adder">
-        <summary>{{ _('+ Link existing expense') }}</summary>
-        <form method="post" action="/projects/{{ project.id }}/expenses/assign" class="row-form">
-          <select name="expense_id" required>
-            <option value="" disabled selected>{{ _('Choose expense…') }}</option>
-            {% for e in assignable_expenses %}<option value="{{ e.id }}">{{ e.expense_date.isoformat() }} · {{ e.name or e.vendor or e.description or _('Expense') }} · {{ e.amount|money }} {{ currency }}</option>{% endfor %}
-          </select>
-          <button type="submit">{{ _('Link') }}</button>
-        </form>
-      </details>
-      {% endif %}
-
-      <details class="adder">
-        <summary>{{ _('+ Add expense') }}</summary>
-        <form method="post" action="/expenses" enctype="multipart/form-data" class="stack">
+        <summary>{{ _('+ Expense') }}</summary>
+        <form method="post" action="/projects/{{ project.id }}/expenses/assign"
+              enctype="multipart/form-data" class="stack" id="expAdd"
+              data-link-action="/projects/{{ project.id }}/expenses/assign"
+              data-new-action="/expenses">
           <input type="hidden" name="project_id" value="{{ project.id }}">
-          <div class="row-form">
-            <input name="amount" placeholder="{{ _('Amount') }}" inputmode="decimal" required>
-            <input type="date" name="expense_date" value="{{ today }}">
+          <select id="expPick" onchange="stExpenseMode()">
+            {% for e in assignable_expenses %}<option value="{{ e.id }}">{{ e.expense_date.isoformat() }} · {{ e.name or e.vendor or e.description or _('Expense') }} · {{ e.amount|money }} {{ currency }}</option>{% endfor %}
+            <option value="__new" {{ 'selected' if not assignable_expenses }}>+ {{ _('New expense') }}…</option>
+          </select>
+          {# The unused branch is disabled, so it neither submits nor blocks on
+             a required field it is not showing. #}
+          <input type="hidden" name="expense_id" id="expId">
+          <div class="stack new-fields" id="expNewFields" hidden>
+            <div class="row-form">
+              <input name="amount" placeholder="{{ _('Amount') }}" inputmode="decimal" required disabled>
+              <input type="date" name="expense_date" value="{{ today }}" disabled>
+            </div>
+            <input name="vendor" placeholder="{{ _('Vendor') }}" disabled>
+            <input name="category" placeholder="{{ _('Category') }}" disabled>
+            <label class="file-field">{{ _('Receipt (PDF/image, required)') }}<input type="file" name="receipt" accept="application/pdf,image/*" required disabled onchange="stPreview(this)"></label>
           </div>
-          <input name="vendor" placeholder="{{ _('Vendor') }}">
-          <input name="category" placeholder="{{ _('Category') }}">
-          <label class="file-field">{{ _('Receipt (PDF/image, required)') }}<input type="file" name="receipt" accept="application/pdf,image/*" required onchange="stPreview(this)"></label>
-          <button type="submit" class="primary">{{ _('Save') }}</button>
+          <button type="submit" class="primary" id="expSubmit">{{ _('Add') }}</button>
         </form>
       </details>
     </section>

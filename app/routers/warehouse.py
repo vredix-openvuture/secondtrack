@@ -58,6 +58,18 @@ def _fk(value: str | None) -> int | None:
     return _parse_int(value)
 
 
+class _RowForm:
+    """Presents one set-member row's fields under the plain names the attribute
+    extractor expects: it asks for `attr_<key>`, the row submitted them as
+    `part_attr_<row>_<key>` so that N rows with N categories stay apart."""
+
+    def __init__(self, form, prefix: str):
+        self._form, self._prefix = form, prefix
+
+    def get(self, name, default=None):
+        return self._form.get(self._prefix + name.removeprefix("attr_"), default)
+
+
 def _set_members(
     part_name, part_sale, part_purchase, part_note, part_image, part_receipt=None
 ) -> list[dict]:
@@ -849,6 +861,7 @@ async def stock_from_project(
 
 @router.post("/set")
 async def create_set(
+    request: Request,
     name: str = Form(...),
     purchase_price: str = Form(""),
     location_id: str = Form(""),
@@ -857,12 +870,23 @@ async def create_set(
     image: UploadFile | None = File(None),
     part_name: list[str] = Form(default=[]),
     part_sale: list[str] = Form(default=[]),
+    part_qty: list[str] = Form(default=[]),
+    part_note: list[str] = Form(default=[]),
+    part_category: list[str] = Form(default=[]),
+    part_condition: list[str] = Form(default=[]),
+    part_supplier: list[str] = Form(default=[]),
+    part_location: list[str] = Form(default=[]),
+    part_image: list[UploadFile] = File(default=[]),
     db: Session = Depends(get_db),
     user=Depends(require_login),
 ):
-    """Create a purchase-lot set directly (bought together, one invoice). The
-    set carries the total EK; its member parts are auto-created with their own
-    VK but NO individual EK. Member parts stay available in Single parts."""
+    """Create a purchase-lot set directly (bought together, one invoice).
+
+    A member of a lot is a full warehouse product, not just a name: it carries
+    its own category (with that category's fields), condition, supplier,
+    location, quantity, image and note, exactly like a part created on its own.
+    The set holds the total EK — individual purchase prices would double-count
+    the same invoice — and it is split across the members by sale value."""
     is_free = free.strip().lower() in ("1", "on", "true", "yes")
     total = _parse_float(purchase_price) or 0.0
     rpath = None if is_free else save_receipt(receipt, "receipt")
@@ -892,15 +916,43 @@ async def create_set(
     )
     db.add(ps)
     db.flush()
-    for i, nm in enumerate(part_name):
-        if not nm.strip():
-            continue
-        sale = _parse_float(part_sale[i]) if i < len(part_sale) else None
+
+    def pick(seq, i):
+        return seq[i] if i < len(seq) else ""
+
+    form = await request.form()
+    rows = [(i, nm) for i, nm in enumerate(part_name) if nm.strip()]
+    # The lot total is split by sale value, so each member carries its share of
+    # the one invoice instead of an invented price of its own.
+    sales = [_parse_float(pick(part_sale, i)) or 0.0 for i, _ in rows]
+    costs = _allocate(total, sales)
+
+    for pos, (i, nm) in enumerate(rows):
+        cat_id = _fk(pick(part_category, i))
+        category = db.get(Category, cat_id) if cat_id else None
+        img = None
+        if i < len(part_image) and part_image[i] is not None and part_image[i].filename:
+            img, _ = save_image_or_error(part_image[i], "part")
+        qty = max(1, int(_parse_float(pick(part_qty, i)) or 1))
+        cost = costs[pos] if pos < len(costs) else 0.0
         db.add(Part(
-            name=nm.strip(), set_id=ps.id, project_id=None, device_id=None,
-            origin=PartOrigin.purchased, purchase_price=None,
-            sale_price=sale or 0.0, quantity=1, location_id=loc,
-            code=codes.generate(db, "part"),
+            name=nm.strip(),
+            notes=(pick(part_note, i) or "").strip() or None,
+            set_id=ps.id, project_id=None, device_id=None,
+            origin=PartOrigin.purchased,
+            # Prices are per unit; the allocated share covers the whole row.
+            purchase_price=(cost / qty) if cost else None,
+            sale_price=(sales[pos] / qty) if sales[pos] else 0.0,
+            quantity=qty,
+            image_path=img,
+            category_id=cat_id,
+            condition=(pick(part_condition, i) or "").strip() or None,
+            supplier_id=_fk(pick(part_supplier, i)),
+            location_id=_fk(pick(part_location, i)) or loc,
+            # Row-scoped names (part_attr_<pos>_<key>) keep N categories apart.
+            attributes=wh.extract_attributes(category, _RowForm(form, f"part_attr_{pos}_")),
+            source_expense_id=exp_id,
+            code=codes.generate(db, codes.part_prefix(category)),
         ))
     db.commit()
     return RedirectResponse(f"/warehouse?view=sets&focus={ps.code}", status_code=303)

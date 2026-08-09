@@ -341,6 +341,14 @@ textarea.md-field { font-family: inherit; resize: vertical; }
 .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .table-scroll > table { min-width: 100%; }
 
+/* A lot member is a full product form, so it needs to read as its own block
+   rather than a row in a list. */
+.set-member-full {
+  border: 1px solid var(--border); border-radius: 14px;
+  padding: 1rem; margin-bottom: .8rem; background: rgba(0,0,0,.14);
+}
+.set-member-full .img-square { width: 84px; height: 84px; }
+
 /* Notes read as separate entries without needing a box each. */
 .note + .note, .note + .adder { margin-top: 1.1rem; }
 .note { padding-top: 1.1rem; border-top: 1px solid var(--border); }
@@ -465,14 +473,20 @@ table.grid tr.sum td { font-weight: 700; border-top: 2px solid var(--border-stro
 .table-wrap > table.grid thead tr { background: rgba(0,0,0,.18); }
 .table-wrap > table.grid th:first-child, .table-wrap > table.grid td:first-child { padding-left: 1.25rem; }
 .table-wrap > table.grid th:last-child, .table-wrap > table.grid td:last-child { padding-right: 1.25rem; }
-@media (max-width: 720px) { .table-wrap { overflow-x: auto; } }
+/* Horizontal scroll at every width. `overflow: hidden` above is only there to
+   clip the rounded corners, but it also silently cut off the right-hand columns
+   on anything narrower than the table — a tablet in portrait lost them without
+   any way to reach them. */
+.table-wrap { overflow-x: auto; overflow-y: hidden; }
 td.actions { white-space: nowrap; text-align: right; }
 td.actions form { display: inline-block; margin: 0; vertical-align: middle; }
 td.actions > a, td.actions > span, td.actions > button { vertical-align: middle; }
 td.actions > * + * { margin-left: .3rem; }
 
 /* Badges */
-.badge { display: inline-block; padding: .15rem .55rem; border-radius: 999px; font-size: .75rem; font-weight: 600; }
+/* nowrap: a status pill that breaks mid-word into two lines reads as damage,
+   and there is always room to widen the column instead. */
+.badge { display: inline-block; padding: .15rem .55rem; border-radius: 999px; font-size: .75rem; font-weight: 600; white-space: nowrap; }
 .badge.in_production { background: var(--blue-deep); color: #fff; }                        /* Prussian Blue — open/active */
 .badge.archived { background: rgba(0,0,0,.30); color: var(--muted); }                       /* neutral — done/stored */
 .badge.sold { background: color-mix(in srgb, var(--pos) 26%, transparent); color: #fff; }   /* green — invoiced/sold */
@@ -1403,6 +1417,38 @@ a.nt-ic:hover { box-shadow:0 0 0 2px var(--accent); }
   main { padding: 1.4rem 1.25rem 4rem; }
   .detail-grid { columns: 380px 2; }
   .summary-cols { gap: 1.2rem 2rem; }
+}
+
+/* Below desktop, a table gets the width its content needs and the container
+   scrolls. Squeezing it instead is what broke names into one word per line. */
+@media (max-width: 1024px) {
+  .table-scroll > table { width: max-content; min-width: 100%; }
+  .ntbl { min-width: 760px; }
+  /* The name column carries the most text, so it needs a floor of its own —
+     the others are numbers and shrink harmlessly. */
+  .ntbl td:first-child, .table-scroll table td:first-child { min-width: 15rem; }
+  .grid.view-list td, .grid.view-list th { white-space: nowrap; }
+  .grid.view-list td:first-child { white-space: normal; }
+
+  /* Bigger imagery: these are things you identify by sight, and a 40px square
+     at arm's length is a smudge. Tied to width as well as to pointer:coarse
+     below, so it also applies when a desktop window is simply narrowed. */
+  .row-img { width: 56px; height: 56px; border-radius: 8px; }
+  .row-thumb { width: 56px; height: 56px; }
+  table.grid td.thumb-cell { width: 68px; }
+  .nt-ic { width: 64px; height: 64px; }
+  .item-cell .row-img { width: 72px; height: 72px; }
+  .gallery { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+}
+
+/* Same sizing for a touch device of any width — a large tablet in landscape is
+   past 1024px but still operated with a finger. */
+@media (pointer: coarse) {
+  .row-img { width: 56px; height: 56px; border-radius: 8px; }
+  .row-thumb { width: 56px; height: 56px; }
+  table.grid td.thumb-cell { width: 68px; }
+  .nt-ic { width: 64px; height: 64px; }
+  .item-cell .row-img { width: 72px; height: 72px; }
 }
 
 @media (max-width: 720px) {

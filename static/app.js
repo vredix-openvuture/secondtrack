@@ -273,6 +273,33 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 });
 
+// Picking "create in warehouse" is a navigation, not a submit — the item does
+// not exist yet, so there is nothing to assign.
+function stItemPick(sel, url) {
+  if (sel.value === '__new') location.href = url;
+}
+
+// One expense control instead of "link existing" and "add new" side by side.
+// The same form either assigns the picked expense or creates one; the branch
+// that is not in use is disabled so it neither submits nor blocks validation.
+function stExpenseMode() {
+  var sel = document.getElementById('expPick');
+  var form = document.getElementById('expAdd');
+  if (!sel || !form) return;
+  var creating = sel.value === '__new';
+  var box = document.getElementById('expNewFields');
+  box.hidden = !creating;
+  box.querySelectorAll('input').forEach(function (i) { i.disabled = !creating; });
+  document.getElementById('expId').value = creating ? '' : sel.value;
+  document.getElementById('expId').disabled = creating;
+  form.action = creating ? form.dataset.newAction : form.dataset.linkAction;
+  if (creating) {
+    var first = box.querySelector('input');
+    if (first) first.focus();
+  }
+}
+document.addEventListener('DOMContentLoaded', stExpenseMode);
+
 // A "+ New …" entry inside a dropdown reveals that dropdown's create fields,
 // so picking an existing one and adding one are the same control.
 function stPickNew(sel, fieldsId) {

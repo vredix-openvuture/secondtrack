@@ -636,7 +636,7 @@
 <div class="modal-backdrop" id="newSet">
   <div class="modal modal-wide">
     <div class="modal-head"><h2>{{ _('New set') }}</h2><button class="modal-close" onclick="stCloseModal(this)">×</button></div>
-    <form method="post" action="/warehouse/set" enctype="multipart/form-data">
+    <form method="post" action="/warehouse/set" enctype="multipart/form-data" onsubmit="return stNumberSetMembers(this)">
       <div class="pf-top">
         <label class="img-square" title="{{ _('Choose image') }}">
           <input type="file" name="image" accept="image/*" onchange="stImgSquare(this)">
@@ -652,9 +652,59 @@
           </div>
         </div>
       </div>
-      <p class="muted small gaptop">{{ _('Add the parts contained in the set — each with its own sale price. The purchase price is the set total (one invoice); parts have no individual purchase price.') }}</p>
+      <p class="muted small gaptop">{{ _('Add the parts contained in the set. Each one is a full product — it lands in the warehouse like any other. The purchase price is the set total (one invoice), split across the parts by sale value.') }}</p>
       <div class="set-members" id="newSetParts"></div>
       <button type="button" class="btn small ghost gaptop" onclick="stNewSetAddRow()">＋ {{ _('Add part') }}</button>
+
+      {# The member row is rendered here, not built in JS, so its category,
+         supplier and location dropdowns carry the real options and the labels
+         stay translatable. A member of a lot is a full product. #}
+      <template id="setMemberTpl">
+        <div class="set-member-full">
+          <div class="pf-top">
+            <label class="img-square" title="{{ _('Choose image') }}">
+              <input type="file" name="part_image" accept="image/*" onchange="stImgSquare(this)">
+              <span class="is-ph"><svg class="ic ph-ic"><use href="#ic-image"/></svg></span>
+            </label>
+            <div class="pf-fields">
+              <label class="fld">{{ _('Name') }}<input name="part_name" placeholder="z.B. GTX 1060 6GB"></label>
+              <div class="pf-grid">
+                <label class="fld">{{ _('Sale price') }}<span class="price-field" data-cur="{{ currency }}"><input name="part_sale" inputmode="decimal"></span></label>
+                <label class="fld">{{ _('Quantity') }}<input name="part_qty" inputmode="numeric" value="1"></label>
+              </div>
+            </div>
+            <button type="button" class="act-btn danger" onclick="this.closest('.set-member-full').remove()" title="{{ _('Remove') }}"><svg class="ic"><use href="#ic-x"/></svg></button>
+          </div>
+          <div class="pf-grid gaptop">
+            <label class="fld">{{ _('Category') }}
+              <select name="part_category" onchange="stSetMemberCat(this)">
+                <option value="">{{ _('No category') }}</option>
+                {% for c in categories %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}
+              </select>
+            </label>
+            <label class="fld">{{ _('Condition') }}
+              <select name="part_condition">
+                <option value="">—</option>
+                {% for cv in ['new','used','refurbished','defective'] %}<option value="{{ cv }}">{{ _(cv|capitalize) }}</option>{% endfor %}
+              </select>
+            </label>
+            <label class="fld">{{ _('Supplier') }}
+              <select name="part_supplier">
+                <option value="">{{ _('No supplier') }}</option>
+                {% for su in suppliers %}<option value="{{ su.id }}">{{ su.name }}</option>{% endfor %}
+              </select>
+            </label>
+            <label class="fld">{{ _('Location') }}
+              <select name="part_location">
+                <option value="">{{ _('No location') }}</option>
+                {% for l in locations %}<option value="{{ l.id }}">{{ l.path }}</option>{% endfor %}
+              </select>
+            </label>
+            <div class="attr-fields span2"></div>
+            <label class="fld span2">{{ _('Note (optional)') }}<input name="part_note"></label>
+          </div>
+        </div>
+      </template>
       <label class="chk-row gaptop"><input type="checkbox" name="free" id="nsFree" onchange="stToggleSetFree(this)"> {{ _('Free / gift — no receipt needed') }}</label>
       <label class="fld" id="nsReceiptWrap">{{ _('Invoice / receipt (required)') }}<input type="file" name="receipt" id="nsReceipt" accept="application/pdf,image/*" required></label>
       <div class="pf-actions gaptop"><button type="submit" class="primary">{{ _('Create set') }}</button></div>

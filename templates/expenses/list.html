@@ -14,6 +14,7 @@
 
 <section class="card">
 {% if rows %}
+<div class="table-scroll">
 <table class="grid view-list ruled">
   <thead><tr>
     <th class="thumb-col"></th>
@@ -45,6 +46,7 @@
   {% endfor %}
   </tbody>
 </table>
+</div>
 
 <div class="cards-grid view-cards">
   {% for e in rows %}
