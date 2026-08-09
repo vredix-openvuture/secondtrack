@@ -24,6 +24,7 @@
 <table class="grid view-list">
   <thead>
     <tr>
+      <th class="thumb-col"></th>
       <th>{{ _('Project') }}</th><th>{{ _('Status') }}</th><th class="num">{{ _('Items') }}</th>
       <th class="num">{{ _('Hours') }}</th><th class="num">{{ _('Sale price') }}</th>
       <th class="num">{{ _('Gross profit') }}</th>
@@ -32,7 +33,10 @@
   <tbody>
     {% for f in rows %}
     <tr onclick="location.href='/projects/{{ f.project.id }}'">
-      <td>{% if f.project.image_path %}<img src="{{ f.project.image_path }}" class="row-img" alt="" onerror="this.style.display='none'">{% endif %}<strong>{{ f.project.name }}</strong>{% if f.project.type %} <span class="badge archived">{{ f.project.type.name }}</span>{% endif %}</td>
+      {# Own column with a placeholder, so the rows line up whether or not a
+         project has a picture — an inline icon made every row a different shape. #}
+      <td class="thumb-cell"><div class="row-thumb {{ 'placeholder' if not f.project.image_path }}"{% if f.project.image_path %} style="background-image:url('{{ f.project.image_path }}')"{% endif %}></div></td>
+      <td><strong>{{ f.project.name }}</strong>{% if f.project.type %} <span class="badge archived">{{ f.project.type.name }}</span>{% endif %}</td>
       <td><span class="badge {{ st_class.get(f.project.status.value, f.project.status.value) }}">{{ st_label.get(f.project.status.value, f.project.status.value) }}</span></td>
       <td class="num">{{ f.items|length }}</td>
       <td class="num">{{ f.hours|hours }}</td>

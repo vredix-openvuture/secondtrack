@@ -778,8 +778,8 @@ label > .price-field { margin-top: .25rem; }
 .img-square img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 
 /* Leading product-image thumbnail in table rows */
-table.grid td.thumb-cell { width: 52px; padding-right: .3rem; }
-.row-thumb { width: 44px; height: 44px; border-radius: 9px; background: var(--surface-2) center/cover no-repeat; border: 1px solid rgba(255,255,255,.10); }
+table.grid td.thumb-cell { width: 76px; padding-right: .5rem; }
+.row-thumb { width: 64px; height: 64px; border-radius: 9px; background: var(--surface-2) center/cover no-repeat; border: 1px solid rgba(255,255,255,.10); }
 .row-thumb.placeholder { background: rgba(255,255,255,.04); }
 
 /* Warehouse sets */
@@ -1095,7 +1095,7 @@ label.fld > input, label.fld > select { margin-top: .25rem; }
 
 /* Real single-parts table tweaks */
 table.grid .thumb-col { width: 56px; }
-table.grid td.thumb-cell { width: 56px; padding-right: .2rem; }
+table.grid td.thumb-cell { width: 76px; padding-right: .5rem; }
 table.grid .acts-col { text-align: right; }
 table.grid td.actions { white-space: nowrap; text-align: right; }
 td.actions .row-form.compact { display: inline-flex; }
@@ -1426,7 +1426,11 @@ a.nt-ic:hover { box-shadow:0 0 0 2px var(--accent); }
   .ntbl { min-width: 760px; }
   /* The name column carries the most text, so it needs a floor of its own —
      the others are numbers and shrink harmlessly. */
-  .ntbl td:first-child, .table-scroll table td:first-child { min-width: 15rem; }
+  /* The floor belongs to the text column, not to a thumbnail cell that sits
+     in front of it — otherwise the picture gets 15rem of empty space. */
+  .ntbl td:first-child,
+  .table-scroll table td:first-child:not(.thumb-cell),
+  .table-scroll table td.thumb-cell + td { min-width: 15rem; }
   .grid.view-list td, .grid.view-list th { white-space: nowrap; }
   .grid.view-list td:first-child { white-space: normal; }
 
@@ -1434,8 +1438,8 @@ a.nt-ic:hover { box-shadow:0 0 0 2px var(--accent); }
      at arm's length is a smudge. Tied to width as well as to pointer:coarse
      below, so it also applies when a desktop window is simply narrowed. */
   .row-img { width: 56px; height: 56px; border-radius: 8px; }
-  .row-thumb { width: 56px; height: 56px; }
-  table.grid td.thumb-cell { width: 68px; }
+  .row-thumb { width: 84px; height: 84px; }
+  table.grid td.thumb-cell { width: 98px; }
   .nt-ic { width: 64px; height: 64px; }
   .item-cell .row-img { width: 72px; height: 72px; }
   .gallery { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
@@ -1445,8 +1449,8 @@ a.nt-ic:hover { box-shadow:0 0 0 2px var(--accent); }
    past 1024px but still operated with a finger. */
 @media (pointer: coarse) {
   .row-img { width: 56px; height: 56px; border-radius: 8px; }
-  .row-thumb { width: 56px; height: 56px; }
-  table.grid td.thumb-cell { width: 68px; }
+  .row-thumb { width: 84px; height: 84px; }
+  table.grid td.thumb-cell { width: 98px; }
   .nt-ic { width: 64px; height: 64px; }
   .item-cell .row-img { width: 72px; height: 72px; }
 }
