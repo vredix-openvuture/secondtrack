@@ -45,7 +45,8 @@
 <section class="card">
   <h2>{{ _('Per project') }}</h2>
   {% if s.per_project %}
-  <table class="grid">
+  <div class="table-scroll">
+<table class="grid">
     <thead>
       <tr><th>{{ _('Device') }}</th><th>{{ _('Status') }}</th><th class="num">{{ _('Hrs') }}</th><th class="num">{{ _('Material') }}</th>
           <th class="num">{{ _('VK') }}</th><th class="num">{{ _('Gross') }}</th><th class="num">{{ _('Net') }}</th></tr>
@@ -64,6 +65,7 @@
     {% endfor %}
     </tbody>
   </table>
+</div>
   {% else %}
   <p class="muted empty">{{ _('No projects yet.') }}</p>
   {% endif %}

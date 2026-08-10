@@ -756,7 +756,7 @@
 <div class="modal-backdrop" id="editLot">
   <div class="modal modal-wide">
     <div class="modal-head"><h2>{{ _('Edit set') }}</h2><button class="modal-close" onclick="stCloseModal(this)">×</button></div>
-    <form method="post" action="" id="editLotForm" enctype="multipart/form-data">
+    <form method="post" action="" id="editLotForm" enctype="multipart/form-data" onsubmit="return stNumberSetMembers(this)">
       <div class="pf-top">
         <label class="img-square" title="{{ _('Change image') }}">
           <input type="file" name="image" accept="image/*" onchange="stImgSquare(this)">
@@ -777,11 +777,10 @@
       <div class="components gaptop">
         <div class="comp-head"><strong><svg class="ic sec-ic"><use href="#ic-layers"/></svg> {{ _('Parts in this set') }}</strong></div>
         <div class="set-members" id="elMembers"></div>
-        <div class="comp-add">
-          <input id="elAddName" placeholder="{{ _('Part name') }}">
-          <input id="elAddSale" class="r" inputmode="decimal" placeholder="{{ _('Sale') }}" style="max-width:120px">
-          <button type="button" class="btn" onclick="stLotAddMember()">＋ {{ _('Add') }}</button>
-        </div>
+        {# New parts use the same full member rows as the create dialog —
+           cloned from setMemberTpl, saved together with the set. #}
+        <div id="elNewParts"></div>
+        <button type="button" class="btn small ghost" onclick="stLotAddRow()">＋ {{ _('Add part') }}</button>
       </div>
 
       <div class="ep-foot gaptop">

@@ -173,6 +173,49 @@ def _make_set(
     return ps
 
 
+
+def _members_from_form(
+    db, ps, form, *, names, sales, qtys, notes, categories, conditions,
+    suppliers, locations, images, exp_id, costs=None, loc_default=None,
+):
+    """Create full-product member parts on `ps` from the set-member rows.
+
+    Used by create (with a cost allocation) and by edit (costs=None: parts
+    added later carry no own EK — the lot total stays at set level). Field
+    names are row-scoped (part_attr_<row>_<key>), see _RowForm.
+    """
+    def pick(seq, i):
+        return seq[i] if i < len(seq) else ""
+
+    rows = [(i, nm) for i, nm in enumerate(names) if nm.strip()]
+    for pos, (i, nm) in enumerate(rows):
+        cat_id = _fk(pick(categories, i))
+        category = db.get(Category, cat_id) if cat_id else None
+        img = None
+        if i < len(images) and images[i] is not None and images[i].filename:
+            img, _ = save_image_or_error(images[i], "part")
+        qty = max(1, int(_parse_float(pick(qtys, i)) or 1))
+        sale = _parse_float(pick(sales, i)) or 0.0
+        cost = costs[pos] if costs and pos < len(costs) else 0.0
+        db.add(Part(
+            name=nm.strip(),
+            notes=(pick(notes, i) or "").strip() or None,
+            set_id=ps.id, project_id=None, device_id=None,
+            origin=PartOrigin.purchased,
+            purchase_price=(cost / qty) if cost else None,
+            sale_price=(sale / qty) if sale else 0.0,
+            quantity=qty,
+            image_path=img,
+            category_id=cat_id,
+            condition=(pick(conditions, i) or "").strip() or None,
+            supplier_id=_fk(pick(suppliers, i)),
+            location_id=_fk(pick(locations, i)) or loc_default,
+            attributes=wh.extract_attributes(category, _RowForm(form, f"part_attr_{pos}_")),
+            source_expense_id=exp_id,
+            code=codes.generate(db, codes.part_prefix(category)),
+        ))
+
+
 def _form_lists(db):
     """Categories/suppliers/locations offered in the create & edit forms."""
     categories = db.query(Category).order_by(Category.position, Category.name).all()
@@ -978,43 +1021,19 @@ async def create_set(
     db.add(ps)
     db.flush()
 
-    def pick(seq, i):
-        return seq[i] if i < len(seq) else ""
-
     form = await request.form()
     rows = [(i, nm) for i, nm in enumerate(part_name) if nm.strip()]
     # The lot total is split by sale value, so each member carries its share of
     # the one invoice instead of an invented price of its own.
-    sales = [_parse_float(pick(part_sale, i)) or 0.0 for i, _ in rows]
-    costs = _allocate(total, sales)
-
-    for pos, (i, nm) in enumerate(rows):
-        cat_id = _fk(pick(part_category, i))
-        category = db.get(Category, cat_id) if cat_id else None
-        img = None
-        if i < len(part_image) and part_image[i] is not None and part_image[i].filename:
-            img, _ = save_image_or_error(part_image[i], "part")
-        qty = max(1, int(_parse_float(pick(part_qty, i)) or 1))
-        cost = costs[pos] if pos < len(costs) else 0.0
-        db.add(Part(
-            name=nm.strip(),
-            notes=(pick(part_note, i) or "").strip() or None,
-            set_id=ps.id, project_id=None, device_id=None,
-            origin=PartOrigin.purchased,
-            # Prices are per unit; the allocated share covers the whole row.
-            purchase_price=(cost / qty) if cost else None,
-            sale_price=(sales[pos] / qty) if sales[pos] else 0.0,
-            quantity=qty,
-            image_path=img,
-            category_id=cat_id,
-            condition=(pick(part_condition, i) or "").strip() or None,
-            supplier_id=_fk(pick(part_supplier, i)),
-            location_id=_fk(pick(part_location, i)) or loc,
-            # Row-scoped names (part_attr_<pos>_<key>) keep N categories apart.
-            attributes=wh.extract_attributes(category, _RowForm(form, f"part_attr_{pos}_")),
-            source_expense_id=exp_id,
-            code=codes.generate(db, codes.part_prefix(category)),
-        ))
+    sales = [_parse_float(part_sale[i]) if i < len(part_sale) else 0.0 for i, _ in rows]
+    costs = _allocate(total, [x or 0.0 for x in sales])
+    _members_from_form(
+        db, ps, form,
+        names=part_name, sales=part_sale, qtys=part_qty, notes=part_note,
+        categories=part_category, conditions=part_condition,
+        suppliers=part_supplier, locations=part_location, images=part_image,
+        exp_id=exp_id, costs=costs, loc_default=loc,
+    )
     if conv is not None:
         # The set may have taken the part's image path — then the file lives on
         # under the set. A freshly uploaded one orphans the part's old file.
@@ -1028,15 +1047,29 @@ async def create_set(
 @router.post("/set/{set_id}/update-lot")
 async def update_lot(
     set_id: int,
+    request: Request,
     name: str = Form(...),
     purchase_price: str = Form(""),
     location_id: str = Form(""),
     notes: str = Form(""),
     image: UploadFile | None = File(None),
+    part_name: list[str] = Form(default=[]),
+    part_sale: list[str] = Form(default=[]),
+    part_qty: list[str] = Form(default=[]),
+    part_note: list[str] = Form(default=[]),
+    part_category: list[str] = Form(default=[]),
+    part_condition: list[str] = Form(default=[]),
+    part_supplier: list[str] = Form(default=[]),
+    part_location: list[str] = Form(default=[]),
+    part_image: list[UploadFile] = File(default=[]),
     db: Session = Depends(get_db),
     user=Depends(require_login),
 ):
-    """Update a purchase-lot set (total EK is set-level; parts have no own EK)."""
+    """Update a purchase-lot set (total EK is set-level; parts have no own EK).
+
+    Parts added here use the same full member rows as the create dialog —
+    category with its fields, condition, supplier, location, quantity, image,
+    note. They join the existing lot, so they carry no own EK."""
     ps = db.get(PartSet, set_id)
     if ps:
         new_image, _ = save_image_or_error(image, "set")
@@ -1050,6 +1083,14 @@ async def update_lot(
         # keep member locations in sync with the set
         for p in ps.parts:
             p.location_id = ps.location_id
+        db.flush()
+        _members_from_form(
+            db, ps, await request.form(),
+            names=part_name, sales=part_sale, qtys=part_qty, notes=part_note,
+            categories=part_category, conditions=part_condition,
+            suppliers=part_supplier, locations=part_location, images=part_image,
+            exp_id=ps.expense_id, costs=None, loc_default=ps.location_id,
+        )
         db.commit()
     return RedirectResponse("/warehouse?view=sets&msg=Saved", status_code=303)
 

@@ -544,10 +544,24 @@ function stToggleSetFree(cb) {
   else { if (rec) rec.required = true; if (wrap) wrap.style.display = ""; }
 }
 
+// New rows in the edit dialog are the same full product form as in create.
+function stLotAddRow() {
+  const box = document.getElementById("elNewParts");
+  const tpl = document.getElementById("setMemberTpl");
+  if (!box || !tpl) return;
+  box.appendChild(tpl.content.cloneNode(true));
+  const row = box.lastElementChild;
+  if (window.stWrapPricesIn) stWrapPricesIn(row);
+  const first = row.querySelector('input[name="part_name"]');
+  if (first) first.focus();
+}
+
 // ---- Edit set (purchase lot): editable member parts ----
 var stLot = { id: null };
 async function stEditLotModal(id) {
   const modal = document.getElementById("editLot"), form = document.getElementById("editLotForm");
+  const np = document.getElementById("elNewParts");
+  if (np) np.innerHTML = "";
   if (!modal || !form) return;
   form.reset();
   form.action = "/warehouse/set/" + id + "/update-lot";
@@ -596,14 +610,6 @@ function stLotSaveMember(pid, el) {
   });
 }
 function stLotRemoveMember(pid) { stLotPost("member/" + pid + "/remove", {}); }
-function stLotAddMember() {
-  const nm = document.getElementById("elAddName"), sl = document.getElementById("elAddSale");
-  const name = nm ? nm.value : "";
-  if (!name.trim()) { if (nm) nm.focus(); return; }
-  stLotPost("member/add", { name: name, sale: sl ? sl.value : "" }).then(() => {
-    if (nm) nm.value = ""; if (sl) sl.value = ""; if (nm) nm.focus();
-  });
-}
 
 // Called when the category <select> changes in a part form.
 function stCatChange(sel) {

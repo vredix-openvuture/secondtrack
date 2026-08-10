@@ -265,11 +265,23 @@ textarea.md-field { font-family: inherit; resize: vertical; }
 .size-pick .sz input:checked + span { background: var(--accent); color: #fff; font-weight: 700; }
 
 /* Page head */
-.page-head { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+.page-head { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+/* Docked: the header sticks to the top edge and spans the content column, so
+   every page reads as sidebar + topbar. Negative margins pull it across
+   main's padding; the media blocks at the end match their own paddings. */
+.page-head, p.crumb {
+  position: sticky; top: 0; z-index: 25;
+  margin: -1.75rem -2rem 1.25rem;
+  padding: .8rem 2rem;
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border);
+}
 .tabs { display: flex; gap: .5rem; margin-left: auto; flex-wrap: wrap; }
 .tabs a { color: var(--muted); padding: .3rem .7rem; border-radius: 999px; font-size: .85rem; }
 .tabs a.on { background: color-mix(in srgb, var(--accent) 22%, var(--surface-2)); color: var(--text); border: 1px solid var(--accent); }
-.crumb { margin: 0 0 1rem; }
+
 .crumb a { color: var(--muted); }
 .settings-tabs { margin: 0 0 1.25rem; }
 .chk { display: flex !important; flex-direction: row !important; align-items: center; gap: .5rem; color: var(--text) !important; }
@@ -1454,6 +1466,7 @@ a.nt-ic:hover { box-shadow:0 0 0 2px var(--accent); }
    columns, so the second column only starts once there is real room for it. */
 @media (min-width: 721px) and (max-width: 1024px) {
   main { padding: 1.4rem 1.25rem 4rem; }
+  .page-head, p.crumb { margin: -1.4rem -1.25rem 1.1rem; padding: .7rem 1.25rem; }
   .detail-grid { columns: 380px 2; }
   .summary-cols { gap: 1.2rem 2rem; }
 }
@@ -1516,6 +1529,9 @@ a.nt-ic:hover { box-shadow:0 0 0 2px var(--accent); }
   :root[data-sidebar="open"] .content-wrap { margin-left: 0; }
   main { padding-top: 3.6rem; }    /* clear of the fixed hamburger */
 
+  .page-head, p.crumb {
+    margin: -3.6rem -1rem 1rem; padding: .7rem 1rem .7rem 3.6rem;
+  }
   .nav-toggle {
     display: grid; place-items: center; position: fixed; z-index: 31;
     top: .6rem; left: .7rem; width: 40px; height: 40px; padding: 0;

@@ -40,7 +40,8 @@
   {% elif view.woo_error %}
     <p class="error">{{ _('Could not load orders:') }} {{ view.woo_error }}</p>
   {% elif view.orders %}
-  <table class="grid">
+  <div class="table-scroll">
+<table class="grid">
     <thead><tr><th>#</th><th>{{ _('Date') }}</th><th>{{ _('Customer') }}</th><th>{{ _('Status') }}</th><th class="num">{{ _('Total') }}</th><th>{{ _('Task') }}</th><th>{{ _('Invoice') }}</th></tr></thead>
     <tbody>
     {% for o in view.orders %}
@@ -69,6 +70,7 @@
     {% endfor %}
     </tbody>
   </table>
+</div>
   {% else %}<p class="muted">{{ _('No open orders.') }}</p>{% endif %}
 </section>
 
@@ -87,7 +89,8 @@
   {% elif view.in_error %}
     <p class="error">{{ _('Could not load invoices:') }} {{ view.in_error }}</p>
   {% elif view.invoices %}
-  <table class="grid">
+  <div class="table-scroll">
+<table class="grid">
     <thead><tr><th>{{ _('No.') }}</th><th>{{ _('Date') }}</th><th>{{ _('Due') }}</th><th>{{ _('Customer') }}</th><th>{{ _('Status') }}</th><th class="num">{{ _('Amount') }}</th><th class="num">{{ _('Open') }}</th><th></th></tr></thead>
     <tbody>
     {% for inv in view.invoices %}
@@ -117,6 +120,7 @@
     {% endfor %}
     </tbody>
   </table>
+</div>
   {% else %}<p class="muted">{{ _('No invoices yet.') }}</p>{% endif %}
 </section>
 {% endblock %}
