@@ -1525,6 +1525,13 @@ a.nt-ic:hover { box-shadow:0 0 0 2px var(--accent); }
     width: 22px; height: 22px; fill: none; stroke: currentColor;
     stroke-width: 2; stroke-linecap: round;
   }
+  /* While the drawer is open the hamburger disappears — the backdrop, a tap
+     on any nav link and Escape all close it, and the button floating over the
+     drawer just duplicated that. */
+  :root[data-nav="open"] .nav-toggle { display: none; }
+  /* The FAB (z-index 40) would float above the backdrop (29) — a tap meant to
+     close the drawer would create a project instead. */
+  :root[data-nav="open"] .fab { display: none; }
   :root[data-nav="open"] .nav-backdrop {
     display: block; position: fixed; inset: 0; z-index: 29;
     background: rgba(0,0,0,.5);
