@@ -82,6 +82,7 @@
   window.ST_QTY = "{{ _('Quantity') }}";
   window.ST_BOOK = "{{ _('Book') }}";
   window.ST_NO_AVAIL = "{{ _('No loose parts available.') }}";
+  window.ST_CONV_HINT = "{{ _('Converting {code} — details, receipt and image carry over; the part becomes this set.') }}";
 </script>
 
 {% macro part_tags(p) %}
@@ -399,6 +400,7 @@
   </label>
   {% endif %}
   <button type="button" id="rmEdit"><svg class="ic"><use href="#ic-edit"/></svg>{{ _('Edit') }}</button>
+  <button type="button" id="rmToSet"><svg class="ic"><use href="#ic-layers"/></svg>{{ _('Convert to set…') }}</button>
   <a id="rmLabel" href="#" target="_blank"><svg class="ic"><use href="#ic-label"/></svg>{{ _('Print label') }}</a>
   <div class="rm-sep"></div>
   <button type="button" id="rmDelete" class="del"><svg class="ic"><use href="#ic-trash"/></svg>{{ _('Delete') }}</button>
@@ -637,6 +639,8 @@
   <div class="modal modal-wide">
     <div class="modal-head"><h2>{{ _('New set') }}</h2><button class="modal-close" onclick="stCloseModal(this)">×</button></div>
     <form method="post" action="/warehouse/set" enctype="multipart/form-data" onsubmit="return stNumberSetMembers(this)">
+      <input type="hidden" name="convert_part_id" id="nsConvert" value="">
+      <p class="notice" id="nsConvHint" hidden></p>
       <div class="pf-top">
         <label class="img-square" title="{{ _('Choose image') }}">
           <input type="file" name="image" accept="image/*" onchange="stImgSquare(this)">

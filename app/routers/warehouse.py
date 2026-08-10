@@ -866,6 +866,7 @@ async def create_set(
     purchase_price: str = Form(""),
     location_id: str = Form(""),
     free: str = Form(""),
+    convert_part_id: str = Form(""),
     receipt: UploadFile | None = File(None),
     image: UploadFile | None = File(None),
     part_name: list[str] = Form(default=[]),
@@ -889,14 +890,26 @@ async def create_set(
     the same invoice — and it is split across the members by sale value."""
     is_free = free.strip().lower() in ("1", "on", "true", "yes")
     total = _parse_float(purchase_price) or 0.0
+    # Converting a part that should have been a set: its receipt, image and
+    # location seed the set, and the part itself is absorbed at the end.
+    conv = None
+    conv_id = _fk(convert_part_id)
+    if conv_id:
+        cp = db.get(Part, conv_id)
+        if cp is not None and cp.project_id is None and cp.set_id is None:
+            conv = cp
     rpath = None if is_free else save_receipt(receipt, "receipt")
-    if not is_free and not rpath:
+    if not is_free and not rpath and conv is None:
         return RedirectResponse(
             "/warehouse?view=sets&msg=Beleg erforderlich (oder als 'gratis' markieren)",
             status_code=303,
         )
     img_url, _ = save_image_or_error(image, "set")
+    if not img_url and conv is not None:
+        img_url = conv.image_path
     loc = _fk(location_id)
+    if loc is None and conv is not None:
+        loc = conv.location_id
     exp_id = None
     if rpath:
         exp = exp_service.create(
@@ -905,6 +918,8 @@ async def create_set(
             project_id=None, receipt_path=rpath, bucket="warehouse",
         )
         exp_id = exp.id
+    elif conv is not None and conv.source_expense_id:
+        exp_id = conv.source_expense_id
     ps = PartSet(
         name=name.strip() or "Set",
         kind=SetKind.purchase_lot.value,
@@ -954,6 +969,12 @@ async def create_set(
             source_expense_id=exp_id,
             code=codes.generate(db, codes.part_prefix(category)),
         ))
+    if conv is not None:
+        # The set may have taken the part's image path — then the file lives on
+        # under the set. A freshly uploaded one orphans the part's old file.
+        if conv.image_path and img_url != conv.image_path:
+            delete_image(conv.image_path)
+        db.delete(conv)
     db.commit()
     return RedirectResponse(f"/warehouse?view=sets&focus={ps.code}", status_code=303)
 

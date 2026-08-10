@@ -3,6 +3,7 @@ function stOpenModal(id) {
   const m = document.getElementById(id);
   if (!m) return;
   if (id === 'newPart') stResetPartModal();  // always open on a clean slate
+  if (id === 'newSet' && window.stResetSetModal) stResetSetModal();
   m.classList.add('open');
   const f = m.querySelector('input,select,textarea');
   if (f) f.focus();

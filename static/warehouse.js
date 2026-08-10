@@ -166,6 +166,8 @@ function stRowMenu(ev, btn, id, code, cost) {
   if (install) install.selectedIndex = 0;
   const edit = document.getElementById("rmEdit");
   if (edit) edit.onclick = () => { stCloseRowMenu(); stEditPartModal(id); };
+  const toset = document.getElementById("rmToSet");
+  if (toset) toset.onclick = () => { stCloseRowMenu(); stConvertToSet(id); };
   const label = document.getElementById("rmLabel");
   if (label) label.href = "/label/" + code;
   const split = document.getElementById("rmSplit");
@@ -490,6 +492,51 @@ function stNumberSetMembers(form) {
   });
   return true;
 }
+// "This part should have been a set": prefill the new-set dialog from the
+// part and mark the submit as a conversion — the server carries the receipt
+// and image over and absorbs the part.
+async function stConvertToSet(id) {
+  let d = {};
+  try { d = await (await fetch("/warehouse/" + id + "/json")).json(); } catch (e) { return; }
+  if (!d.id) return;
+  stResetSetModal();
+  const m = document.getElementById("newSet");
+  const form = m ? m.querySelector("form") : null;
+  if (!form) return;
+  form.querySelector('[name="name"]').value = d.name || "";
+  const qty = d.quantity || 1;
+  if (d.purchase_price != null)
+    form.querySelector('[name="purchase_price"]').value = (d.purchase_price * qty).toFixed(2);
+  if (d.location_id) form.querySelector('[name="location_id"]').value = d.location_id;
+  document.getElementById("nsConvert").value = d.id;
+  // Its purchase document carries over, so no new receipt is demanded.
+  const rec = document.getElementById("nsReceipt");
+  if (rec) rec.required = false;
+  const hint = document.getElementById("nsConvHint");
+  if (hint) {
+    hint.hidden = false;
+    hint.textContent = (window.ST_CONV_HINT || "{code}").replace("{code}", d.code || d.name || "");
+  }
+  // Open directly — stOpenModal would reset the prefill again.
+  m.classList.add("open");
+  const first = document.getElementById("newSetParts");
+  stNewSetAddRow();
+  if (first && first.firstElementChild) first.firstElementChild.scrollIntoView({ block: "center" });
+}
+
+// Fresh state for a normal "new set" — also undoes conversion leftovers.
+function stResetSetModal() {
+  const m = document.getElementById("newSet");
+  if (!m) return;
+  const f = m.querySelector("form");
+  if (f) f.reset();
+  const c = document.getElementById("nsConvert"); if (c) c.value = "";
+  const h = document.getElementById("nsConvHint"); if (h) h.hidden = true;
+  const rec = document.getElementById("nsReceipt"); if (rec) rec.required = true;
+  const wrap = document.getElementById("nsReceiptWrap"); if (wrap) wrap.style.display = "";
+  const box = document.getElementById("newSetParts"); if (box) box.innerHTML = "";
+}
+
 function stToggleSetFree(cb) {
   const wrap = document.getElementById("nsReceiptWrap");
   const rec = document.getElementById("nsReceipt");

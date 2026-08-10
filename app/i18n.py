@@ -235,6 +235,9 @@ DE: dict[str, str] = {
     "Purchase receipt": "Kaufbeleg",
     "+ Link existing expense": "+ Vorhandene Ausgabe verknüpfen",
     "Items": "Objekte",
+    "Convert to set…": "In Set umwandeln…",
+    "Converting {code} — details, receipt and image carry over; the part becomes this set.":
+        "{code} wird umgewandelt — Details, Beleg und Bild werden übernommen; das Teil geht in diesem Set auf.",
     "Scan": "Scannen",
     "Scan code": "Code scannen",
     "Open": "Öffnen",
