@@ -359,6 +359,20 @@ textarea.md-field { font-family: inherit; resize: vertical; }
   max-width: min(92vw, 320px);
 }
 
+/* Warehouse toolbar: filters as one wrapping row of compact selects. */
+.wh-filter { display:flex; flex-wrap:wrap; gap:.45rem; align-items:center; margin-top:.7rem; }
+.wh-filter select { width:auto; flex:0 1 auto; min-width:9.5rem; padding:.45rem .65rem; font-size:.86rem; }
+.wh-lowchip { cursor:pointer; }
+.wh-kpis { margin:.5rem .2rem 1rem; }
+.wh-kpis strong { color:var(--text); }
+
+/* Grouped stock: quiet section heads inside the table / between card grids. */
+.ntbl tr.grp-head td {
+  background:rgba(0,0,0,.22); font-weight:600; font-size:.86rem;
+  padding:.45rem .85rem; border-bottom:1px solid var(--border);
+}
+.grp-title { margin:1.1rem .2rem .6rem; font-size:.95rem; }
+
 /* Dashboard scan widget: one big target. */
 .scan-big {
   display:flex; flex-direction:column; align-items:center; justify-content:center;

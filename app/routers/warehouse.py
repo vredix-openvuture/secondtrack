@@ -250,6 +250,9 @@ async def warehouse_list(
     request: Request,
     cat: str = "",
     low: str = "",
+    loc: str = "",
+    sup: str = "",
+    group: str = "",
     view: str = "parts",
     for_project: str = "",
     db: Session = Depends(get_db),
@@ -268,10 +271,27 @@ async def warehouse_list(
         .all()
     )
     active_cat = _fk(cat)
+    active_sup = _fk(sup)
+    active_loc = _fk(loc)
+    group = group if group in ("location", "category") else ""
     only_low = low.strip() in ("1", "true", "yes")
     parts = all_wh_parts
     if active_cat:
         parts = [p for p in parts if p.category_id == active_cat]
+    if active_sup:
+        parts = [p for p in parts if p.supplier_id == active_sup]
+    if active_loc:
+        # Locations are a tree: picking the rack must include its shelves.
+        loc_ids = {active_loc}
+        all_locs = db.query(StorageLocation).all()
+        grew = True
+        while grew:
+            grew = False
+            for l in all_locs:
+                if l.parent_id in loc_ids and l.id not in loc_ids:
+                    loc_ids.add(l.id)
+                    grew = True
+        parts = [p for p in parts if p.location_id in loc_ids]
     if only_low:
         parts = [p for p in parts if p.low_stock]
 
@@ -326,8 +346,32 @@ async def warehouse_list(
     single_count = sum(
         1 for p in all_wh_parts if p.set_id is None or p.set_id in lot_ids
     )
-    # A part-specific filter (category/low) hides the set-based departments.
-    filtering = bool(active_cat or only_low)
+    # A part-specific filter hides the set-based departments.
+    filtering = bool(active_cat or only_low or active_loc or active_sup)
+
+    # Grouped rendering: one section per location (or category), each with its
+    # own subtotal, so the shelf can be read shelf by shelf.
+    def _grouped(items, mode):
+        if mode == "location":
+            key = lambda x: x.location.path if x.location else None  # noqa: E731
+        elif mode == "category":
+            key = lambda x: x.category.name if x.category else None  # noqa: E731
+        else:
+            return [{"label": None, "parts": items, "count": len(items), "cost": 0.0}]
+        buckets: dict = {}
+        for it in items:
+            buckets.setdefault(key(it), []).append(it)
+        labels = sorted((k for k in buckets if k is not None), key=str.lower)
+        if None in buckets:
+            labels.append(None)
+        return [{
+            "label": lb if lb is not None else "",
+            "parts": buckets[lb],
+            "count": len(buckets[lb]),
+            "cost": sum((x.purchase_price or 0.0) * (x.quantity or 1) for x in buckets[lb]),
+        } for lb in labels]
+
+    part_groups = _grouped(single_parts, group)
     return templates.TemplateResponse(
         "warehouse/list.html",
         ctx(
@@ -340,7 +384,9 @@ async def warehouse_list(
             for_project=for_pid,
             linkable_expenses=_linkable_expenses(db),
             optional_fields=wh.optional_fields(db),
-            active_cat=active_cat, only_low=only_low, filtering=filtering, wh=wh,
+            active_cat=active_cat, active_sup=active_sup, active_loc=active_loc,
+            group=group, part_groups=part_groups,
+            only_low=only_low, filtering=filtering, wh=wh,
             ebay_enabled=ebay.is_enabled(),
         ),
     )

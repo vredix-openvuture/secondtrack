@@ -37,22 +37,37 @@
       <a href="/warehouse?view=wip" class="{{ 'on' if view == 'wip' }}"><svg class="ic"><use href="#ic-wrench"/></svg>{{ _('Work in progress') }} <span class="vt-n">{{ wip|length }}</span></a>
       <a href="/warehouse?view=finished" class="{{ 'on' if view == 'finished' }}"><svg class="ic"><use href="#ic-box"/></svg>{{ _('Finished goods') }} <span class="vt-n">{{ finished|length }}</span></a>
     </nav>
-    <div class="kpi-inline">
-      <span>{{ _('Stock (cost)') }}: <strong>{{ stock_cost|money }} {{ currency }}</strong></span>
-      <span>{{ _('Stock (sale)') }}: <strong>{{ stock_value|money }} {{ currency }}</strong></span>
-      {% if low_stock %}<span>{{ _('Low stock') }}: <strong class="neg">{{ low_stock }}</strong></span>{% endif %}
-    </div>
   </div>
+  {% if view == 'parts' %}
+  {# One GET form: every control resubmits with the full filter state in the
+     URL, so a filtered view survives reload and can be bookmarked. #}
+  <form method="get" action="/warehouse" class="wh-filter">
+    <input type="hidden" name="view" value="parts">
+    <select name="loc" onchange="this.form.submit()" title="{{ _('Location') }}">
+      <option value="">{{ _('All locations') }}</option>
+      {% for l in locations %}<option value="{{ l.id }}" {{ 'selected' if active_loc == l.id }}>{{ l.path }}</option>{% endfor %}
+    </select>
+    <select name="cat" onchange="this.form.submit()" title="{{ _('Category') }}">
+      <option value="">{{ _('All categories') }}</option>
+      {% for c in categories %}<option value="{{ c.id }}" {{ 'selected' if active_cat == c.id }}>{{ c.name }}</option>{% endfor %}
+    </select>
+    <select name="sup" onchange="this.form.submit()" title="{{ _('Supplier') }}">
+      <option value="">{{ _('All suppliers') }}</option>
+      {% for su in suppliers %}<option value="{{ su.id }}" {{ 'selected' if active_sup == su.id }}>{{ su.name }}</option>{% endfor %}
+    </select>
+    <select name="group" onchange="this.form.submit()" title="{{ _('Group by') }}">
+      <option value="">{{ _('No grouping') }}</option>
+      <option value="location" {{ 'selected' if group == 'location' }}>{{ _('Group by location') }}</option>
+      <option value="category" {{ 'selected' if group == 'category' }}>{{ _('Group by category') }}</option>
+    </select>
+    <label class="chip warn wh-lowchip {{ 'on' if only_low }}">
+      <input type="checkbox" name="low" value="1" {{ 'checked' if only_low }} onchange="this.form.submit()" hidden>
+      {{ _('Low stock') }}{% if low_stock %} ({{ low_stock }}){% endif %}
+    </label>
+    {% if filtering or group %}<a class="chip" href="/warehouse?view=parts">✕ {{ _('Reset') }}</a>{% endif %}
+  </form>
+  {% endif %}
   <div class="wh-panel-tools">
-    {% if view == 'parts' and (categories or low_stock) %}
-    <div class="chip-filter">
-      <a href="/warehouse?view=parts" class="chip {{ 'on' if not active_cat and not only_low }}">{{ _('All') }}</a>
-      {% for c in categories %}
-      <a href="/warehouse?view=parts&cat={{ c.id }}" class="chip {{ 'on' if active_cat == c.id }}"><span class="chip-dot" style="background:{{ c.color or '#9a7f8b' }}"></span>{{ c.name }}</a>
-      {% endfor %}
-      {% if low_stock %}<a href="/warehouse?view=parts&low=1" class="chip warn {{ 'on' if only_low }}">{{ _('Low stock') }} ({{ low_stock }})</a>{% endif %}
-    </div>
-    {% endif %}
     <label class="search"><svg class="ic"><use href="#ic-search"/></svg> <input type="text" placeholder="{{ _('Filter…') }}" oninput="stFilterRows(this)"></label>
     <div class="view-toggle" data-view-scope="warehouse" data-view-default="list">
       <button type="button" data-mode="list" onclick="stSetView('warehouse','list')">{{ _('List') }}</button>
@@ -60,6 +75,11 @@
     </div>
   </div>
 </div>
+<p class="wh-kpis muted small">
+  {{ _('Stock (cost) ') }} <strong>{{ stock_cost|money }} {{ currency }}</strong>
+  · {{ _('Stock (sale)') }} <strong>{{ stock_value|money }} {{ currency }}</strong>
+  {% if low_stock %} · {{ _('Low stock') }}: <strong class="neg">{{ low_stock }}</strong>{% endif %}
+</p>
 <script>
   window.ST_EBAY = {{ 'true' if ebay_enabled else 'false' }};
   window.ST_COST_LABEL = "{{ _('Cost') }}";
@@ -321,7 +341,14 @@
         <tr><th>{{ _('Part') }}</th><th>{{ _('Category') }}</th><th>{{ _('Specs') }}</th><th>{{ _('Location') }}</th><th class="r">{{ _('Qty') }}</th><th class="r">{{ _('Unit price') }}</th><th class="r">{{ _('Total') }}</th><th class="nt-act"></th></tr>
       </thead>
       <tbody>
-      {% for p in single_parts %}
+      {% for g in part_groups %}
+      {% if g.label is not none and group %}
+      <tr class="grp-head"><td colspan="8">
+        {{ g.label or _('No location') if group == 'location' else g.label or _('No category') }}
+        <span class="muted">· {{ g.count }} {{ _('parts') }} · {{ _('Cost') }} {{ g.cost|money }} {{ currency }}</span>
+      </td></tr>
+      {% endif %}
+      {% for p in g.parts %}
         <tr id="row-{{ p.code }}" data-name="{{ p.name|lower }}" style="--ac:{{ p.category.color if p.category else '#9a7f8b' }}">
           <td>
             <div class="nt-name">
@@ -346,14 +373,21 @@
           </td>
         </tr>
       {% endfor %}
+      {% endfor %}
       </tbody>
     </table>
     </div>
   </div>
 
   {# ---- CARDS: image-forward product cards ---- #}
-  <div class="pgrid view-cards">
-    {% for p in single_parts %}
+  <div class="view-cards">
+  {% for g in part_groups %}
+  {% if g.label is not none and group %}
+  <h3 class="grp-title">{{ g.label or (_('No location') if group == 'location' else _('No category')) }}
+    <span class="muted small">· {{ g.count }} {{ _('parts') }}</span></h3>
+  {% endif %}
+  <div class="pgrid">
+    {% for p in g.parts %}
     <div class="pcard" id="card-{{ p.code }}" data-name="{{ p.name|lower }}" style="--ac:{{ p.category.color if p.category else '#9a7f8b' }}">
       <div class="pcard-img {{ 'has-photo' if p.image_path }}"{% if p.image_path %} style="background-image:url('{{ p.image_path }}')"{% endif %} onclick="window.open('/label/{{ p.code }}','_blank')" title="{{ _('Show QR label') }}">
         {% if not p.image_path %}<span class="ph-ic"><svg class="ic"><use href="#ic-part"/></svg></span>{% endif %}
@@ -380,6 +414,8 @@
       </div>
     </div>
     {% endfor %}
+  </div>
+  {% endfor %}
   </div>
   {% else %}
   <p class="muted empty">{{ _('No parts yet. Add one with +, or bring them in from projects.') }}</p>
