@@ -24,6 +24,7 @@
 
 {% if request.query_params.get('msg') %}<p class="notice">{{ _(request.query_params.get('msg')) }}</p>{% endif %}
 
+<div class="wh-sticky">
 <div class="page-head">
   <h1>{{ _('Warehouse') }}</h1>
   <nav class="wh-viewtabs">
@@ -72,6 +73,7 @@
       <button type="button" data-mode="cards" onclick="stSetView('warehouse','cards')">{{ _('Cards') }}</button>
     </div>
   </div>
+</div>
 </div>
 <p class="wh-kpis muted small">
   {{ _('Stock (cost) ') }} <strong>{{ stock_cost|money }} {{ currency }}</strong>

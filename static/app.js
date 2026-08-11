@@ -255,6 +255,14 @@ if ('serviceWorker' in navigator) {
   });
 }
 
+// Notices float as toasts; they leave on their own or on click.
+document.addEventListener('DOMContentLoaded', function () {
+  document.querySelectorAll('p.notice').forEach(function (n) {
+    n.addEventListener('click', function () { n.classList.add('gone'); });
+    setTimeout(function () { n.classList.add('gone'); }, 5000);
+  });
+});
+
 // Mobile drawer. Deliberately not persisted like the desktop collapse state —
 // a menu that is still open on the next page load is in the way, not helpful.
 function stToggleNav() {

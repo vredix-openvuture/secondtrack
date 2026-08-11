@@ -371,6 +371,28 @@ textarea.md-field { font-family: inherit; resize: vertical; }
   max-width: min(92vw, 320px);
 }
 
+/* Warehouse: bar and filter panel dock as ONE unit — the panel reads as the
+   body of the active department tab, attached with no gap and sharing the
+   bar's blurred surface. The wrapper carries the stickiness and the
+   full-bleed margins; the bar inside goes static so it cannot double-stick. */
+.wh-sticky {
+  position: sticky; top: 0; z-index: 25;
+  margin: -1.75rem -2rem 1.1rem;
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border);
+}
+.wh-sticky .page-head {
+  position: static; margin: 0; padding: .8rem 2rem .55rem;
+  background: none; backdrop-filter: none; -webkit-backdrop-filter: none;
+  border-bottom: none;
+}
+.wh-sticky .wh-panel {
+  margin: 0; border: none; border-radius: 0; box-shadow: none;
+  background: rgba(0,0,0,.14); padding: .15rem 1.1rem .35rem;
+}
+
 /* Gear menu in the docked header: icon-only, its panel anchored right. */
 .wh-admin { position: relative; margin-left: auto; }
 .wh-admin > summary { list-style: none; cursor: pointer; }
@@ -666,7 +688,18 @@ hr { border: none; border-top: 1px solid var(--border); margin: .9rem 0; }
 .kpi-inline strong { color: var(--text); }
 
 /* Notices */
-.notice { background: var(--surface-2); border: 1px solid var(--border); border-left: 3px solid var(--accent); padding: .6rem .9rem; border-radius: 8px; margin-bottom: 1rem; }
+.notice {
+  /* A message must not shift the docked header — it floats as a toast and
+     dismisses itself (see app.js). Click to close early. */
+  position: fixed; bottom: 1.2rem; left: 50%; transform: translateX(-50%);
+  z-index: 60; margin: 0; max-width: min(92vw, 520px);
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+  color: var(--text); border: 1px solid var(--accent);
+  border-radius: 12px; padding: .65rem 1.1rem;
+  box-shadow: var(--shadow-lg); cursor: pointer;
+  transition: opacity .4s ease, transform .4s ease;
+}
+.notice.gone { opacity: 0; transform: translate(-50%, 10px); pointer-events: none; }
 .notice.ok { border-left-color: var(--pos); }
 .error { color: var(--neg); }
 
@@ -1479,6 +1512,8 @@ a.nt-ic:hover { box-shadow:0 0 0 2px var(--accent); }
 @media (min-width: 721px) and (max-width: 1024px) {
   main { padding: 1.4rem 1.25rem 4rem; }
   .page-head, p.crumb { margin: -1.4rem -1.25rem 1.1rem; padding: .7rem 1.25rem; }
+  .wh-sticky { margin: -1.4rem -1.25rem 1rem; }
+  .wh-sticky .page-head { margin: 0; padding: .7rem 1.25rem .5rem; }
   .detail-grid { columns: 380px 2; }
   .summary-cols { gap: 1.2rem 2rem; }
 }
@@ -1544,6 +1579,11 @@ a.nt-ic:hover { box-shadow:0 0 0 2px var(--accent); }
   .page-head, p.crumb {
     margin: -3.6rem -1rem 1rem; padding: .7rem 1rem .7rem 3.6rem;
   }
+  /* On phones the unit stays attached but does not stick — bar plus filter
+     rows would swallow half the screen. */
+  .wh-sticky { position: static; margin: -3.6rem -1rem 1rem; }
+  .wh-sticky .page-head { margin: 0; }
+  .wh-sticky .wh-panel { padding: .15rem .6rem .35rem; }
   /* Bar order on phones: title + gear share the first row, the department
      tabs take a full-width second row and scroll sideways as one strip. */
   .page-head h1 { order: 1; }

@@ -95,12 +95,38 @@ async def list_expenses(
         part_img.setdefault(p.source_expense_id, p.image_path)
     linked_images = {**set_img, **part_img}
 
+    # Every project that holds a piece of this purchase — a 10-pack of fans can
+    # sit 9 on one project and 1 on another, and the column must say so. The
+    # expense's own project link comes first, then the projects reached through
+    # its parts and sets.
+    exp_projects: dict[int, dict[int, str]] = {}
+    for e in rows:
+        if e.project_id and e.project:
+            exp_projects.setdefault(e.id, {})[e.project_id] = e.project.name
+    part_rows = (
+        db.query(Part, Project.name)
+        .join(Project, Project.id == Part.project_id)
+        .filter(Part.source_expense_id.isnot(None))
+        .all()
+    )
+    for part, pname in part_rows:
+        exp_projects.setdefault(part.source_expense_id, {})[part.project_id] = pname
+    set_rows = (
+        db.query(PartSet, Project.name)
+        .join(Project, Project.id == PartSet.project_id)
+        .filter(PartSet.expense_id.isnot(None))
+        .all()
+    )
+    for ps2, pname in set_rows:
+        exp_projects.setdefault(ps2.expense_id, {})[ps2.project_id] = pname
+
     return templates.TemplateResponse(
         "expenses/list.html",
         ctx(
             request, db, active="expenses",
             rows=rows, projects=projects, total=total,
             linked_parts=linked_parts, linked_images=linked_images,
+            exp_projects=exp_projects,
             in_enabled=invoiceninja.is_enabled(),
             today=date.today().isoformat(),
         ),
