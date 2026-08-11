@@ -235,6 +235,9 @@ DE: dict[str, str] = {
     "Purchase receipt": "Kaufbeleg",
     "+ Link existing expense": "+ Vorhandene Ausgabe verknüpfen",
     "Items": "Objekte",
+    "Sync to InvoiceNinja": "Mit InvoiceNinja abgleichen",
+    "Sync all expenses to InvoiceNinja? Missing ones are recreated, existing ones updated.":
+        "Alle Ausgaben mit InvoiceNinja abgleichen? Fehlende werden neu angelegt, vorhandene aktualisiert.",
     "Warehouse management": "Lagerverwaltung",
     "WIP": "WIP",
     "Finished": "Fertig",

@@ -219,6 +219,22 @@ async def update_expense(
     return RedirectResponse(f"/expenses?msg={msg}", status_code=303)
 
 
+@router.post("/resync")
+async def resync_expenses(
+    db: Session = Depends(get_db),
+    user=Depends(require_login),
+):
+    """Re-align InvoiceNinja with the local expenses — for when they were
+    wiped or changed on the IN side and the normal push skips them."""
+    if not invoiceninja.is_enabled():
+        return RedirectResponse("/expenses?msg=InvoiceNinja ist deaktiviert", status_code=303)
+    created, updated, failed = exp_service.resync_all(db)
+    msg = f"IN-Sync: {created} neu angelegt, {updated} aktualisiert"
+    if failed:
+        msg += f", {failed} fehlgeschlagen"
+    return RedirectResponse(f"/expenses?msg={msg}", status_code=303)
+
+
 @router.post("/{expense_id}/delete")
 async def delete_expense(
     expense_id: int,

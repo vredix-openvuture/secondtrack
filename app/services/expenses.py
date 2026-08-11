@@ -189,3 +189,39 @@ def profit_loss(db: Session, start: date | None = None, end: date | None = None)
         "expenses": round(expenses, 2),
         "profit": round(income - expenses, 2),
     }
+
+
+def resync_all(db: Session) -> tuple[int, int, int]:
+    """Bring InvoiceNinja back in line with the local expenses.
+
+    Exists for the case where expenses were wiped or edited on the IN side:
+    the local rows still carry their invoiceninja_id, so the normal push
+    skips them as already-synced. Checks each id against IN — gone there
+    means recreate, present means update to the local values.
+
+    Returns (created, updated, failed).
+    """
+    if not invoiceninja.is_enabled():
+        return 0, 0, 0
+    created = updated = failed = 0
+    for exp in db.query(Expense).order_by(Expense.expense_date, Expense.id).all():
+        try:
+            if exp.invoiceninja_id and invoiceninja.get_expense(exp.invoiceninja_id) is None:
+                exp.invoiceninja_id = None
+                db.commit()
+            if exp.invoiceninja_id:
+                notes = exp.description or ""
+                if exp.project and exp.project.name:
+                    notes = (notes + f"\nProject: {exp.project.name}").strip()
+                invoiceninja.update_expense(
+                    exp.invoiceninja_id, exp.amount, exp.expense_date.isoformat(),
+                    notes, exp.category or "", exp.vendor or "",
+                )
+                updated += 1
+            else:
+                push_to_in(db, exp)
+                created += 1 if exp.invoiceninja_id else 0
+                failed += 0 if exp.invoiceninja_id else 1
+        except Exception:  # noqa: BLE001 - one bad row must not stop the rest
+            failed += 1
+    return created, updated, failed

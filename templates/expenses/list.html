@@ -10,6 +10,13 @@
     <button type="button" data-mode="cards" onclick="stSetView('expenses','cards')">▦ {{ _('Cards') }}</button>
   </div>
   <div class="kpi-inline"><span>{{ _('Total') }}: <strong>{{ total|money }} {{ currency }}</strong></span></div>
+  {% if in_enabled %}
+  <form method="post" action="/expenses/resync" onsubmit="return confirm('{{ _('Sync all expenses to InvoiceNinja? Missing ones are recreated, existing ones updated.') }}')" style="margin:0">
+    <button type="submit" class="btn ghost icon-btn" title="{{ _('Sync to InvoiceNinja') }}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+    </button>
+  </form>
+  {% endif %}
 </div>
 
 <section class="card">

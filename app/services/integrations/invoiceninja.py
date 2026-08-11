@@ -393,6 +393,18 @@ def create_expense(
         return r.json()["data"]
 
 
+def get_expense(expense_id: str) -> dict | None:
+    """The expense as InvoiceNinja knows it, or None if it is gone there."""
+    _require()
+    with _client() as c:
+        r = c.get(f"/expenses/{expense_id}")
+        if r.status_code == 404:
+            return None
+        r.raise_for_status()
+        data = r.json()["data"]
+        return None if data.get("is_deleted") else data
+
+
 def update_expense(
     expense_id: str, amount: float, date_iso: str,
     notes: str = "", category: str = "", vendor: str = "",
