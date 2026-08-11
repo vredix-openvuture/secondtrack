@@ -60,8 +60,9 @@ secondtrack computes this automatically for every project:
 | **Material cost** | device purchase price **+** purchase cost of the installed parts |
 | **Labor value** | tracked hours **×** hourly rate (global or per project) |
 | **Suggested price** | device cost **+** parts value **+** labor value |
-| **Gross profit** | sale price **−** material cost |
-| **Net profit** | sale price **−** material cost **−** labor value |
+| **Advertising cost** | merch handed over for free (stickers, shirts …) at its purchase cost |
+| **Gross profit** | sale price **−** material cost **−** advertising cost |
+| **Net profit** | sale price **−** material cost **−** advertising cost **−** labor value |
 
 > 💡 You can set your own **list price** — otherwise secondtrack uses the suggested
 > price. The **hourly rate** is configurable globally, per project, or even per
@@ -85,6 +86,29 @@ each one is **optional** and can be toggled on/off individually.
 > 🧩 **Core principle:** every piece of information has **exactly one home**. Invoices
 > live in InvoiceNinja, tasks in Vikunja, orders in the shop — secondtrack reads
 > everywhere and brings it together, but never keeps a second, conflicting copy.
+
+---
+
+## 👕 Merch (stickers, shirts, cases)
+
+The warehouse has its own **Merch** department for things you hand out or sell
+alongside a build. A merch article is stocked like any part — receipt, quantity,
+category, location — with one extra rule:
+
+- **Sale price 0 → promo material.** Its purchase is booked straight as an
+  **advertising** expense instead of warehouse stock.
+- **Sale price set → normal stock.** It is sold like anything else.
+
+Booking one out (the 🎁 button in the merch list) asks for a project, a quantity
+and how it goes out:
+
+| Handed out | What happens |
+|------------|--------------|
+| **Free** | billed at 0, stays out of the project's material cost, its purchase cost is counted as **advertising cost** on that project |
+| **Sold** | behaves like any part: cost and sale value go to the project |
+
+The merch department shows the stock value and the total that has been given
+away; a project shows its advertising cost in the margin calculation.
 
 ---
 

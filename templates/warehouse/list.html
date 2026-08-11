@@ -20,6 +20,8 @@
   <symbol id="ic-image" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></symbol>
   <symbol id="ic-wrench" viewBox="0 0 24 24" fill="none"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></symbol>
   <symbol id="ic-check" viewBox="0 0 24 24" fill="none"><polyline points="20 6 9 17 4 12"/></symbol>
+  <symbol id="ic-merch" viewBox="0 0 24 24" fill="none"><path d="M8.5 3 12 5.5 15.5 3 20 5.2a1 1 0 0 1 .5 1.1l-.8 3a1 1 0 0 1-1 .7H17v9a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1v-9H5.3a1 1 0 0 1-1-.7l-.8-3A1 1 0 0 1 4 5.2L8.5 3z"/></symbol>
+  <symbol id="ic-gift" viewBox="0 0 24 24" fill="none"><rect x="3" y="9" width="18" height="4" rx="1"/><path d="M5 13v7a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-7"/><line x1="12" y1="9" x2="12" y2="21"/><path d="M12 9S11 3 8.5 3a2.5 2.5 0 0 0 0 5H12zm0 0s1-6 3.5-6a2.5 2.5 0 0 1 0 5H12z"/></symbol>
 </defs></svg>
 
 {% if request.query_params.get('msg') %}<p class="notice">{{ _(request.query_params.get('msg')) }}</p>{% endif %}
@@ -29,6 +31,7 @@
   <h1>{{ _('Warehouse') }}</h1>
   <nav class="wh-viewtabs">
     <a href="/warehouse?view=parts" class="{{ 'on' if view == 'parts' }}"><svg class="ic"><use href="#ic-part"/></svg>{{ _('Single parts') }} <span class="vt-n">{{ single_count }}</span></a>
+    <a href="/warehouse?view=merch" class="{{ 'on' if view == 'merch' }}"><svg class="ic"><use href="#ic-merch"/></svg>{{ _('Merch') }} <span class="vt-n">{{ merch_count }}</span></a>
     <a href="/warehouse?view=sets" class="{{ 'on' if view == 'sets' }}"><svg class="ic"><use href="#ic-layers"/></svg>{{ _('Sets') }} <span class="vt-n">{{ lots|length }}</span></a>
     <a href="/warehouse?view=wip" class="{{ 'on' if view == 'wip' }}"><svg class="ic"><use href="#ic-wrench"/></svg>{{ _('WIP') }} <span class="vt-n">{{ wip|length }}</span></a>
     <a href="/warehouse?view=finished" class="{{ 'on' if view == 'finished' }}"><svg class="ic"><use href="#ic-box"/></svg>{{ _('Finished') }} <span class="vt-n">{{ finished|length }}</span></a>
@@ -37,11 +40,11 @@
 </div>
 
 <div class="wh-panel">
-  {% if view == 'parts' %}
+  {% if view in ('parts', 'merch') %}
   {# One GET form: every control resubmits with the full filter state in the
      URL, so a filtered view survives reload and can be bookmarked. #}
   <form method="get" action="/warehouse" class="wh-filter">
-    <input type="hidden" name="view" value="parts">
+    <input type="hidden" name="view" value="{{ view }}">
     <select name="loc" onchange="this.form.submit()" title="{{ _('Location') }}">
       <option value="">{{ _('All locations') }}</option>
       {% for l in locations %}<option value="{{ l.id }}" {{ 'selected' if active_loc == l.id }}>{{ l.path }}</option>{% endfor %}
@@ -63,7 +66,7 @@
       <input type="checkbox" name="low" value="1" {{ 'checked' if only_low }} onchange="this.form.submit()" hidden>
       {{ _('Low stock') }}{% if low_stock %} ({{ low_stock }}){% endif %}
     </label>
-    {% if filtering or group %}<a class="chip" href="/warehouse?view=parts">✕ {{ _('Reset') }}</a>{% endif %}
+    {% if filtering or group %}<a class="chip" href="/warehouse?view={{ view }}">✕ {{ _('Reset') }}</a>{% endif %}
   </form>
   {% endif %}
   <div class="wh-panel-tools">
@@ -75,11 +78,19 @@
   </div>
 </div>
 </div>
+{% if view == 'merch' %}
+<p class="wh-kpis muted small">
+  {{ _('Merch (cost)') }} <strong>{{ merch_cost|money }} {{ currency }}</strong>
+  · {{ _('Merch (sale)') }} <strong>{{ merch_value|money }} {{ currency }}</strong>
+  · {{ _('Advertising costs (given away)') }} <strong>{{ ad_cost|money }} {{ currency }}</strong>
+</p>
+{% else %}
 <p class="wh-kpis muted small">
   {{ _('Stock (cost) ') }} <strong>{{ stock_cost|money }} {{ currency }}</strong>
   · {{ _('Stock (sale)') }} <strong>{{ stock_value|money }} {{ currency }}</strong>
   {% if low_stock %} · {{ _('Low stock') }}: <strong class="neg">{{ low_stock }}</strong>{% endif %}
 </p>
+{% endif %}
 <script>
   window.ST_EBAY = {{ 'true' if ebay_enabled else 'false' }};
   window.ST_COST_LABEL = "{{ _('Cost') }}";
@@ -97,6 +108,8 @@
   window.ST_EDIT_FINISHED = "{{ _('Edit finished good') }}";
   window.ST_FINISH_CONFIRM = "{{ _('Move to finished? It gets a finished storage number.') }}";
   window.ST_DEL_SET = "{{ _('Delete set? Its parts stay in the warehouse.') }}";
+  window.ST_DEL_MERCH = "{{ _('Delete this merch article?') }}";
+  window.ST_IN_STOCK = "{{ _('in stock') }}";
   window.ST_DEL_WIP = "{{ _('Delete? Its parts return to the warehouse.') }}";
   window.ST_FIN_WARN = "{{ _('This item is already finished. Change its parts anyway?') }}";
   window.ST_QTY = "{{ _('Quantity') }}";
@@ -425,6 +438,136 @@
 <button class="fab" onclick="stOpenModal('newPart')" title="{{ _('Add product') }}">+</button>
 {% endif %}
 
+{# ================================ MERCH ================================= #}
+{% if view == 'merch' %}
+<section class="wh-section">
+  {% if merch %}
+  {# ---- LIST ---- #}
+  <div class="ntbl-wrap view-list">
+    <div style="overflow-x:auto">
+    <table class="ntbl">
+      <thead>
+        <tr><th>{{ _('Article') }}</th><th>{{ _('Category') }}</th><th>{{ _('Specs') }}</th><th>{{ _('Location') }}</th><th class="r">{{ _('Qty') }}</th><th class="r">{{ _('Unit price') }}</th><th class="r">{{ _('Total') }}</th><th class="nt-act two"></th></tr>
+      </thead>
+      <tbody>
+      {% for g in merch_groups %}
+      {% if g.label is not none and group %}
+      <tr class="grp-head"><td colspan="8">
+        {{ g.label or _('No location') if group == 'location' else g.label or _('No category') }}
+        <span class="muted">· {{ g.count }} {{ _('articles') }} · {{ _('Cost') }} {{ g.cost|money }} {{ currency }}</span>
+      </td></tr>
+      {% endif %}
+      {% for p in g.parts %}
+        <tr id="row-{{ p.code }}" data-name="{{ p.name|lower }}" style="--ac:{{ p.category.color if p.category else '#e0a13c' }}">
+          <td>
+            <div class="nt-name">
+              <a href="/label/{{ p.code }}" target="_blank" class="nt-ic {{ 'has-photo' if p.image_path }}"{% if p.image_path %} style="background-image:url('{{ p.image_path }}')"{% endif %} title="{{ _('Show QR label') }}">{% if not p.image_path %}<svg class="ic ph-ic"><use href="#ic-merch"/></svg>{% endif %}</a>
+              <b class="nt-title" onclick="stEditPartModal({{ p.id }})" title="{{ _('Edit') }}">{{ p.name }}</b>
+              {% if p.is_promo %}<span class="pbadge promo" style="font-size:.62rem">{{ _('Promo item') }}</span>{% endif %}
+              {% if p.low_stock %}<span class="pbadge low" style="font-size:.62rem">{{ _('Low') }}</span>{% endif %}
+            </div>
+          </td>
+          <td>{% if p.category %}<span class="tag cat" style="--ac:{{ p.category.color or '#e0a13c' }}"><span class="d" style="background:{{ p.category.color or '#e0a13c' }}"></span>{{ p.category.name }}</span>{% else %}<span class="faint">—</span>{% endif %}</td>
+          <td><div class="nt-tags">
+            {% for lbl, val in wh.display_attributes(p)[:3] %}<span class="tag prop"><b>{{ lbl }}</b>{{ val }}</span>{% endfor %}
+          </div></td>
+          <td>{% if p.location %}<span class="nt-loc"><svg class="ic tag-ic"><use href="#ic-pin"/></svg> {{ p.location.path }}</span>{% else %}<span class="faint">—</span>{% endif %}</td>
+          <td class="r">{{ p.quantity or 1 }}{% if p.unit %} {{ p.unit }}{% endif %}</td>
+          <td class="r">{% if p.is_promo %}<span class="c">{{ _('free') }}</span>{% else %}{{ p.sale_price|money }} {{ currency }}{% endif %}{% if p.purchase_price %} <span class="c">/ {{ p.purchase_price|money }}</span>{% endif %}</td>
+          <td class="r nt-val"><b>{{ (p.sale_price * (p.quantity or 1))|money }} {{ currency }}</b></td>
+          <td class="nt-act two">
+            {% if projects %}
+            <button type="button" class="act-btn" title="{{ _('Hand out / book onto project') }}"
+              onclick='stBookMerch({{ p.id }}, {{ p.name|tojson }}, {{ p.quantity or 1 }}, {{ "true" if p.is_promo else "false" }})'><svg class="ic"><use href="#ic-gift"/></svg></button>
+            {% endif %}
+            <button type="button" class="nt-kb" title="{{ _('Actions') }}"
+              onclick='stMerchMenu(event, this, {{ p.id }}, "{{ p.code }}", {{ p.name|tojson }}, {{ p.quantity or 1 }}, {{ "true" if p.is_promo else "false" }})'><svg class="ic"><use href="#ic-dots"/></svg></button>
+          </td>
+        </tr>
+      {% endfor %}
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
+
+  {# ---- CARDS ---- #}
+  <div class="view-cards">
+  {% for g in merch_groups %}
+  {% if g.label is not none and group %}
+  <h3 class="grp-title">{{ g.label or (_('No location') if group == 'location' else _('No category')) }}
+    <span class="muted small">· {{ g.count }} {{ _('articles') }}</span></h3>
+  {% endif %}
+  <div class="pgrid">
+    {% for p in g.parts %}
+    <div class="pcard" id="card-{{ p.code }}" data-name="{{ p.name|lower }}" style="--ac:{{ p.category.color if p.category else '#e0a13c' }}">
+      <div class="pcard-img {{ 'has-photo' if p.image_path }}"{% if p.image_path %} style="background-image:url('{{ p.image_path }}')"{% endif %} onclick="window.open('/label/{{ p.code }}','_blank')" title="{{ _('Show QR label') }}">
+        {% if not p.image_path %}<span class="ph-ic"><svg class="ic"><use href="#ic-merch"/></svg></span>{% endif %}
+        <div class="pcard-corner">
+          {% if p.is_promo %}<span class="pbadge promo">{{ _('Promo item') }}</span>{% endif %}
+          {% if p.low_stock %}<span class="pbadge low">{{ _('Low') }}</span>{% endif %}
+        </div>
+      </div>
+      <div class="pcard-body">
+        <div class="pcard-nm" onclick="stEditPartModal({{ p.id }})" title="{{ _('Edit') }}">{{ p.name }}</div>
+        <div class="pcard-tags">{{ part_tags(p) }}<span class="tag prop">{{ p.quantity or 1 }} {{ _('in stock') }}</span></div>
+        <div class="pcard-foot">
+          <div class="pcard-price"><span class="big">{% if p.is_promo %}{{ _('free') }}{% else %}{{ p.sale_price|money }} {{ currency }}{% endif %}</span><span class="sm">{% if p.purchase_price %}{{ _('Cost') }} {{ p.purchase_price|money }} {{ currency }}{% endif %}</span></div>
+          <div class="pcard-go">
+            {% if projects %}
+            <button type="button" class="go-primary" title="{{ _('Hand out / book onto project') }}"
+              onclick='stBookMerch({{ p.id }}, {{ p.name|tojson }}, {{ p.quantity or 1 }}, {{ "true" if p.is_promo else "false" }})'><svg class="ic"><use href="#ic-gift"/></svg></button>
+            {% endif %}
+            <button type="button" class="act-btn" onclick='stMerchMenu(event, this, {{ p.id }}, "{{ p.code }}", {{ p.name|tojson }}, {{ p.quantity or 1 }}, {{ "true" if p.is_promo else "false" }})' title="{{ _('Actions') }}"><svg class="ic"><use href="#ic-dots"/></svg></button>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endfor %}
+  </div>
+  {% else %}
+  <p class="muted empty">{{ _('No merch yet. Add stickers, shirts or cases with +. Leave the sale price empty and it counts as promo material.') }}</p>
+  {% endif %}
+</section>
+
+<button class="fab" onclick="stOpenModal('newPart')" title="{{ _('Add merch') }}">+</button>
+
+{# ------------------------- MERCH ⋯ MENU + BOOKING ------------------------- #}
+<div class="rowmenu" id="merchMenu">
+  <button type="button" id="mmBook"><svg class="ic"><use href="#ic-gift"/></svg>{{ _('Hand out / book onto project…') }}</button>
+  <button type="button" id="mmEdit"><svg class="ic"><use href="#ic-edit"/></svg>{{ _('Edit') }}</button>
+  <a id="mmLabel" href="#" target="_blank"><svg class="ic"><use href="#ic-label"/></svg>{{ _('Print label') }}</a>
+  <button type="button" id="mmUnmerch"><svg class="ic"><use href="#ic-part"/></svg>{{ _('Move to single parts') }}</button>
+  <div class="rm-sep"></div>
+  <button type="button" id="mmDelete" class="del"><svg class="ic"><use href="#ic-trash"/></svg>{{ _('Delete') }}</button>
+</div>
+
+<div class="modal-backdrop" id="bookMerch">
+  <div class="modal">
+    <div class="modal-head"><h2>{{ _('Book out merch') }}</h2><button class="modal-close" onclick="stCloseModal(this)">×</button></div>
+    <form method="post" action="" id="bookMerchForm" class="stack">
+      <p class="muted small" id="bmName"></p>
+      <label class="fld">{{ _('Project') }}
+        <select name="project_id" required>
+          {% for pr in projects %}<option value="{{ pr.id }}">{{ pr.name }}</option>{% endfor %}
+        </select>
+      </label>
+      <label class="fld">{{ _('Quantity') }}<input type="number" name="qty" id="bmQty" value="1" min="1" step="1" inputmode="numeric"></label>
+      <label class="fld">{{ _('How it goes out') }}
+        <select name="mode" id="bmMode">
+          <option value="free">{{ _('Free — booked as advertising costs') }}</option>
+          <option value="sold">{{ _('Sold with the project — billed at its sale price') }}</option>
+        </select>
+      </label>
+      <p class="muted small">{{ _('A free handout is billed at nothing: it stays out of the material costs, and what it cost to buy counts as advertising.') }}</p>
+      <button type="submit" class="primary">{{ _('Book out') }}</button>
+    </form>
+  </div>
+</div>
+{% endif %}
+
 {# --------------------------- SHARED ⋯ ROW MENU --------------------------- #}
 <div class="rowmenu" id="rowMenu">
   {% if projects %}
@@ -437,6 +580,7 @@
   {% endif %}
   <button type="button" id="rmEdit"><svg class="ic"><use href="#ic-edit"/></svg>{{ _('Edit') }}</button>
   <button type="button" id="rmToSet"><svg class="ic"><use href="#ic-layers"/></svg>{{ _('Convert to set…') }}</button>
+  <button type="button" id="rmToMerch"><svg class="ic"><use href="#ic-merch"/></svg>{{ _('Move to merch') }}</button>
   <a id="rmLabel" href="#" target="_blank"><svg class="ic"><use href="#ic-label"/></svg>{{ _('Print label') }}</a>
   <div class="rm-sep"></div>
   <button type="button" id="rmDelete" class="del"><svg class="ic"><use href="#ic-trash"/></svg>{{ _('Delete') }}</button>
@@ -454,17 +598,21 @@
 {# ------------------------------ CREATE MODAL ------------------------------ #}
 <div class="modal-backdrop" id="newPart">
   <div class="modal modal-wide">
-    <div class="modal-head"><h2>{{ _('Create product') }}</h2><button class="modal-close" onclick="stCloseModal(this)">×</button></div>
+    <div class="modal-head"><h2>{{ _('Create merch') if view == 'merch' else _('Create product') }}</h2><button class="modal-close" onclick="stCloseModal(this)">×</button></div>
     <form method="post" action="/warehouse" enctype="multipart/form-data">
       {# Came from a project's "+ New": the finished item goes straight back. #}
       {% if for_project %}<input type="hidden" name="for_project" value="{{ for_project }}">{% endif %}
+      {# Created from the merch department, so it lands there — merch is stocked
+         exactly like a part, it just lives in its own aisle. #}
+      {% if view == 'merch' %}<input type="hidden" name="is_merch" value="1">{% endif %}
       <div class="pf-top">
         <label class="img-square" title="{{ _('Choose image') }}">
           <input type="file" name="image" accept="image/*" onchange="stImgSquare(this)">
           <span class="is-ph"><svg class="ic ph-ic"><use href="#ic-image"/></svg><br>{{ _('Image') }}</span>
         </label>
         <div class="pf-fields">
-          <label class="fld">{{ _('Name') }}<input name="name" placeholder="z.B. GTX 1060 6GB" required autofocus></label>
+          <label class="fld">{{ _('Name') }}<input name="name" placeholder="{{ 'z.B. Sticker Logo 5cm' if view == 'merch' else 'z.B. GTX 1060 6GB' }}" required autofocus></label>
+          {% if view == 'merch' %}<p class="muted small" style="margin:-.2rem 0 .1rem">{{ _('Leave the sale price at 0 and this is promo material: handing it out books its cost as advertising.') }}</p>{% endif %}
           <div class="pf-grid">
             <label class="fld span2">{{ _('Sale price (total)') }}<input name="sale_price" id="wpSale" inputmode="decimal" oninput="stUnitPrices()"></label>
             <label class="fld">{{ _('Purchase price (total)') }}<input name="purchase_price" id="wpPurchase" inputmode="decimal" oninput="stUnitPrices()"></label>

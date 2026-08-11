@@ -62,7 +62,9 @@ async def scan_resolve(
     if obj is not None and getattr(obj, "project_id", None):
         return RedirectResponse(f"/projects/{obj.project_id}", status_code=303)
     if kind == "part" and obj is not None:
-        return RedirectResponse(f"/warehouse?view=parts&focus={obj.code}", status_code=303)
+        # Merch is listed in its own department, so that is where a scan lands.
+        view = "merch" if obj.is_merch else "parts"
+        return RedirectResponse(f"/warehouse?view={view}&focus={obj.code}", status_code=303)
     if kind == "set" and obj is not None:
         view = "finished" if (obj.is_assembly or obj.sellable) else "sets"
         return RedirectResponse(f"/warehouse?view={view}&focus={obj.code}", status_code=303)

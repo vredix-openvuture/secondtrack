@@ -219,6 +219,8 @@ def _split_off(db, part, qty: int, project_id: int | None):
 
     from . import codes
 
+    # `giveaway` is deliberately not copied: it says how *this* booking was
+    # handed over, not what the product is, so a split always starts neutral.
     clone = Part(
         name=part.name, notes=part.notes, image_path=part.image_path,
         project_id=project_id, source_expense_id=part.source_expense_id,
@@ -227,7 +229,7 @@ def _split_off(db, part, qty: int, project_id: int | None):
         extra=part.extra, origin=part.origin, condition=part.condition,
         serial_no=part.serial_no, mpn=part.mpn, ean=part.ean,
         warranty_until=part.warranty_until, purchase_date=part.purchase_date,
-        min_stock=part.min_stock, unit=part.unit,
+        min_stock=part.min_stock, unit=part.unit, is_merch=part.is_merch,
         purchase_price=part.purchase_price, sale_price=part.sale_price,
         quantity=qty, code=codes.generate(db, "part"),
     )
@@ -235,11 +237,16 @@ def _split_off(db, part, qty: int, project_id: int | None):
     return clone
 
 
-def assign_units(db, part, qty: int, project_id: int) -> tuple[object, bool]:
+def assign_units(
+    db, part, qty: int, project_id: int, *, carry_expense: bool = True
+) -> tuple[object, bool]:
     """Book `qty` units of a shelf part onto a project. Booking every unit moves
     the row and takes the purchase expense along. Booking fewer splits the row
     and leaves the expense on the shelf — one receipt covering ten units must
     not land whole on a project that took three.
+
+    `carry_expense=False` for a free handout: the purchase stays where it is,
+    because a gift is an advertising cost, not a cost of that build.
 
     Returns (project row, whether a receipt was left behind unlinked).
     """
@@ -248,11 +255,11 @@ def assign_units(db, part, qty: int, project_id: int) -> tuple[object, bool]:
     if qty >= have:
         part.project_id = project_id
         part.device_id = None
-        moved = carry_expense_to_project(db, part, project_id)
-        return part, bool(part.source_expense_id) and not moved
+        moved = carry_expense and carry_expense_to_project(db, part, project_id)
+        return part, carry_expense and bool(part.source_expense_id) and not moved
     booked = _split_off(db, part, qty, project_id)
     part.quantity = have - qty
-    return booked, bool(part.source_expense_id)
+    return booked, carry_expense and bool(part.source_expense_id)
 
 
 def set_booked_units(db, part, qty: int) -> None:

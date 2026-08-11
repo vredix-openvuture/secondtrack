@@ -111,6 +111,7 @@
             <div>
               <strong>{{ o.name }}</strong>
               {% if it.kind == 'set' %}<span class="badge">{{ _('Set') }}{% if o.parts %} · {{ o.parts|length }} {{ _('parts') }}{% endif %}</span>{% endif %}
+              {% if it.free %}<span class="badge gift" title="{{ _('Handed over for free — counts as advertising costs') }}">{{ _('Free') }} · {{ it.ad_cost|money }} {{ currency }} {{ _('advertising') }}</span>{% endif %}
               {% if o.code %}<br><span class="muted small item-code">{{ o.code }}</span>{% endif %}
               {% if o.notes %}<br><span class="muted small">{{ o.notes }}</span>{% endif %}
             </div>
@@ -155,6 +156,9 @@
       <option value="__new">+ {{ _('Create in warehouse') }}…</option>
     </select>
     <input type="number" name="qty" value="1" min="1" step="1" inputmode="numeric" class="qty-in" aria-label="{{ _('Qty') }}" title="{{ _('Qty') }}">
+    {# A giveaway (sticker, shirt) is billed at nothing; what it cost counts as
+       advertising instead of as material for this build. #}
+    <label class="chk-inline" title="{{ _('Handed over for free — counts as advertising costs') }}"><input type="checkbox" name="free" value="1"> {{ _('Free') }}</label>
     <button type="submit" class="primary">{{ _('Assign') }}</button>
   </form>
   <p class="muted small">{{ _('Its purchase expense is linked to this project for traceability and stays listed under Expenses.') }}</p>
@@ -424,6 +428,7 @@
       <h3>{{ _('Margin') }}</h3>
       <div class="line"><span>{{ _('List price (VK)') }}</span><span>{{ f.sale_price|money }} {{ currency }}</span></div>
       <div class="line"><span>− {{ _('Material costs') }}</span><span>−{{ f.material_cost|money }} {{ currency }}</span></div>
+      {% if f.ad_cost %}<div class="line"><span>− {{ _('Advertising costs (merch given away)') }}</span><span>−{{ f.ad_cost|money }} {{ currency }}</span></div>{% endif %}
       <div class="line total"><span>{{ _('Gross profit') }}</span><span class="{{ 'pos' if f.gross_profit >= 0 else 'neg' }}">{{ f.gross_profit|money }} {{ currency }}</span></div>
       <div class="line"><span>− {{ _('Labor value') }}</span><span>−{{ f.labor_value|money }} {{ currency }}</span></div>
       <div class="line total"><span>{{ _('Profit after labor') }}</span><span class="{{ 'pos' if f.net_profit >= 0 else 'neg' }}">{{ f.net_profit|money }} {{ currency }}</span></div>

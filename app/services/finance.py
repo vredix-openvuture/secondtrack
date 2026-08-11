@@ -20,21 +20,30 @@ def project_items(db: Session, project: Project) -> list[dict]:
     grouped = {p.id for ps in sets for p in ps.parts}
     items: list[dict] = [
         {"kind": "set", "obj": ps, "qty": None, "purchase": ps.purchase_price or 0.0,
-         "sale": ps.sale_price or 0.0, "bought": True}
+         "sale": ps.sale_price or 0.0, "bought": True, "free": False, "ad_cost": 0.0}
         for ps in sets
     ]
     # Part prices are per unit, so a project booking three of ten costs three
     # times the unit price — the warehouse accounting already multiplies, the
     # project side used to ignore quantity entirely.
-    items += [
-        {"kind": "part", "obj": p, "qty": p.quantity or 1,
-         "purchase": (p.purchase_price or 0.0) * (p.quantity or 1),
-         "sale": (p.sale_price or 0.0) * (p.quantity or 1),
-         "bought": p.origin == PartOrigin.purchased}
-        for p in db.query(Part).filter(Part.project_id == project.id)
-        .order_by(Part.name).all()
-        if p.id not in grouped
-    ]
+    # A giveaway (merch handed over for free) is billed at nothing and costs the
+    # project nothing: what it cost to buy is advertising, tracked in `ad_cost`.
+    for p in (
+        db.query(Part).filter(Part.project_id == project.id).order_by(Part.name).all()
+    ):
+        if p.id in grouped:
+            continue
+        qty = p.quantity or 1
+        cost = (p.purchase_price or 0.0) * qty
+        free = bool(p.giveaway)
+        items.append({
+            "kind": "part", "obj": p, "qty": qty,
+            "purchase": 0.0 if free else cost,
+            "sale": 0.0 if free else (p.sale_price or 0.0) * qty,
+            "bought": p.origin == PartOrigin.purchased and not free,
+            "free": free,
+            "ad_cost": cost if free else 0.0,
+        })
     return items
 
 
@@ -63,6 +72,7 @@ class ProjectFinance:
     # Money figures
     parts_purchase_cost: float  # cost of purchased items assigned to the project
     material_cost: float      # parts_purchase_cost (+ legacy project price)
+    ad_cost: float            # cost of merch handed over for free (advertising)
     parts_value: float        # sum of assigned items' sale price
     hours: float
     labor_value: float        # hours * rate
@@ -85,6 +95,9 @@ def compute_project(db: Session, project: Project) -> ProjectFinance:
     parts_purchase_cost = sum(i["purchase"] for i in items if i["bought"])
     legacy_cost = 0.0 if items else (project.purchase_price or 0.0)
     material_cost = parts_purchase_cost + legacy_cost
+    # Freebies are money spent on this project without being billed for it, so
+    # they belong in the profit, but next to the material cost — not inside it.
+    ad_cost = sum(i.get("ad_cost", 0.0) for i in items)
     parts_value = sum(i["sale"] for i in items)
     hours = sum((s.hours or 0.0) for s in sessions)
     # Labor value respects a per-session rate override, falling back to the
@@ -102,8 +115,8 @@ def compute_project(db: Session, project: Project) -> ProjectFinance:
         sale_price = project.sale_price
     else:
         sale_price = build_total
-    gross_profit = sale_price - material_cost
-    net_profit = sale_price - material_cost - labor_value
+    gross_profit = sale_price - material_cost - ad_cost
+    net_profit = sale_price - material_cost - ad_cost - labor_value
 
     return ProjectFinance(
         project=project,
@@ -113,6 +126,7 @@ def compute_project(db: Session, project: Project) -> ProjectFinance:
         sessions=sessions,
         parts_purchase_cost=parts_purchase_cost,
         material_cost=material_cost,
+        ad_cost=ad_cost,
         parts_value=parts_value,
         hours=hours,
         labor_value=labor_value,
@@ -129,6 +143,7 @@ class Stats:
     total_labor_value: float
     material_expenses: float       # all device + purchased-part costs (projects + warehouse)
     warehouse_stock_cost: float    # purchased parts sitting in the warehouse
+    advertising_cost: float        # merch handed out for free, at its purchase cost
     projected_sale_value: float    # listing value of unsold projects
     projected_gross_profit: float  # sale value - material costs of those projects
     projected_net_profit: float    # minus labor value
@@ -156,6 +171,9 @@ def compute_stats(db: Session) -> Stats:
     material_expenses = (
         sum(f.material_cost for f in per_project) + warehouse_stock_cost
     )
+    # Giveaways left the shelf and are no longer material cost anywhere, so
+    # without their own figure the money would simply disappear from the totals.
+    advertising_cost = round(sum(f.ad_cost for f in per_project), 2)
 
     unsold = [f for f in per_project if f.project.status != ProjectStatus.invoiced]
     projected_sale_value = sum(f.sale_price for f in unsold)
@@ -167,6 +185,7 @@ def compute_stats(db: Session) -> Stats:
         total_labor_value=total_labor_value,
         material_expenses=material_expenses,
         warehouse_stock_cost=warehouse_stock_cost,
+        advertising_cost=advertising_cost,
         projected_sale_value=projected_sale_value,
         projected_gross_profit=projected_gross_profit,
         projected_net_profit=projected_net_profit,

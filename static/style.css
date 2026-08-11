@@ -529,6 +529,12 @@ textarea.md-field { font-family: inherit; resize: vertical; }
 .assign-row select { flex: 1 1 11rem; min-width: 0; }
 .assign-row .qty-in { flex: 0 0 3.6rem; }
 .assign-row button, .assign-row .btn { flex: 0 0 auto; padding: .45rem .9rem; }
+/* Checkbox that sits in a row of controls, label beside the box, not above. */
+.chk-inline {
+  display: inline-flex; align-items: center; gap: .4rem; flex: 0 0 auto;
+  color: var(--muted); font-size: .85rem; margin: 0; cursor: pointer; white-space: nowrap;
+}
+.chk-inline input { width: auto; margin: 0; }
 
 /* Summary sits below the masonry block — the columns above end flush, so it
    needs its own separation to read as a conclusion rather than one more card. */
@@ -596,6 +602,8 @@ td.actions > * + * { margin-left: .3rem; }
 .badge.sold { background: color-mix(in srgb, var(--pos) 26%, transparent); color: #fff; }   /* green — invoiced/sold */
 .badge.neg-badge { background: color-mix(in srgb, var(--accent-2) 22%, transparent); color: #fff; }
 .badge.qty { background: color-mix(in srgb, var(--blue) 32%, transparent); color: #fff; border: 1px solid color-mix(in srgb, var(--blue) 55%, transparent); }
+/* Given away instead of billed — the cost sits in advertising, not material. */
+.badge.gift { background: color-mix(in srgb, #e0a13c 26%, transparent); color: #f3c982; border: 1px solid color-mix(in srgb, #e0a13c 45%, transparent); }
 /* Nextcloud sync indicator (subtle cloud, not a loud badge) */
 .nc-ind { font-size: .98rem; opacity: .3; vertical-align: middle; cursor: help; }
 .nc-ind.on { opacity: 1; color: var(--pos); }
@@ -1264,9 +1272,11 @@ td.actions .row-form.compact select { flex: 0 0 auto; min-width: 128px; max-widt
 .pcard-img::after { content:""; position:absolute; inset:0; background:linear-gradient(180deg, rgba(255,255,255,.05), transparent 32%); pointer-events:none; }
 .pcard-img .ph-emoji { font-size:3.4rem; filter:drop-shadow(0 8px 20px color-mix(in srgb, var(--ac) 45%, transparent)); }
 .pcard-corner { position:absolute; top:.75rem; left:.75rem; display:flex; gap:.4rem; z-index:2; }
-.pbadge { font-size:.66rem; font-weight:800; letter-spacing:.04em; padding:.2rem .55rem; border-radius:999px; backdrop-filter:blur(6px); }
+.pbadge { font-size:.66rem; font-weight:800; letter-spacing:.04em; padding:.2rem .55rem; border-radius:999px; backdrop-filter:blur(6px); white-space:nowrap; }
 .pbadge.sale { color:#052015; background:color-mix(in srgb, var(--pos) 92%, #fff); }
 .pbadge.low { color:#3a1c07; background:#f0a23a; }
+/* Promo merch: no sale price, so it exists to be given away. */
+.pbadge.promo { color:#2a1206; background:#e0a13c; }
 .pcard-fav { position:absolute; top:.6rem; right:.6rem; z-index:2; width:32px; height:32px; border-radius:10px; display:grid; place-items:center; color:#fff; background:rgba(0,0,0,.34); border:1px solid rgba(255,255,255,.14); backdrop-filter:blur(6px); cursor:pointer; font-size:.9rem; }
 .pcard-fav:hover { color:var(--accent); border-color:var(--accent); }
 .pcard-body { padding:.95rem 1.1rem 1.05rem; display:flex; flex-direction:column; gap:.6rem; flex:1; }
@@ -1311,6 +1321,9 @@ td.actions .row-form.compact select { flex: 0 0 auto; min-width: 128px; max-widt
 .nt-val b { font-weight:700; }
 .nt-val .c { color:var(--faint); font-size:.78rem; }
 .nt-act { text-align:right; width:44px; }
+/* Rows with a primary action next to the kebab (merch: hand out). */
+.nt-act.two { width:86px; white-space:nowrap; }
+.nt-act.two .act-btn { vertical-align:middle; }
 .nt-kb { width:28px; height:28px; border-radius:7px; border:1px solid transparent; background:none; color:var(--muted); cursor:pointer; opacity:0; transition:.12s; font-size:1rem; }
 .ntbl tbody tr:hover .nt-kb { opacity:1; }
 .nt-kb:hover { background:none; border-color:transparent; color:var(--text); }

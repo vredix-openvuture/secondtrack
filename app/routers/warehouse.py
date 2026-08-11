@@ -301,7 +301,7 @@ async def warehouse_list(
     db: Session = Depends(get_db),
     user=Depends(require_login),
 ):
-    view = view if view in ("parts", "sets", "wip", "finished") else "parts"
+    view = view if view in ("parts", "merch", "sets", "wip", "finished") else "parts"
     # Arrived from a project's "+ New": open the create dialog and hand the
     # finished item straight back to that project.
     for_pid = int(for_project) if for_project.strip().isdigit() else None
@@ -350,6 +350,8 @@ async def warehouse_list(
     #                  sets (a set part still lies in the workshop, so it stays
     #                  available). Only finished-good (assembly) members are
     #                  consumed and therefore hidden here.
+    #   merch        — stickers, shirts, cases: stock you hand out or sell, not
+    #                  something you build with, so it has its own department
     #   lots         — purchase-lot sets (one invoice/EK; parts keep own VK)
     #   finished     — assemblies / finished goods (built from parts, consumed)
     # Sets assigned to a project have left the shelf, same as their parts.
@@ -366,7 +368,9 @@ async def warehouse_list(
     lot_ids = {s.id for s in lots}
     assembly_ids = {s.id for s in assemblies}  # wip + finished members are consumed
 
-    single_parts = [p for p in parts if p.set_id is None or p.set_id in lot_ids]
+    available = [p for p in parts if p.set_id is None or p.set_id in lot_ids]
+    single_parts = [p for p in available if not p.is_merch]
+    merch = [p for p in available if p.is_merch]
 
     # Accounting (over ALL warehouse parts, unaffected by the view filter).
     #   EK: loose bought parts + each lot's total EK + each assembly's cost
@@ -384,11 +388,21 @@ async def warehouse_list(
         if p.set_id not in assembly_ids
     ) + sum((s.sale_price or 0.0) for s in finished)
 
+    # Merch accounting: what the merch on the shelf is worth, and what has
+    # already been handed out for free — that money is advertising, and it is
+    # the whole point of tracking merch separately.
+    merch_cost = sum((p.purchase_price or 0.0) * (p.quantity or 1) for p in merch)
+    merch_value = sum((p.sale_price or 0.0) * (p.quantity or 1) for p in merch)
+    ad_cost = sum(
+        (p.purchase_price or 0.0) * (p.quantity or 1)
+        for p in db.query(Part).filter(Part.giveaway.is_(True)).all()
+    )
+
     categories, suppliers, locations = _form_lists(db)
     low_stock = sum(1 for p in all_wh_parts if p.low_stock)
-    single_count = sum(
-        1 for p in all_wh_parts if p.set_id is None or p.set_id in lot_ids
-    )
+    counted = [p for p in all_wh_parts if p.set_id is None or p.set_id in lot_ids]
+    single_count = sum(1 for p in counted if not p.is_merch)
+    merch_count = sum(1 for p in counted if p.is_merch)
     # A part-specific filter hides the set-based departments.
     filtering = bool(active_cat or only_low or active_loc or active_sup)
 
@@ -415,12 +429,15 @@ async def warehouse_list(
         } for lb in labels]
 
     part_groups = _grouped(single_parts, group)
+    merch_groups = _grouped(merch, group)
     return templates.TemplateResponse(
         "warehouse/list.html",
         ctx(
             request, db, active="warehouse",
-            view=view, single_count=single_count,
+            view=view, single_count=single_count, merch_count=merch_count,
             single_parts=single_parts, finished=finished, lots=lots, wip=wip,
+            merch=merch, merch_groups=merch_groups,
+            merch_cost=merch_cost, merch_value=merch_value, ad_cost=ad_cost,
             projects=projects,
             stock_value=stock_value, stock_cost=stock_cost, low_stock=low_stock,
             categories=categories, suppliers=suppliers, locations=locations,
@@ -473,6 +490,7 @@ async def part_json(
         "condition": p.condition or "",
         "code": p.code or "",
         "image": p.image_path or "",
+        "is_merch": bool(p.is_merch),
         "attributes": p.attrs,
         "extra": p.extras,
     })
@@ -491,6 +509,7 @@ async def create_part(
     supplier_id: str = Form(""),
     location_id: str = Form(""),
     condition: str = Form(""),
+    is_merch: str = Form(""),
     part_name: list[str] = Form(default=[]),
     part_sale: list[str] = Form(default=[]),
     part_purchase: list[str] = Form(default=[]),
@@ -513,6 +532,10 @@ async def create_part(
         part_name, part_sale, part_purchase, part_note, part_image, part_receipt
     )
     is_free = free.strip().lower() in ("1", "on", "true", "yes")
+    merch = is_merch.strip().lower() in ("1", "on", "true", "yes")
+    # Created from the merch department → land back in it.
+    back = "/warehouse?view=merch" if merch else "/warehouse"
+    sep = "&" if merch else "?"
     img_url, img_err = save_image_or_error(image, "part")
     sup_id, loc_id = _fk(supplier_id), _fk(location_id)
     # An existing receipt can stand in for an upload: link it instead of
@@ -561,13 +584,16 @@ async def create_part(
         rpath = save_receipt(receipt, "receipt")
         if not rpath:
             return RedirectResponse(
-                "/warehouse?msg=Beleg erforderlich (oder als 'gratis' markieren)",
+                back + sep + "msg=Beleg erforderlich (oder als 'gratis' markieren)",
                 status_code=303,
             )
 
     qty = max(1, int(_parse_float(quantity) or 1))
     pp_total = None if is_free else _parse_float(purchase_price)
     sale_total = _parse_float(sale_price) or 0.0
+    # Merch without a sale price exists to be handed out, so its purchase is an
+    # advertising cost from the start — not stock waiting to be sold.
+    promo = merch and not sale_total
 
     cat_id = _fk(category_id)
     category = db.get(Category, cat_id) if cat_id else None
@@ -590,7 +616,10 @@ async def create_part(
         attributes=attributes,
         extra=extra,
         condition=condition.strip() or None,
-        code=codes.generate(db, codes.part_prefix(category)),
+        is_merch=merch,
+        code=codes.generate(
+            db, codes.part_prefix(category) if category else ("MER" if merch else "part")
+        ),
     )
     db.add(part)
     db.commit()
@@ -600,8 +629,10 @@ async def create_part(
     elif rpath:
         exp = exp_service.create(
             db, amount=pp_total or 0.0, expense_date=date.today(), vendor="",
-            description=f"Part: {part.name}", category="Parts",
-            project_id=None, receipt_path=rpath, bucket="warehouse",
+            description=("Merch: " if merch else "Part: ") + part.name,
+            category="Advertising" if promo else ("Merch" if merch else "Parts"),
+            project_id=None, receipt_path=rpath,
+            bucket="advertisement" if promo else "warehouse",
         )
         part.source_expense_id = exp.id
         db.commit()
@@ -611,7 +642,7 @@ async def create_part(
         db.commit()
         return RedirectResponse(f"/projects/{for_pid}", status_code=303)
     return RedirectResponse(
-        "/warehouse" + (f"?msg={img_err}" if img_err else ""), status_code=303
+        back + (sep + f"msg={img_err}" if img_err else ""), status_code=303
     )
 
 
@@ -714,6 +745,61 @@ async def install_part(
         db.commit()
         return RedirectResponse(f"/projects/{project.id}", status_code=303)
     return RedirectResponse("/warehouse", status_code=303)
+
+
+@router.post("/{part_id}/book")
+async def book_part(
+    part_id: int,
+    project_id: int = Form(...),
+    qty: str = Form("1"),
+    mode: str = Form("sold"),
+    db: Session = Depends(get_db),
+    user=Depends(require_login),
+):
+    """Book units of a stock item onto a project — the merch way: a quantity,
+    and a choice between selling it with the build and handing it over for free.
+
+    A free handout is not part of the build: it stays out of the project's
+    material cost and sale value, and its purchase stays where it is, because
+    the money spent on it is advertising (see finance.project_items).
+    """
+    part = db.get(Part, part_id)
+    project = db.get(Project, project_id)
+    view = "merch" if (part is not None and part.is_merch) else "parts"
+    if not part or part.project_id is not None or part.device_id is not None or not project:
+        return RedirectResponse(f"/warehouse?view={view}", status_code=303)
+    free = mode.strip().lower() in ("free", "1", "on", "true", "yes")
+    want = max(1, _parse_int(qty) or 1)
+    booked, shared_receipt = wh.assign_units(
+        db, part, want, project.id, carry_expense=not free
+    )
+    booked.giveaway = free
+    db.commit()
+    n = booked.quantity or 1
+    if free:
+        msg = f"{n}× {booked.name} gratis an {project.name} — als Werbekosten gebucht"
+    elif shared_receipt:
+        msg = f"{n}× {booked.name} an {project.name} — der Beleg deckt mehrere Objekte ab und bleibt im Lager"
+    else:
+        msg = f"{n}× {booked.name} an {project.name} gebucht"
+    return RedirectResponse(f"/warehouse?view={view}&msg={msg}", status_code=303)
+
+
+@router.post("/{part_id}/merch")
+async def toggle_merch(
+    part_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(require_login),
+):
+    """Move a stock item between the parts and the merch department."""
+    part = db.get(Part, part_id)
+    if not part or part.project_id is not None:
+        return RedirectResponse("/warehouse", status_code=303)
+    part.is_merch = not part.is_merch
+    db.commit()
+    return RedirectResponse(
+        "/warehouse?view=" + ("merch" if part.is_merch else "parts"), status_code=303
+    )
 
 
 @router.post("/{part_id}/move")
@@ -881,6 +967,7 @@ async def set_add_part(
                 category_id=part.category_id, supplier_id=part.supplier_id,
                 location_id=part.location_id, attributes=part.attributes,
                 extra=part.extra, condition=part.condition, image_path=part.image_path,
+                is_merch=part.is_merch,
                 code=codes.generate(db, codes.part_prefix(part.category)),
             ))
         db.commit()

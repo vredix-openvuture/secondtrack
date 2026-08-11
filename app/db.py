@@ -99,6 +99,9 @@ def _ensure_columns() -> None:
             ("min_stock", "INTEGER"),
             ("unit", "VARCHAR(20)"),
             ("extra", "TEXT"),
+            # Merch department + free handout (advertising cost)
+            ("is_merch", "BOOLEAN DEFAULT 0"),
+            ("giveaway", "BOOLEAN DEFAULT 0"),
         ],
         "categories": [
             ("color", "VARCHAR(16)"),

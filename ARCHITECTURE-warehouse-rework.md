@@ -50,8 +50,16 @@ notes`. Referenced by `Part.supplier_id`.
 
 **Part** — `category_id, supplier_id, location_id, code, attributes,
 condition, serial_no, mpn, ean, warranty_until, purchase_date, min_stock,
-unit`. `.attrs` parses `attributes`; `.low_stock` compares `quantity` to
-`min_stock`.
+unit, is_merch, giveaway`. `.attrs` parses `attributes`; `.low_stock` compares
+`quantity` to `min_stock`.
+
+`is_merch` puts the article in the Merch department (stickers, shirts, cases):
+stocked like any part, but handed out or sold rather than built with. Without a
+sale price it is promo material (`.is_promo`) and its purchase is booked to the
+`advertisement` expense bucket right away. `giveaway` is set on the row booked
+onto a project when it was handed over for free: that row is billed at 0, stays
+out of the project's material cost, and its purchase cost shows up as the
+project's advertising cost (`finance.project_items` → `ad_cost`).
 
 **PartSet** — `kind (purchase_lot | assembly), sellable, condition, notes,
 code, location_id, source_project_id`. `.is_assembly`, `.warehouse_parts`.

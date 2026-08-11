@@ -168,6 +168,8 @@ function stRowMenu(ev, btn, id, code, cost) {
   if (edit) edit.onclick = () => { stCloseRowMenu(); stEditPartModal(id); };
   const toset = document.getElementById("rmToSet");
   if (toset) toset.onclick = () => { stCloseRowMenu(); stConvertToSet(id); };
+  const tomerch = document.getElementById("rmToMerch");
+  if (tomerch) tomerch.onclick = () => stFormSubmit("/warehouse/" + id + "/merch", null, null, null);
   const label = document.getElementById("rmLabel");
   if (label) label.href = "/label/" + code;
   const split = document.getElementById("rmSplit");
@@ -230,6 +232,59 @@ function stCloseSetMenu() {
   if (menu) menu.classList.remove("open");
 }
 
+// ⋯ menu for merch. Same shape as the parts kebab, but booking out goes
+// through the dialog: merch leaves the shelf with a quantity and a decision
+// (gift or sale), which a plain "install" select cannot express.
+var stMM = { id: null };
+function stMerchMenu(ev, btn, id, code, name, stock, promo) {
+  ev.stopPropagation();
+  const menu = document.getElementById("merchMenu");
+  if (!menu) return;
+  if (menu.classList.contains("open") && stMM.id === id) { stCloseMerchMenu(); return; }
+  stMM = { id: id };
+
+  const book = document.getElementById("mmBook");
+  if (book) book.onclick = () => { stCloseMerchMenu(); stBookMerch(id, name, stock, promo); };
+  const edit = document.getElementById("mmEdit");
+  if (edit) edit.onclick = () => { stCloseMerchMenu(); stEditPartModal(id); };
+  const label = document.getElementById("mmLabel");
+  if (label) label.href = "/label/" + code;
+  const unmerch = document.getElementById("mmUnmerch");
+  if (unmerch) unmerch.onclick = () => stFormSubmit("/warehouse/" + id + "/merch", null, null, null);
+  const del = document.getElementById("mmDelete");
+  if (del) del.onclick = () => stFormSubmit("/warehouse/" + id + "/delete", null, null, window.ST_DEL_MERCH);
+
+  menu.classList.add("open");
+  const r = btn.getBoundingClientRect();
+  const mw = menu.offsetWidth, mh = menu.offsetHeight;
+  let left = r.right - mw;
+  let top = r.bottom + 6;
+  if (left < 8) left = 8;
+  if (top + mh > window.innerHeight - 8) top = r.top - mh - 6;
+  menu.style.left = Math.max(8, left) + "px";
+  menu.style.top = Math.max(8, top) + "px";
+}
+
+function stCloseMerchMenu() {
+  const menu = document.getElementById("merchMenu");
+  if (menu) menu.classList.remove("open");
+}
+
+// Book merch onto a project: how many, and whether it is a gift. An article
+// without a sale price is promo material, so "free" is what it defaults to.
+function stBookMerch(id, name, stock, promo) {
+  const form = document.getElementById("bookMerchForm");
+  if (!form) return;
+  form.action = "/warehouse/" + id + "/book";
+  const nm = document.getElementById("bmName");
+  if (nm) nm.textContent = name + " · " + stock + " " + (window.ST_IN_STOCK || "in stock");
+  const qty = document.getElementById("bmQty");
+  if (qty) { qty.max = stock; qty.value = 1; }
+  const mode = document.getElementById("bmMode");
+  if (mode) mode.value = promo ? "free" : "sold";
+  stOpenModal("bookMerch");
+}
+
 function stMenuInstall(projectId) {
   if (!projectId) return;
   stInstall(stRM.id, projectId);
@@ -271,9 +326,11 @@ document.addEventListener("click", (e) => {
   if (menu && menu.classList.contains("open") && !menu.contains(e.target)) stCloseRowMenu();
   const sm = document.getElementById("setMenu");
   if (sm && sm.classList.contains("open") && !sm.contains(e.target)) stCloseSetMenu();
+  const mm = document.getElementById("merchMenu");
+  if (mm && mm.classList.contains("open") && !mm.contains(e.target)) stCloseMerchMenu();
 });
-document.addEventListener("keydown", (e) => { if (e.key === "Escape") { stCloseRowMenu(); stCloseSetMenu(); } });
-window.addEventListener("scroll", () => { stCloseRowMenu(); stCloseSetMenu(); }, true);
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") { stCloseRowMenu(); stCloseSetMenu(); stCloseMerchMenu(); } });
+window.addEventListener("scroll", () => { stCloseRowMenu(); stCloseSetMenu(); stCloseMerchMenu(); }, true);
 
 // Open the edit modal for a part, populated from its JSON (mirrors create).
 async function stEditPartModal(id) {

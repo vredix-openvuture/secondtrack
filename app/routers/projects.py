@@ -516,6 +516,8 @@ async def remove_part_to_warehouse(
         # Moving out of a build: it becomes a harvested warehouse part.
         part.project_id = None
         part.device_id = None
+        # Back on the shelf it is stock again, not a handout that was booked.
+        part.giveaway = False
         if part.origin == PartOrigin.purchased and not part.purchase_price:
             part.origin = PartOrigin.harvested
         db.commit()
@@ -544,6 +546,7 @@ async def assign_item(
     project_id: int,
     item: str = Form(...),
     qty: str = Form("1"),
+    free: str = Form(""),
     db: Session = Depends(get_db),
     user=Depends(require_login),
 ):
@@ -554,17 +557,24 @@ async def assign_item(
     The purchase expense follows the item so the project shows what it actually
     cost. It stays listed under Expenses either way; the link is traceability,
     not a move. `item` is "part:<id>" or "set:<id>".
+
+    `free` hands the item over as a gift (a sticker, a shirt): it is billed at
+    nothing and its cost counts as advertising, not as material for this build.
     """
     kind, _, raw = item.partition(":")
     if not raw.isdigit():
         return RedirectResponse(f"/projects/{project_id}", status_code=303)
     oid, shared_receipt = int(raw), False
+    as_gift = free.strip().lower() in ("1", "on", "true", "yes")
 
     if kind == "part":
         part = db.get(Part, oid)
         if part and part.project_id is None:
             want = int(qty) if qty.strip().isdigit() else 1
-            _, shared_receipt = wh.assign_units(db, part, want, project_id)
+            booked, shared_receipt = wh.assign_units(
+                db, part, want, project_id, carry_expense=not as_gift
+            )
+            booked.giveaway = as_gift
             db.commit()
     elif kind == "set":
         ps = db.get(PartSet, oid)

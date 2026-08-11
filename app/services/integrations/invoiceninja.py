@@ -328,10 +328,15 @@ def _line_items_for_project(db: Session, project: Project) -> list[dict]:
     # Everything on the project is a warehouse item, billed at its sale value.
     # A set is one line — billing it and its members would charge twice.
     for it in f.items:
+        notes = getattr(it["obj"], "notes", None) or ""
+        # A giveaway is billed at 0 — say so, or the customer sees a free line
+        # item with no explanation.
+        if it.get("free"):
+            notes = (notes + "\nGratis" if notes else "Gratis").strip()
         items.append(
             {
                 "product_key": it["obj"].name,
-                "notes": getattr(it["obj"], "notes", None) or "",
+                "notes": notes,
                 "quantity": 1,
                 "cost": round(it["sale"], 2),
             }

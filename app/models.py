@@ -227,6 +227,16 @@ class Part(Base):
     # Value it contributes when installed in a build.
     sale_price: Mapped[float] = mapped_column(Float, default=0.0)
 
+    # Merch: stickers, shirts, hoodies, cases. Stocked and booked out like any
+    # part, but kept in its own department — merch is what you hand out or sell
+    # alongside a build, not what you build with. Without a sale price it is
+    # promo material (see `is_promo`).
+    is_merch: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Set on the row booked onto a project when the item was handed over for
+    # free. Its cost is advertising, so it contributes neither material cost nor
+    # sale value to that project — see services/finance.project_items.
+    giveaway: Mapped[bool] = mapped_column(Boolean, default=False)
+
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()
@@ -270,6 +280,12 @@ class Part(Base):
     def extras(self) -> dict:
         """Parsed global optional-field values ({} if unset/broken)."""
         return self._parse_json_obj(self.extra)
+
+    @property
+    def is_promo(self) -> bool:
+        """Merch given away rather than sold: no sale price means it exists to
+        be handed out, so booking it onto a project costs advertising money."""
+        return bool(self.is_merch) and not (self.sale_price or 0.0)
 
     @property
     def low_stock(self) -> bool:

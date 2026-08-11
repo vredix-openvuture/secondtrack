@@ -241,6 +241,42 @@ DE: dict[str, str] = {
     "Warehouse management": "Lagerverwaltung",
     "WIP": "WIP",
     "Finished": "Fertig",
+    # merch (stickers, shirts, cases — sold or handed out as promo material)
+    "Merch": "Merch",
+    "Project": "Projekt",
+    "Article": "Artikel",
+    "articles": "Artikel",
+    "Create merch": "Merch anlegen",
+    "Add merch": "Merch hinzufügen",
+    "Move to merch": "Zu Merch verschieben",
+    "Move to single parts": "Zu Einzelteilen verschieben",
+    "Promo item": "Werbemittel",
+    "free": "gratis",
+    "Free": "Gratis",
+    "advertising": "Werbung",
+    "Merch (cost)": "Merch EK",
+    "Merch (sale)": "Merch VK",
+    "Advertising costs (given away)": "Werbekosten (verschenkt)",
+    "Advertising costs (merch given away)": "Werbekosten (verschenktes Merch)",
+    "Book out merch": "Merch ausbuchen",
+    "Book out": "Ausbuchen",
+    "Hand out / book onto project": "Verschenken / auf Projekt buchen",
+    "Hand out / book onto project…": "Verschenken / auf Projekt buchen…",
+    "How it goes out": "Art der Ausgabe",
+    "Free — booked as advertising costs": "Gratis — wird als Werbekosten gebucht",
+    "Sold with the project — billed at its sale price":
+        "Verkauft mit dem Projekt — wird zum VK berechnet",
+    "A free handout is billed at nothing: it stays out of the material costs, and what it cost to buy counts as advertising.":
+        "Ein Geschenk wird nicht berechnet: es bleibt aus den Materialkosten heraus, "
+        "und was es im Einkauf gekostet hat, zählt als Werbekosten.",
+    "Handed over for free — counts as advertising costs":
+        "Gratis abgegeben — zählt als Werbekosten",
+    "Leave the sale price at 0 and this is promo material: handing it out books its cost as advertising.":
+        "Verkaufspreis auf 0 lassen = Werbemittel: beim Ausbuchen zählen die Kosten als Werbekosten.",
+    "No merch yet. Add stickers, shirts or cases with +. Leave the sale price empty and it counts as promo material.":
+        "Noch kein Merch. Sticker, Shirts oder Hüllen über + anlegen. "
+        "Ohne Verkaufspreis gilt der Artikel als Werbemittel.",
+    "Delete this merch article?": "Diesen Merch-Artikel löschen?",
     "All locations": "Alle Lagerorte",
     "All categories": "Alle Kategorien",
     "All suppliers": "Alle Lieferanten",
