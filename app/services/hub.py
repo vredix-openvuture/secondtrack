@@ -90,9 +90,12 @@ def create_invoice_for_project(
             company=company, address=address,
         )
     line_items = invoiceninja.line_items_for_project(db, project)
+    # public_notes print on the customer's invoice — no place for internal
+    # references. The project travels as the PO number instead: the human
+    # project number, so the customer sees PJ-…, not a database id.
     inv = invoiceninja.create_invoice(
-        client_id, line_items, po_number=str(project.id),
-        notes=f"secondtrack Projekt: {project.name}",
+        client_id, line_items,
+        po_number=project.number or str(project.id),
     )
 
     project.invoiceninja_id = inv["id"]
