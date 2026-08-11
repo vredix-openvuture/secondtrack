@@ -26,18 +26,16 @@
 
 <div class="page-head">
   <h1>{{ _('Warehouse') }}</h1>
+  <nav class="wh-viewtabs">
+    <a href="/warehouse?view=parts" class="{{ 'on' if view == 'parts' }}"><svg class="ic"><use href="#ic-part"/></svg>{{ _('Single parts') }} <span class="vt-n">{{ single_count }}</span></a>
+    <a href="/warehouse?view=sets" class="{{ 'on' if view == 'sets' }}"><svg class="ic"><use href="#ic-layers"/></svg>{{ _('Sets') }} <span class="vt-n">{{ lots|length }}</span></a>
+    <a href="/warehouse?view=wip" class="{{ 'on' if view == 'wip' }}"><svg class="ic"><use href="#ic-wrench"/></svg>{{ _('WIP') }} <span class="vt-n">{{ wip|length }}</span></a>
+    <a href="/warehouse?view=finished" class="{{ 'on' if view == 'finished' }}"><svg class="ic"><use href="#ic-box"/></svg>{{ _('Finished') }} <span class="vt-n">{{ finished|length }}</span></a>
+  </nav>
   {% include "warehouse/_subnav.html" %}
 </div>
 
 <div class="wh-panel">
-  <div class="wh-panel-top">
-    <nav class="wh-viewtabs">
-      <a href="/warehouse?view=parts" class="{{ 'on' if view == 'parts' }}"><svg class="ic"><use href="#ic-part"/></svg>{{ _('Single parts') }} <span class="vt-n">{{ single_count }}</span></a>
-      <a href="/warehouse?view=sets" class="{{ 'on' if view == 'sets' }}"><svg class="ic"><use href="#ic-layers"/></svg>{{ _('Sets') }} <span class="vt-n">{{ lots|length }}</span></a>
-      <a href="/warehouse?view=wip" class="{{ 'on' if view == 'wip' }}"><svg class="ic"><use href="#ic-wrench"/></svg>{{ _('Work in progress') }} <span class="vt-n">{{ wip|length }}</span></a>
-      <a href="/warehouse?view=finished" class="{{ 'on' if view == 'finished' }}"><svg class="ic"><use href="#ic-box"/></svg>{{ _('Finished goods') }} <span class="vt-n">{{ finished|length }}</span></a>
-    </nav>
-  </div>
   {% if view == 'parts' %}
   {# One GET form: every control resubmits with the full filter state in the
      URL, so a filtered view survives reload and can be bookmarked. #}

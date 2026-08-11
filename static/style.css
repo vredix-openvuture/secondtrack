@@ -371,6 +371,18 @@ textarea.md-field { font-family: inherit; resize: vertical; }
   max-width: min(92vw, 320px);
 }
 
+/* Gear menu in the docked header: icon-only, its panel anchored right. */
+.wh-admin { position: relative; margin-left: auto; }
+.wh-admin > summary { list-style: none; cursor: pointer; }
+.wh-admin > summary::-webkit-details-marker { display: none; }
+.icon-btn { padding: .45rem .55rem; display: inline-flex; }
+.icon-btn svg { width: 19px; height: 19px; }
+.wh-admin .menu-pop { right: 0; top: calc(100% + .35rem); min-width: 11rem; }
+.wh-admin .menu-pop a.on { border-color: var(--accent); color: var(--accent); }
+
+/* Departments inside the docked header: slimmer than in the panel. */
+.page-head .wh-viewtabs a { padding: .38rem .75rem; font-size: .85rem; }
+
 /* Warehouse toolbar: filters as one wrapping row of compact selects. */
 .wh-filter { display:flex; flex-wrap:wrap; gap:.45rem; align-items:center; margin-top:.7rem; }
 .wh-filter select { width:auto; flex:0 1 auto; min-width:9.5rem; padding:.45rem .65rem; font-size:.86rem; }
@@ -1326,7 +1338,7 @@ svg.ic use, .ic use { }
 
 /* Warehouse department view-tabs (Single parts · Sets · Finished goods) */
 .wh-viewtabs { display:flex; gap:.45rem; flex-wrap:wrap; }
-.wh-viewtabs a { display:inline-flex; align-items:center; gap:.5rem; padding:.5rem 1rem; border-radius:11px; font-weight:600; font-size:.9rem; color:var(--muted); background:var(--surface-2); border:1px solid var(--border); }
+.wh-viewtabs a { display:inline-flex; align-items:center; gap:.5rem; white-space:nowrap; flex:0 0 auto; padding:.5rem 1rem; border-radius:11px; font-weight:600; font-size:.9rem; color:var(--muted); background:var(--surface-2); border:1px solid var(--border); }
 .wh-viewtabs a:hover { border-color:var(--accent); color:var(--text); text-decoration:none; }
 .wh-viewtabs a.on { background:var(--accent); border-color:var(--accent); color:#fff; }
 .wh-viewtabs .vt-n { font-size:.7rem; font-weight:700; background:rgba(0,0,0,.24); border-radius:999px; padding:.03rem .5rem; min-width:1.5rem; text-align:center; }
@@ -1531,6 +1543,15 @@ a.nt-ic:hover { box-shadow:0 0 0 2px var(--accent); }
 
   .page-head, p.crumb {
     margin: -3.6rem -1rem 1rem; padding: .7rem 1rem .7rem 3.6rem;
+  }
+  /* Bar order on phones: title + gear share the first row, the department
+     tabs take a full-width second row and scroll sideways as one strip. */
+  .page-head h1 { order: 1; }
+  .page-head .wh-admin { order: 2; }
+  .page-head .wh-viewtabs {
+    order: 3; width: 100%;
+    flex-wrap: nowrap; overflow-x: auto;
+    -webkit-overflow-scrolling: touch; scrollbar-width: none;
   }
   .nav-toggle {
     display: grid; place-items: center; position: fixed; z-index: 31;

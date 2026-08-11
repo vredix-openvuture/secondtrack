@@ -1,6 +1,13 @@
-<nav class="tabs wh-subnav">
-  <a href="/warehouse" class="{{ 'on' if whtab == 'stock' }}">{{ _('Stock') }}</a>
-  <a href="/warehouse/suppliers" class="{{ 'on' if whtab == 'suppliers' }}">{{ _('Suppliers') }}</a>
-  <a href="/warehouse/locations" class="{{ 'on' if whtab == 'locations' }}">{{ _('Locations') }}</a>
-  <a href="/settings/categories">{{ _('Categories') }}</a>
-</nav>
+{# The management pages live behind one gear: they are configuration you visit
+   occasionally, not places you switch between while working the stock. #}
+<details class="wh-admin">
+  <summary class="btn ghost icon-btn" title="{{ _('Warehouse management') }}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 13.5a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-2.86 1.18V21a2 2 0 0 1-4 0v-.1A1.7 1.7 0 0 0 7.13 19.2l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0-1.18-2.86H3a2 2 0 0 1 0-4h.1A1.7 1.7 0 0 0 4.8 7.13l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 10.5 4.6V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 2.86 1.18l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 21 10.5h.1a2 2 0 0 1 0 4H21a1.7 1.7 0 0 0-1.6 1z"/></svg>
+  </summary>
+  <div class="menu-pop stack">
+    <a class="btn ghost {{ 'on' if whtab == 'stock' }}" href="/warehouse">{{ _('Stock') }}</a>
+    <a class="btn ghost {{ 'on' if whtab == 'suppliers' }}" href="/warehouse/suppliers">{{ _('Suppliers') }}</a>
+    <a class="btn ghost {{ 'on' if whtab == 'locations' }}" href="/warehouse/locations">{{ _('Locations') }}</a>
+    <a class="btn ghost" href="/settings/categories">{{ _('Categories') }}</a>
+  </div>
+</details>
