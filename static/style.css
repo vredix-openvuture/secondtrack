@@ -138,8 +138,31 @@ h2 { font-size: 1.05rem; margin: 0 0 .75rem; }
 .content-wrap { margin-left: var(--side-w); transition: margin-left .15s ease; }
 :root[data-sidebar="open"] .content-wrap { margin-left: var(--side-w-open); }
 
-main { max-width: 1360px; margin: 0 auto; padding: 1.75rem 2rem 5rem; }
-@media (max-width: 720px) { main { padding: 1.1rem 1rem 4rem; } }
+/* Content column + gutters. `main` fills the whole width beside the sidebar
+   and lays out a centred column with a gutter either side: ordinary content
+   sits in `col`, a docked header spans `full`. With the max-width on `main`
+   itself a docked header could never reach the window edge — it stopped where
+   the column stopped, leaving the bar floating in the middle of the page. */
+main {
+  --gut: 2rem;      /* side gutter — what used to be main's horizontal padding */
+  --colw: 1296px;   /* content column — the old 1360px max-width minus gutters */
+  --pt: 1.75rem;    /* top padding — a docked header pulls itself up by it */
+  display: grid;
+  grid-template-columns:
+    [full-start] minmax(var(--gut), 1fr)
+    [col-start] minmax(0, var(--colw)) [col-end]
+    minmax(var(--gut), 1fr) [full-end];
+  padding: var(--pt) 0 5rem;
+}
+main > * { grid-column: col; min-width: 0; }
+main > .page-head, main > p.crumb, main > .wh-sticky { grid-column: full; }
+/* …and the inset that lines a full-bleed element's own content up with the
+   column again, so the bar spans the width but its title still starts where
+   the table below it does. */
+.page-head, p.crumb, .wh-sticky .page-head, .wh-sticky .wh-panel {
+  --inset: max(var(--gut), calc((100% - var(--colw)) / 2));
+}
+@media (max-width: 720px) { main { --gut: 1rem; --pt: 1.1rem; padding-bottom: 4rem; } }
 
 /* ---- Shortcut help ---- */
 .sc-group { margin-bottom: 1.1rem; }
@@ -266,13 +289,13 @@ textarea.md-field { font-family: inherit; resize: vertical; }
 
 /* Page head */
 .page-head { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
-/* Docked: the header sticks to the top edge and spans the content column, so
-   every page reads as sidebar + topbar. Negative margins pull it across
-   main's padding; the media blocks at the end match their own paddings. */
+/* Docked: the header sticks to the top edge and spans the full width beside
+   the sidebar, so every page reads as sidebar + topbar. It sits in the grid's
+   `full` track and insets its own content back to the column. */
 .page-head, p.crumb {
   position: sticky; top: 0; z-index: 25;
-  margin: -1.75rem -2rem 1.25rem;
-  padding: .8rem 2rem;
+  margin: calc(var(--pt) * -1) 0 1.25rem;
+  padding: .8rem var(--inset);
   background: color-mix(in srgb, var(--bg) 72%, transparent);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
@@ -373,24 +396,26 @@ textarea.md-field { font-family: inherit; resize: vertical; }
 
 /* Warehouse: bar and filter panel dock as ONE unit — the panel reads as the
    body of the active department tab, attached with no gap and sharing the
-   bar's blurred surface. The wrapper carries the stickiness and the
-   full-bleed margins; the bar inside goes static so it cannot double-stick. */
+   bar's blurred surface. The wrapper carries the stickiness and spans the grid
+   `full` track; the bar inside goes static so it cannot double-stick. */
 .wh-sticky {
   position: sticky; top: 0; z-index: 25;
-  margin: -1.75rem -2rem 1.1rem;
+  margin: calc(var(--pt) * -1) 0 1.1rem;
   background: color-mix(in srgb, var(--bg) 72%, transparent);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--border);
 }
 .wh-sticky .page-head {
-  position: static; margin: 0; padding: .8rem 2rem .55rem;
+  position: static; margin: 0; padding-block: .8rem .55rem;
+  padding-inline: var(--inset);
   background: none; backdrop-filter: none; -webkit-backdrop-filter: none;
   border-bottom: none;
 }
 .wh-sticky .wh-panel {
   margin: 0; border: none; border-radius: 0; box-shadow: none;
-  background: rgba(0,0,0,.14); padding: .15rem 1.1rem .35rem;
+  background: rgba(0,0,0,.14);
+  padding-block: .15rem .35rem; padding-inline: var(--inset);
 }
 
 /* Gear menu in the docked header: icon-only, its panel anchored right. */
@@ -714,7 +739,7 @@ code { background: var(--surface-2); padding: .1rem .35rem; border-radius: 4px; 
 
 /* ---- Style options: density + glass ---- */
 body.density-compact .card { padding: .7rem .85rem; margin-bottom: .8rem; }
-body.density-compact main { padding: 1rem 1rem 4rem; }
+body.density-compact main { --gut: 1rem; --pt: 1rem; padding-bottom: 4rem; }
 body.density-compact table.grid th, body.density-compact table.grid td { padding: .35rem .4rem; }
 body.density-compact .kpi { padding: .6rem .7rem; }
 
@@ -1450,7 +1475,7 @@ a.nt-ic:hover { box-shadow:0 0 0 2px var(--accent); }
      thermal roll. */
   html, body, .content-wrap, main { margin:0 !important; padding:0 !important;
     background:#fff !important; width:auto !important; max-width:none !important;
-    height:auto !important; }
+    height:auto !important; display:block !important; }
   .sidebar, .nav-toggle, .nav-backdrop, .no-print, .fab,
   .bg-wallpaper, .bg-overlay { display:none !important; }
   /* Force the code to be painted even with "print backgrounds" switched off. */
@@ -1504,16 +1529,19 @@ a.nt-ic:hover { box-shadow:0 0 0 2px var(--accent); }
   .qty-in { min-height: 42px; padding: .5rem .45rem; }
   /* A summary is the only way into these panels, so it needs a real hit area. */
   details.adder > summary { padding: .5rem 0; }
+  /* There is no hover on a touch screen, so a kebab that only appears on hover
+     is a menu you can never open. */
+  .nt-kb { opacity: 1; width: 42px; height: 42px; }
   .gal-item figcaption input { min-height: 36px; }
 }
 
 /* Tablet: the cards keep wrapping their text into narrow ribbons at two
    columns, so the second column only starts once there is real room for it. */
 @media (min-width: 721px) and (max-width: 1024px) {
-  main { padding: 1.4rem 1.25rem 4rem; }
-  .page-head, p.crumb { margin: -1.4rem -1.25rem 1.1rem; padding: .7rem 1.25rem; }
-  .wh-sticky { margin: -1.4rem -1.25rem 1rem; }
-  .wh-sticky .page-head { margin: 0; padding: .7rem 1.25rem .5rem; }
+  main { --gut: 1.25rem; --pt: 1.4rem; padding-bottom: 4rem; }
+  .page-head, p.crumb { margin-bottom: 1.1rem; padding-block: .7rem; }
+  .wh-sticky { margin-bottom: 1rem; }
+  .wh-sticky .page-head { margin: 0; padding-block: .7rem .5rem; }
   .detail-grid { columns: 380px 2; }
   .summary-cols { gap: 1.2rem 2rem; }
 }
@@ -1574,16 +1602,18 @@ a.nt-ic:hover { box-shadow:0 0 0 2px var(--accent); }
 
   .content-wrap,
   :root[data-sidebar="open"] .content-wrap { margin-left: 0; }
-  main { padding-top: 3.6rem; }    /* clear of the fixed hamburger */
+  main { --pt: 3.6rem; }    /* clear of the fixed hamburger */
 
+  /* The hamburger is fixed at the top left, so the head starts to the right
+     of it instead of underneath. */
   .page-head, p.crumb {
-    margin: -3.6rem -1rem 1rem; padding: .7rem 1rem .7rem 3.6rem;
+    margin-bottom: 1rem; padding-block: .7rem; padding-left: 3.6rem;
   }
   /* On phones the unit stays attached but does not stick — bar plus filter
      rows would swallow half the screen. */
-  .wh-sticky { position: static; margin: -3.6rem -1rem 1rem; }
-  .wh-sticky .page-head { margin: 0; }
-  .wh-sticky .wh-panel { padding: .15rem .6rem .35rem; }
+  .wh-sticky { position: static; margin-bottom: 1rem; }
+  .wh-sticky .page-head { margin: 0; padding-left: 3.6rem; }
+  .wh-sticky .wh-panel { padding-inline: .6rem; }
   /* Bar order on phones: title + gear share the first row, the department
      tabs take a full-width second row and scroll sideways as one strip. */
   .page-head h1 { order: 1; }
