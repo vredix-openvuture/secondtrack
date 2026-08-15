@@ -123,6 +123,52 @@ def project_invoice(db: Session, project: Project) -> OrderInvoice | None:
     )
 
 
+def apply_invoice(link: OrderInvoice, inv: dict) -> bool:
+    """Copy what we cache about an invoice onto its link row. Returns whether
+    anything actually changed, so the caller can skip a pointless commit."""
+    number = inv.get("number") or None
+    amount = float(inv.get("amount") or 0)
+    status = str(inv.get("status_id") or "") or None
+    if (
+        link.invoice_number == number
+        and (link.amount or 0.0) == amount
+        and link.status == status
+    ):
+        return False
+    link.invoice_number, link.amount, link.status = number, amount, status
+    return True
+
+
+def refresh_link(db: Session, link: OrderInvoice | None) -> tuple[dict | None, bool]:
+    """Re-read an invoice from InvoiceNinja and update the copy we keep of it.
+
+    The number, the amount and the status belong to InvoiceNinja. We hold a copy
+    only so a list can be drawn without one request per row, and a copy that is
+    never refreshed is precisely the contradiction the one-home rule exists to
+    prevent: renumber an invoice over there and secondtrack would go on printing
+    the old number beside the new document.
+
+    Returns `(invoice, gone)`. `gone` is True only when InvoiceNinja actually
+    says the invoice does not exist; an unreachable InvoiceNinja gives
+    `(None, False)`, so a network problem is never mistaken for a deletion.
+    """
+    import httpx
+
+    if not link or not link.invoiceninja_id or not invoiceninja.is_enabled():
+        return None, False
+    try:
+        inv = invoiceninja.get_invoice(link.invoiceninja_id)
+    except httpx.HTTPStatusError as e:
+        return None, e.response.status_code == 404
+    except Exception:  # noqa: BLE001 - unreachable, keep showing what we have
+        return None, False
+    if not inv or inv.get("is_deleted"):
+        return None, True
+    if apply_invoice(link, inv):
+        db.commit()
+    return inv, False
+
+
 def delete_project_invoice(db: Session, project: Project) -> str:
     """Remove a project's invoice: gone in InvoiceNinja, gone here. Returns the
     number it had, for the message.
@@ -670,6 +716,17 @@ def build_hub_view(
                 invoiceninja.list_invoices(limit=80, include_archived=include_archived),
                 period,
             )
+            # The list is already in hand, so every link row it covers can be
+            # brought up to date here for nothing. Without it the order column
+            # keeps showing the number an invoice had when it was created.
+            by_id = {str(inv.get("id")): inv for inv in invs}
+            touched = False
+            for li in db.query(OrderInvoice).filter(
+                OrderInvoice.invoiceninja_id.in_(by_id.keys())
+            ):
+                touched |= apply_invoice(li, by_id[li.invoiceninja_id])
+            if touched:
+                db.commit()
             for inv in invs:
                 # Drafts (status_id == 1) are hidden by default — these are
                 # often leftover test invoices that clutter the overview.

@@ -301,12 +301,26 @@
     <section class="card">
       <h2>{{ _('Invoice (InvoiceNinja)') }}</h2>
       {% if project_invoice %}
+        {% if invoice_missing %}
+        {# It is gone on the side that owns it, so the link here is a leftover.
+           Saying so beats showing a number for a document nobody can open. #}
+        <p class="notice-inline">{{ _('This invoice no longer exists in InvoiceNinja.') }}</p>
+        <div class="btn-row">
+          <form method="post" action="/projects/{{ project.id }}/invoice/regenerate">
+            <button class="btn">{{ _('Raise a new one') }}</button>
+          </form>
+          <form method="post" action="/projects/{{ project.id }}/invoice/delete">
+            <button class="btn ghost">{{ _('Remove the link') }}</button>
+          </form>
+        </div>
+        {% else %}
         <p>{{ _('Invoice') }} <strong>{{ project_invoice.invoice_number or project_invoice.invoiceninja_id }}</strong> {{ _('invoice created.') }}</p>
         <div class="btn-row">
           <button class="btn" onclick="stOpenInvoice({{ project.id }})">{{ _('Check invoice') }}</button>
           <a class="btn ghost" href="{{ in_url }}/invoices/{{ project_invoice.invoiceninja_id }}/edit" target="_blank">{{ _('Open in InvoiceNinja ↗') }}</a>
           {% if project_invoice.emailed_at %}<span class="muted small">{{ _('✓ sent to customer') }}</span>{% endif %}
         </div>
+        {% endif %}
       {% else %}
         <form method="post" action="/projects/{{ project.id }}/invoice" class="stack">
           {% if project.customer_id %}
@@ -436,7 +450,7 @@
   </div>
 </section>
 
-{% if in_enabled and project_invoice %}
+{% if in_enabled and project_invoice and not invoice_missing %}
 {# ===== INVOICE REVIEW =====
    Two panes in one dialog rather than two dialogs: the send confirmation is a
    step of checking the invoice, not a separate errand, and stacking backdrops

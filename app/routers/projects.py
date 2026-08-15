@@ -236,6 +236,10 @@ async def project_detail(
         .filter(OrderInvoice.project_id == project.id)
         .first()
     )
+    # The number on this page has to be the number on the document. It lives in
+    # InvoiceNinja, so it is read from there rather than from what was cached
+    # when the invoice was raised.
+    _inv, invoice_missing = hub.refresh_link(db, project_invoice)
     in_clients = []
     if invoiceninja.is_enabled():
         try:
@@ -280,6 +284,7 @@ async def project_detail(
             in_url=invoiceninja.base_url(),
             in_clients=in_clients,
             project_invoice=project_invoice,
+            invoice_missing=invoice_missing,
             project_expenses=db.query(Expense).filter(Expense.project_id == project.id).order_by(Expense.expense_date.desc()).all(),
             # Expenses not yet booked on any project, offered for linking.
             assignable_expenses=db.query(Expense).filter(
@@ -887,6 +892,8 @@ async def project_invoice_recipient(
         inv = invoiceninja.get_invoice(link.invoiceninja_id)
     except Exception as e:  # noqa: BLE001
         return JSONResponse({"error": str(e)[:200]}, status_code=502)
+    hub.apply_invoice(link, inv)  # the number here is the number on the document
+    db.commit()
     data = invoiceninja.recipient_details(inv)
     data["provider"] = emails.provider()
     data["sending_enabled"] = emails.sending_enabled()

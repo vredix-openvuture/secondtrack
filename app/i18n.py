@@ -494,6 +494,10 @@ DE: dict[str, str] = {
     "Open in InvoiceNinja ↗": "In InvoiceNinja öffnen ↗",
     "✓ sent to customer": "✓ an Kunde gesendet",
     "Send to customer": "An Kunde senden",
+    "This invoice no longer exists in InvoiceNinja.":
+        "Diese Rechnung existiert in InvoiceNinja nicht mehr.",
+    "Raise a new one": "Neue Rechnung erstellen",
+    "Remove the link": "Verknüpfung entfernen",
     # invoice review dialog
     "Check invoice": "Rechnung prüfen",
     "Invoice PDF": "Rechnungs-PDF",
