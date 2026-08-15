@@ -574,6 +574,81 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+// ---- Invoice review (project page) ----
+// The PDF frame is loaded on open, not on page load: fetching it is a request
+// to InvoiceNinja, and every visit to a project would otherwise pay for one.
+function stOpenInvoice(projectId) {
+  var m = document.getElementById('invoiceView');
+  if (!m) return;
+  stInvoiceBack();
+  var f = document.getElementById('invFrame');
+  if (f && !f.dataset.loaded) {
+    f.src = '/projects/' + projectId + '/invoice.pdf';
+    f.dataset.loaded = '1';
+  }
+  m.classList.add('open');
+}
+
+function stInvoiceBack() {
+  var doc = document.getElementById('invPaneDoc');
+  var send = document.getElementById('invPaneSend');
+  if (doc) doc.hidden = false;
+  if (send) send.hidden = true;
+}
+
+function stInvoiceFill(d) {
+  var money = function (v) {
+    return v.toFixed(2).replace('.', ',') + ' ' + (window.ST_CURRENCY || '');
+  };
+  var addr = [
+    d.address1, d.address2,
+    [d.postal_code, d.city].filter(Boolean).join(' '),
+    d.state,
+  ].filter(Boolean).join('\n');
+  var values = {
+    email: d.email, contact: d.contact, company: d.company, address: addr,
+    phone: d.phone, vat_number: d.vat_number, number: d.number,
+    amount: money(d.amount), balance: d.balance ? money(d.balance) : '',
+    date: d.date, due_date: d.due_date, emailed_at: d.emailed_at,
+  };
+  // A row with no value is hidden rather than shown empty: a blank line next to
+  // "Address" reads as a missing address, which is exactly what it is not.
+  document.querySelectorAll('#invRecipient .rc-row').forEach(function (row) {
+    var v = values[row.dataset.k] || '';
+    row.querySelector('dd').textContent = v;
+    row.hidden = !v;
+  });
+  document.querySelectorAll('#invVia [data-provider]').forEach(function (s) {
+    s.hidden = s.dataset.provider !== d.provider;
+  });
+  document.getElementById('invVia').hidden = false;
+  document.getElementById('invRecipient').hidden = false;
+  document.getElementById('invNoMail').hidden = !!d.email;
+  document.getElementById('invNoSender').hidden = !!d.sending_enabled;
+  document.getElementById('invSendBtn').disabled = !(d.email && d.sending_enabled);
+}
+
+async function stInvoiceSendStep(projectId) {
+  document.getElementById('invPaneDoc').hidden = true;
+  document.getElementById('invPaneSend').hidden = false;
+  var loading = document.getElementById('invLoading');
+  var err = document.getElementById('invError');
+  loading.hidden = false;
+  err.hidden = true;
+  document.getElementById('invRecipient').hidden = true;
+  document.getElementById('invSendBtn').disabled = true;
+  try {
+    var res = await fetch('/projects/' + projectId + '/invoice/recipient');
+    var d = await res.json();
+    if (!res.ok) throw new Error(d.error || res.status);
+    stInvoiceFill(d);
+  } catch (e) {
+    err.textContent = String(e.message || e);
+    err.hidden = false;
+  }
+  loading.hidden = true;
+}
+
 // ---- Auto-init (app.js is deferred, so the DOM is already parsed here) ----
 stInitSidebar();
 (function () {

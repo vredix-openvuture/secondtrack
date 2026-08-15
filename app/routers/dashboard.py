@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from ..auth import require_login
 from ..db import get_db, get_setting, set_setting
-from ..models import Part, PartOrigin, Project, ProjectStatus
+from ..models import Part, Project, ProjectStatus
 from ..services.finance import compute_stats
 from ..services.integrations import invoiceninja, vikunja, woo
 from ..services.uploads import delete_image, save_image
@@ -30,6 +30,53 @@ ALL_WIDGETS = [
     ("logo", "Logo"),
 ]
 DEFAULT_WIDGETS = "welcome:4,finance:2,projects:2,warehouse:1,invoices:1,orders:2,tasks:1,quick:2,scan:1"
+
+# GridStack runs on 12 columns; a widget's stored size 1..4 is a quarter of that.
+GRID_COLUMNS = 12
+# Cards are a uniform 3 rows so a row packs flush. The hero is the deliberate
+# exception: at 2 it reads as a band across the top, not a big empty greeting.
+DEFAULT_HEIGHT = {"welcome": 2}
+DEFAULT_ROWS = 3
+
+
+def _default_layout(widgets: list[dict]) -> dict:
+    """Position every tile, for as long as the user has not arranged them.
+
+    Widths are packed into full rows, and a row that would end short has its
+    last tile grown to fill the remainder. Without that the arrangement only
+    looks right when the chosen sizes happen to add up to twelve: turn one
+    widget off, or on, and the row ends at nine with a hole standing next to
+    it, because GridStack floats and never closes a gap by itself.
+    """
+    rows: list[list[dict]] = []
+    row: list[dict] = []
+    used = 0
+    for w in widgets:
+        width = max(1, min(GRID_COLUMNS, w["size"] * 3))
+        if used + width > GRID_COLUMNS and row:
+            rows.append(row)
+            row, used = [], 0
+        row.append({
+            "key": w["key"],
+            "w": width,
+            "h": DEFAULT_HEIGHT.get(w["key"], DEFAULT_ROWS),
+        })
+        used += width
+    if row:
+        rows.append(row)
+
+    out: dict = {}
+    y = 0
+    for row in rows:
+        short = GRID_COLUMNS - sum(t["w"] for t in row)
+        if short > 0:
+            row[-1]["w"] += short
+        x = 0
+        for tile in row:
+            out[tile["key"]] = {"x": x, "y": y, "w": tile["w"], "h": tile["h"]}
+            x += tile["w"]
+        y += max(t["h"] for t in row)
+    return out
 
 
 def _enabled_widgets(db: Session) -> list[dict]:
@@ -69,14 +116,17 @@ async def dashboard(
         layout = {}
     data: dict = {}
 
-    if "finance" in keys or "projects" in keys or "warehouse" in keys:
+    if keys & {"welcome", "finance", "projects", "warehouse"}:
         stats = compute_stats(db)
         data["stats"] = stats
 
     if "projects" in keys:
+        # Same predicate as Stats.active_count — the widget used the legacy
+        # in_production status, so the header counted projects the list below
+        # it then claimed did not exist.
         data["active_projects"] = (
             db.query(Project)
-            .filter(Project.status == ProjectStatus.in_production)
+            .filter(Project.status.in_([ProjectStatus.open, ProjectStatus.in_progress]))
             .order_by(Project.created_at.desc())
             .limit(6)
             .all()
@@ -110,6 +160,7 @@ async def dashboard(
         ctx(
             request, db, active="dashboard",
             widgets=enabled, all_widgets=ALL_WIDGETS, sizes=sizes, layout=layout,
+            default_layout=_default_layout(enabled),
             username=user.display_name or user.username, d=data,
             logo_url=get_setting(db, "dashboard_logo", "") or "",
             woo_on=woo.is_enabled(), in_on=invoiceninja.is_enabled(),
@@ -166,6 +217,16 @@ async def clear_logo(
     if old:
         delete_image(old)
     set_setting(db, "dashboard_logo", "")
+    return RedirectResponse("/", status_code=303)
+
+
+@router.post("/dashboard/layout/reset")
+async def reset_layout(
+    db: Session = Depends(get_db),
+    user=Depends(require_login),
+):
+    """Drop the saved grid so the built-in per-widget default sizes apply again."""
+    set_setting(db, "dashboard_layout", "")
     return RedirectResponse("/", status_code=303)
 
 

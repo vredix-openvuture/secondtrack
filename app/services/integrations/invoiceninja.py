@@ -117,6 +117,37 @@ def invoice_recipient(inv: dict) -> tuple[str, str]:
     return email, name
 
 
+def recipient_details(inv: dict) -> dict:
+    """Everything about who this invoice would go to, for the confirmation shown
+    before sending. Reads the client embedded via include=client; the address
+    lives on the client, the name and email on its first contact carrying one."""
+    client = inv.get("client") or {}
+    contacts = client.get("contacts") or []
+    contact = next((c for c in contacts if c.get("email")), contacts[0] if contacts else {})
+    name = " ".join(
+        p for p in [contact.get("first_name", ""), contact.get("last_name", "")] if p
+    ).strip()
+    return {
+        "email": contact.get("email") or "",
+        "contact": name,
+        "name": client.get("display_name") or client.get("name") or "",
+        "company": client.get("name") or "",
+        "address1": client.get("address1") or "",
+        "address2": client.get("address2") or "",
+        "postal_code": client.get("postal_code") or "",
+        "city": client.get("city") or "",
+        "state": client.get("state") or "",
+        "phone": contact.get("phone") or client.get("phone") or "",
+        "vat_number": client.get("vat_number") or "",
+        "number": inv.get("number") or "",
+        "amount": float(inv.get("amount") or 0),
+        "balance": float(inv.get("balance") or 0),
+        "date": inv.get("date") or "",
+        "due_date": inv.get("due_date") or "",
+        "status": str(inv.get("status_id") or ""),
+    }
+
+
 def invoice_public_link(inv: dict) -> str:
     for inv_invite in inv.get("invitations", []) or []:
         if inv_invite.get("link"):
@@ -281,6 +312,16 @@ def _bulk(invoice_id: str, action: str) -> None:
 def mark_sent(invoice_id: str) -> None:
     """Mark an invoice as sent (so it leaves draft state)."""
     _bulk(invoice_id, "mark_sent")
+
+
+def delete_invoice(invoice_id: str) -> None:
+    """Delete an invoice in InvoiceNinja. A 404 counts as success: the caller
+    wants it gone, and it already is."""
+    _require()
+    with _client() as c:
+        r = c.post("/invoices/bulk", json={"action": "delete", "ids": [invoice_id]})
+        if r.status_code != 404:
+            r.raise_for_status()
 
 
 def mark_paid(invoice_id: str) -> None:

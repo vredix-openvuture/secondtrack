@@ -4,104 +4,219 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gridstack@11.1.2/dist/gridstack.min.css">
 <script src="https://cdn.jsdelivr.net/npm/gridstack@11.1.2/dist/gridstack-all.js"></script>
 
+{# Line icons in the sidebar's visual language — emoji rendered per-platform and
+   read as placeholders next to it. #}
+{% set ICONS = {
+  'finance':  '<line x1="6" y1="20" x2="6" y2="14"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="18" y1="20" x2="18" y2="10"/>',
+  'projects': '<rect x="2.5" y="4" width="19" height="13" rx="2"/><line x1="9" y1="21" x2="15" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>',
+  'warehouse':'<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.3 7 12 12 20.7 7"/><line x1="12" y1="22" x2="12" y2="12"/>',
+  'invoices': '<rect x="2.5" y="5" width="19" height="14" rx="2"/><line x1="2.5" y1="10" x2="21.5" y2="10"/>',
+  'orders':   '<circle cx="9.5" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2.5 3.5h2.3l2.4 11.1a1.8 1.8 0 0 0 1.8 1.4h8.1a1.8 1.8 0 0 0 1.8-1.4L20.5 7H6"/>',
+  'tasks':    '<polyline points="9 11 12 14 21 5"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
+  'quick':    '<path d="M13 2 4.5 13.5H11l-.8 8.5L19.5 10H13z"/>',
+  'scan':     '<path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><line x1="7" y1="12" x2="17" y2="12"/>',
+  'plus':     '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
+  'ok':       '<circle cx="12" cy="12" r="9"/><polyline points="8.4 12.2 11 14.8 15.9 9.7"/>',
+  'logo':     '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.6"/><polyline points="21 15 16 10 5 21"/>'
+} %}
+{% macro svgi(name) %}<svg viewBox="0 0 24 24">{{ ICONS[name]|safe }}</svg>{% endmacro %}
+{% macro ico(name) %}<span class="wico">{{ svgi(name) }}</span>{% endmacro %}
+
 <div class="page-head">
-  <h1 id="greeting">{{ _('Welcome') }}</h1>
+  <h1>{{ _('Dashboard') }}</h1>
   <div style="margin-left:auto;display:flex;gap:.5rem;flex-wrap:wrap">
-    <button id="editToggle" class="btn" onclick="stToggleEdit()">✥ {{ _('Edit layout') }}</button>
+    <button id="editToggle" class="btn ghost" onclick="stToggleEdit()">✥ {{ _('Edit layout') }}</button>
     <button id="editSave" class="btn primary" style="display:none" onclick="stSaveLayout()">{{ _('Save layout') }}</button>
-    <button class="btn" onclick="stOpenModal('dashCustomize')">⚙ {{ _('Customize') }}</button>
+    <button class="btn ghost" onclick="stOpenModal('dashCustomize')">⚙ {{ _('Customize') }}</button>
   </div>
 </div>
 
 <div class="grid-stack">
-{% for w in widgets %}{% set g = layout.get(w.key) %}
+{# Saved arrangement if there is one, otherwise the packed default from the
+   router, which always fills whole rows. #}
+{% for w in widgets %}{% set g = layout.get(w.key) or default_layout.get(w.key) %}
   <div class="grid-stack-item" gs-id="{{ w.key }}"
-       {% if g %}gs-x="{{ g.x }}" gs-y="{{ g.y }}" gs-w="{{ g.w }}" gs-h="{{ g.h }}"{% else %}gs-w="{{ w.size * 3 }}" gs-h="3"{% endif %}>
+       gs-x="{{ g.x }}" gs-y="{{ g.y }}" gs-w="{{ g.w }}" gs-h="{{ g.h }}">
     <div class="grid-stack-item-content">
 
+      {# ---- Hero: the greeting and the day's figures are one thing, not an
+             empty welcome box stacked on a wall of number cards. ---- #}
       {% if w.key == "welcome" %}
-      <div class="card widget tone-accent">
-        <h2 id="welcomeLine">{{ _("Glad you're here,") }} {{ username }}.</h2>
-        <p class="muted" id="todayLine"></p>
+      <div class="card widget hero">
+        <div>
+          <h2 id="welcomeLine">{{ _('Welcome') }}, {{ username }}</h2>
+          <p class="hero-date" id="todayLine"></p>
+        </div>
+        {% if d.stats %}
+        <div class="hero-stats">
+          <div class="hstat">
+            <span class="hstat-v {{ 'pos' if d.stats.projected_gross_profit >= 0 else 'neg' }}">{{ d.stats.projected_gross_profit|money }} {{ currency }}</span>
+            <span class="hstat-l">{{ _('Expected profit') }}</span>
+          </div>
+          <div class="hstat">
+            <span class="hstat-v">{{ d.stats.projected_sale_value|money }} {{ currency }}</span>
+            <span class="hstat-l">{{ _('Revenue') }}</span>
+          </div>
+          <div class="hstat">
+            <span class="hstat-v">{{ d.stats.material_expenses|money }} {{ currency }}</span>
+            <span class="hstat-l">{{ _('Material expenses') }}</span>
+          </div>
+          <div class="hstat">
+            <span class="hstat-v">{{ d.stats.active_count }}</span>
+            <span class="hstat-l">{{ _('Active projects') }}</span>
+          </div>
+        </div>
+        {% endif %}
       </div>
 
       {% elif w.key == "finance" and d.stats %}
       <div class="card widget">
-        <h2><span class="wico">💶</span> {{ _('Finances (forecast)') }}</h2>
-        <div class="wbig {{ 'pos' if d.stats.projected_gross_profit >= 0 else 'neg' }}">{{ d.stats.projected_gross_profit|money }} {{ currency }}</div>
-        <div class="wstat"><span>{{ _('Revenue') }}</span><strong>{{ d.stats.projected_sale_value|money }} {{ currency }}</strong></div>
-        <div class="wstat"><span>{{ _('Material expenses') }}</span><strong>{{ d.stats.material_expenses|money }} {{ currency }}</strong></div>
+        <div class="w-head">{{ ico('finance') }}<h2>{{ _('Finances (forecast)') }}</h2></div>
+        <div class="w-body">
+          <div class="wbig {{ 'pos' if d.stats.projected_gross_profit >= 0 else 'neg' }}">{{ d.stats.projected_gross_profit|money }} {{ currency }}</div>
+          <p class="wsub">{{ _('Gross profit across all unsold projects') }}</p>
+          <div class="wstat"><span>{{ _('Revenue') }}</span><strong>{{ d.stats.projected_sale_value|money }} {{ currency }}</strong></div>
+          <div class="wstat"><span>{{ _('Material expenses') }}</span><strong>{{ d.stats.material_expenses|money }} {{ currency }}</strong></div>
+          <div class="wstat"><span>{{ _('Labor value') }}</span><strong>{{ d.stats.total_labor_value|money }} {{ currency }}</strong></div>
+        </div>
         <a class="wlink" href="/stats">{{ _('To statistics →') }}</a>
       </div>
 
       {% elif w.key == "projects" %}
       <div class="card widget">
-        <h2><span class="wico">🖥️</span> {{ _('Active projects') }} {% if d.stats %}<span class="muted">({{ d.stats.active_count }})</span>{% endif %}</h2>
-        {% if d.active_projects %}<ul class="wlist">{% for p in d.active_projects %}<li><a href="/projects/{{ p.id }}">{{ p.name }}</a></li>{% endfor %}</ul>
-        {% else %}<p class="muted">{{ _('No active projects.') }}</p>{% endif %}
+        <div class="w-head">{{ ico('projects') }}<h2>{{ _('Active projects') }}</h2>{% if d.stats %}<span class="wcount">{{ d.stats.active_count }}</span>{% endif %}</div>
+        <div class="w-body">
+          {% if d.active_projects %}
+          <ul class="wlist">{% for p in d.active_projects %}<li><a href="/projects/{{ p.id }}">{{ p.name }}</a></li>{% endfor %}</ul>
+          {% else %}
+          <div class="w-empty">
+            <p>{{ _('Nothing in progress right now.') }}</p>
+            <a class="btn" href="/projects">{{ _('Start a project') }}</a>
+          </div>
+          {% endif %}
+        </div>
         <a class="wlink" href="/projects">{{ _('All projects →') }}</a>
       </div>
 
       {% elif w.key == "warehouse" %}
       <div class="card widget">
-        <h2><span class="wico">📦</span> {{ _('Warehouse') }}</h2>
-        <div class="wbig">{{ d.warehouse_count or 0 }}</div>
-        <div class="wstat"><span>{{ _('Sale value') }}</span><strong>{{ (d.warehouse_value or 0)|money }} {{ currency }}</strong></div>
+        <div class="w-head">{{ ico('warehouse') }}<h2>{{ _('Warehouse') }}</h2></div>
+        <div class="w-body">
+          {% if d.warehouse_count %}
+          <div class="wbig">{{ d.warehouse_count }}</div>
+          <p class="wsub">{{ _('parts in stock') }}</p>
+          <div class="wstat"><span>{{ _('Sale value') }}</span><strong>{{ (d.warehouse_value or 0)|money }} {{ currency }}</strong></div>
+          {% else %}
+          <div class="w-empty">
+            <p>{{ _('The shelf is empty.') }}</p>
+            <a class="btn" href="/warehouse">{{ _('Add a part') }}</a>
+          </div>
+          {% endif %}
+        </div>
         <a class="wlink" href="/warehouse">{{ _('To warehouse →') }}</a>
       </div>
 
       {% elif w.key == "invoices" %}
       <div class="card widget">
-        <h2><span class="wico">🧾</span> {{ _('Open invoices') }}</h2>
-        {% if not in_on %}<p class="muted">{{ _('InvoiceNinja not connected.') }}</p>
-        {% elif d.in_kpis %}
-          <div class="wbig {{ 'neg' if d.in_kpis.outstanding > 0 }}">{{ d.in_kpis.outstanding|money }} {{ currency }}</div>
-          <div class="wstat"><span>{{ _('Paid') }}</span><strong class="pos">{{ d.in_kpis.paid|money }} {{ currency }}</strong></div>
-          <a class="wlink" href="/hub">{{ _('To the hub →') }}</a>
-        {% else %}<p class="error">{{ _('Could not load.') }}</p>{% endif %}
+        <div class="w-head">{{ ico('invoices') }}<h2>{{ _('Open invoices') }}</h2></div>
+        <div class="w-body">
+          {% if not in_on %}
+          <div class="w-empty">
+            <p>{{ _('InvoiceNinja not connected.') }}</p>
+            <a class="btn ghost" href="/settings">{{ _('Connect →') }}</a>
+          </div>
+          {% elif d.in_kpis %}
+            {% if d.in_kpis.outstanding > 0 %}
+            <div class="wbig neg">{{ d.in_kpis.outstanding|money }} {{ currency }}</div>
+            <p class="wsub">{{ _('still outstanding') }}</p>
+            {% else %}
+            <div class="wbig pos">{{ d.in_kpis.outstanding|money }} {{ currency }}</div>
+            <p class="wsub">{{ _('everything settled') }}</p>
+            {% endif %}
+            <div class="wstat"><span>{{ _('Paid') }}</span><strong class="pos">{{ d.in_kpis.paid|money }} {{ currency }}</strong></div>
+          {% else %}
+          <div class="w-empty">
+            <p>{{ _('InvoiceNinja is not responding.') }}</p>
+            <a class="btn ghost" href="/settings">{{ _('Check connection →') }}</a>
+          </div>
+          {% endif %}
+        </div>
+        {% if in_on and d.in_kpis %}<a class="wlink" href="/hub">{{ _('To the hub →') }}</a>{% endif %}
       </div>
 
       {% elif w.key == "orders" %}
       <div class="card widget">
-        <h2><span class="wico">🛒</span> {{ _('Shop orders') }}</h2>
-        {% if not woo_on %}<p class="muted">{{ _('WooCommerce not connected.') }}</p>
-        {% elif d.orders %}
+        <div class="w-head">{{ ico('orders') }}<h2>{{ _('Shop orders') }}</h2></div>
+        <div class="w-body">
+          {% if not woo_on %}
+          <div class="w-empty">
+            <p>{{ _('WooCommerce not connected.') }}</p>
+            <a class="btn ghost" href="/settings">{{ _('Connect →') }}</a>
+          </div>
+          {% elif d.orders %}
           <ul class="wlist">{% for o in d.orders %}<li>#{{ o.number }} · {{ o.total }} {{ o.currency }} <span class="muted small">{{ o.status }}</span></li>{% endfor %}</ul>
-          <a class="wlink" href="/hub">{{ _('To the hub →') }}</a>
-        {% elif d.orders is none %}<p class="error">{{ _('Could not load.') }}</p>
-        {% else %}<p class="muted">{{ _('No open orders.') }}</p>{% endif %}
+          {% elif d.orders is none %}
+          <div class="w-empty">
+            <p>{{ _('The shop is not responding.') }}</p>
+            <a class="btn ghost" href="/settings">{{ _('Check connection →') }}</a>
+          </div>
+          {% else %}
+          {# No orders is good news — it gets a tick, not a grey line of absence. #}
+          <p class="w-quiet">{{ svgi('ok') }}{{ _('Everything shipped.') }}</p>
+          {% endif %}
+        </div>
+        {% if woo_on and d.orders is not none %}<a class="wlink" href="/hub">{{ _('To the hub →') }}</a>{% endif %}
       </div>
 
       {% elif w.key == "tasks" %}
       <div class="card widget">
-        <h2><span class="wico">✅</span> {{ _('Tasks') }}</h2>
-        {% if not vikunja_on %}<p class="muted">{{ _('Vikunja not connected.') }}</p>
-        {% elif d.task_count is not none %}
+        <div class="w-head">{{ ico('tasks') }}<h2>{{ _('Tasks') }}</h2></div>
+        <div class="w-body">
+          {% if not vikunja_on %}
+          <div class="w-empty">
+            <p>{{ _('Vikunja not connected.') }}</p>
+            <a class="btn ghost" href="/settings">{{ _('Connect →') }}</a>
+          </div>
+          {% elif d.task_count %}
           <div class="wbig">{{ d.task_count }}</div>
-          <a class="wlink" href="/tasks">{{ _('To the board →') }}</a>
-        {% else %}<p class="error">{{ _('Could not load.') }}</p>{% endif %}
+          <p class="wsub">{{ _('open tasks') }}</p>
+          {% elif d.task_count == 0 %}
+          <p class="w-quiet">{{ svgi('ok') }}{{ _('Nothing open.') }}</p>
+          {% else %}
+          <div class="w-empty">
+            <p>{{ _('Vikunja is not responding.') }}</p>
+            <a class="btn ghost" href="/settings">{{ _('Check connection →') }}</a>
+          </div>
+          {% endif %}
+        </div>
+        {% if vikunja_on and d.task_count is not none %}<a class="wlink" href="/tasks">{{ _('To the board →') }}</a>{% endif %}
       </div>
 
       {% elif w.key == "quick" %}
       <div class="card widget qa-widget">
-        <h2><span class="wico">⚡</span> {{ _('Quick access') }}</h2>
-        <div class="quick-actions">
-          <a class="qa" href="/projects"><span class="qa-ico">🖥️</span><span>+ {{ _('Projects') }}</span></a>
-          <a class="qa" href="/warehouse"><span class="qa-ico">📦</span><span>+ {{ _('Part') }}</span></a>
-          <a class="qa" href="/hub"><span class="qa-ico">🧾</span><span>{{ _('Finances') }}</span></a>
-          <a class="qa" href="/tasks"><span class="qa-ico">✅</span><span>{{ _('Tasks') }}</span></a>
-          <a class="qa" href="/scan"><span class="qa-ico">📷</span><span>{{ _('Scan') }}</span></a>
+        <div class="w-head">{{ ico('quick') }}<h2>{{ _('Quick access') }}</h2></div>
+        <div class="w-body">
+          <div class="quick-actions">
+            <a class="qa" href="/scan">{{ svgi('scan') }}<span>{{ _('Scan') }}</span></a>
+            <a class="qa" href="/projects">{{ svgi('plus') }}<span>{{ _('Project') }}</span></a>
+            <a class="qa" href="/warehouse">{{ svgi('plus') }}<span>{{ _('Part') }}</span></a>
+            <a class="qa" href="/tasks">{{ svgi('tasks') }}<span>{{ _('Tasks') }}</span></a>
+            <a class="qa" href="/hub">{{ svgi('invoices') }}<span>{{ _('Finances') }}</span></a>
+            <a class="qa" href="/expenses">{{ svgi('finance') }}<span>{{ _('Expenses') }}</span></a>
+          </div>
         </div>
       </div>
 
       {% elif w.key == "scan" %}
       <div class="card widget scan-widget">
-        <h2><span class="wico">📷</span> {{ _('Scan') }}</h2>
+        <div class="w-head">{{ ico('scan') }}<h2>{{ _('Scan') }}</h2></div>
         {# The whole card is the target — on a tablet you aim, not squint. #}
-        <a class="scan-big" href="/scan">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><line x1="7" y1="12" x2="17" y2="12"/></svg>
-          <span>{{ _('Scan code') }}</span>
-        </a>
+        <div class="w-body">
+          <a class="scan-big" href="/scan">
+            {{ svgi('scan') }}
+            <span>{{ _('Scan code') }}</span>
+          </a>
+        </div>
       </div>
 
       {% elif w.key == "logo" %}
@@ -119,7 +234,7 @@
         {% else %}
         <form class="logo-empty" method="post" action="/dashboard/logo" enctype="multipart/form-data">
           <label class="logo-drop">
-            <span class="wico">🖼️</span>
+            <span class="wico">{{ svgi('logo') }}</span>
             <strong>{{ _('Add your logo') }}</strong>
             <span class="muted small">{{ _('Click to upload · PNG/JPG/WebP') }}</span>
             <input type="file" name="logo" accept="image/*" hidden onchange="this.form.submit()">
@@ -156,16 +271,22 @@
       </ul>
       <button type="submit" class="primary" onclick="stSyncOrder()">{{ _('Save') }}</button>
     </form>
+    <hr>
+    <form method="post" action="/dashboard/layout/reset">
+      <p class="muted small">{{ _('Restore the built-in tile sizes and drop your saved arrangement.') }}</p>
+      <button type="submit" class="btn ghost">{{ _('Reset layout') }}</button>
+    </form>
   </div>
 </div>
 
 <script>
-  // Greeting
+  // Greeting — lives in the hero, so the topbar does not say it a second time.
   (function(){
     const G = {m:"{{ _('Good morning') }}", d:"{{ _('Good day') }}", e:"{{ _('Good evening') }}", n:"{{ _('Good night') }}"};
+    const name = {{ username|tojson }};
     const h = new Date().getHours();
     const g = h < 5 ? G.n : h < 11 ? G.m : h < 17 ? G.d : h < 22 ? G.e : G.n;
-    const el = document.getElementById('greeting'); if (el) el.textContent = g + ", {{ username }}";
+    const el = document.getElementById('welcomeLine'); if (el) el.textContent = g + ", " + name;
     const t = document.getElementById('todayLine');
     if (t) t.textContent = new Date().toLocaleDateString('{{ lang }}', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
   })();

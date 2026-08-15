@@ -3,7 +3,13 @@ from __future__ import annotations
 from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
-from fastapi.responses import PlainTextResponse, RedirectResponse
+from fastapi.responses import (
+    HTMLResponse,
+    JSONResponse,
+    PlainTextResponse,
+    RedirectResponse,
+    Response,
+)
 from sqlalchemy.orm import Session
 
 from .. import runtime
@@ -15,7 +21,7 @@ from ..models import (
     PartOrigin, Project, ProjectImage, ProjectStatus, ProjectType, Report,
     WorkSession,
 )
-from ..services import hub
+from ..services import emails, hub
 from ..services import warehouse as wh
 from ..services.finance import compute_project, global_hourly_rate
 from ..services.integrations import invoiceninja, vikunja
@@ -812,4 +818,114 @@ async def send_project_invoice(
         msg = f"Invoice {link.invoice_number or ''} sent to customer."
     except Exception as e:  # noqa: BLE001
         msg = f"Error while sending: {e}"
+    return RedirectResponse(f"/projects/{project_id}?msg={msg}", status_code=303)
+
+
+@router.get("/{project_id}/invoice.pdf")
+async def project_invoice_pdf(
+    project_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(require_login),
+):
+    """The invoice PDF, inline, so the review dialog can show it in a frame.
+
+    A failure is answered with a readable page rather than a status code: this
+    URL is only ever loaded inside that frame, and an empty frame says nothing
+    about why it is empty."""
+    project = db.get(Project, project_id)
+    link = hub.project_invoice(db, project) if project else None
+    if link is None:
+        return HTMLResponse(_pdf_notice("Keine Rechnung zu diesem Projekt."))
+    try:
+        pdf = invoiceninja.download_pdf(link.invoiceninja_id)
+    except Exception as e:  # noqa: BLE001
+        return HTMLResponse(_pdf_notice(f"InvoiceNinja nicht erreichbar: {e}"))
+    if not pdf:
+        return HTMLResponse(_pdf_notice(
+            "InvoiceNinja hat kein PDF geliefert. Möglicherweise wurde die "
+            "Rechnung dort gelöscht."
+        ))
+    return Response(
+        pdf,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": (
+                f'inline; filename="{link.invoice_number or link.invoiceninja_id}.pdf"'
+            ),
+            "Cache-Control": "no-store",
+        },
+    )
+
+
+def _pdf_notice(text: str) -> str:
+    """A minimal standalone page for the PDF frame (it has no stylesheet)."""
+    import html as _html
+
+    return (
+        '<!doctype html><meta charset="utf-8">'
+        "<style>body{font:15px/1.5 system-ui,sans-serif;color:#e8dfe3;"
+        "background:#241820;display:grid;place-items:center;height:100vh;"
+        "margin:0;padding:1.5rem;text-align:center}</style>"
+        f"<p>{_html.escape(text)}</p>"
+    )
+
+
+@router.get("/{project_id}/invoice/recipient")
+async def project_invoice_recipient(
+    project_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(require_login),
+):
+    """Who this invoice would go to, read live from InvoiceNinja, so the send
+    confirmation shows the address the mail actually uses rather than whatever
+    was typed into the project weeks ago."""
+    project = db.get(Project, project_id)
+    link = hub.project_invoice(db, project) if project else None
+    if link is None:
+        return JSONResponse({"error": "no invoice"}, status_code=404)
+    try:
+        inv = invoiceninja.get_invoice(link.invoiceninja_id)
+    except Exception as e:  # noqa: BLE001
+        return JSONResponse({"error": str(e)[:200]}, status_code=502)
+    data = invoiceninja.recipient_details(inv)
+    data["provider"] = emails.provider()
+    data["sending_enabled"] = emails.sending_enabled()
+    data["emailed_at"] = (
+        link.emailed_at.strftime("%d.%m.%Y %H:%M") if link.emailed_at else ""
+    )
+    return JSONResponse(data)
+
+
+@router.post("/{project_id}/invoice/regenerate")
+async def regenerate_project_invoice(
+    project_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(require_login),
+):
+    """Replace the invoice with a fresh one built from the project as it is now."""
+    project = db.get(Project, project_id)
+    if not project:
+        return RedirectResponse("/projects", status_code=303)
+    try:
+        link = hub.regenerate_project_invoice(db, project)
+        msg = f"Invoice {link.invoice_number or ''} regenerated."
+    except Exception as e:  # noqa: BLE001
+        msg = f"Error: {e}"
+    return RedirectResponse(f"/projects/{project_id}?msg={msg}", status_code=303)
+
+
+@router.post("/{project_id}/invoice/delete")
+async def delete_project_invoice(
+    project_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(require_login),
+):
+    project = db.get(Project, project_id)
+    if not project:
+        return RedirectResponse("/projects", status_code=303)
+    try:
+        number = hub.delete_project_invoice(db, project)
+        msg = f"Invoice {number} deleted."
+    except Exception as e:  # noqa: BLE001
+        msg = f"Error: {e}"
     return RedirectResponse(f"/projects/{project_id}?msg={msg}", status_code=303)

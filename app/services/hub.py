@@ -115,6 +115,48 @@ def create_invoice_for_project(
     return link
 
 
+def project_invoice(db: Session, project: Project) -> OrderInvoice | None:
+    return (
+        db.query(OrderInvoice)
+        .filter(OrderInvoice.project_id == project.id)
+        .first()
+    )
+
+
+def delete_project_invoice(db: Session, project: Project) -> str:
+    """Remove a project's invoice: gone in InvoiceNinja, gone here. Returns the
+    number it had, for the message.
+
+    The link row has to go with it, because that row is what stops a second
+    invoice ever being created for this project."""
+    link = project_invoice(db, project)
+    if link is None:
+        raise RuntimeError("Keine Rechnung zu diesem Projekt")
+    number = link.invoice_number or link.invoiceninja_id
+    invoiceninja.delete_invoice(link.invoiceninja_id)
+    db.delete(link)
+    project.invoiceninja_id = None
+    db.commit()
+    return number
+
+
+def regenerate_project_invoice(db: Session, project: Project) -> OrderInvoice:
+    """Throw the invoice away and raise a fresh one from what the project says
+    today. Same client as before, so a regenerate never quietly re-addresses the
+    document; the line items and the total are rebuilt from the current items
+    and hours."""
+    link = project_invoice(db, project)
+    if link is None:
+        raise RuntimeError("Keine Rechnung zu diesem Projekt")
+    client_id = ""
+    try:
+        client_id = str((invoiceninja.get_invoice(link.invoiceninja_id) or {}).get("client_id") or "")
+    except Exception:  # noqa: BLE001 - a gone invoice still has to be replaceable
+        client_id = ""
+    delete_project_invoice(db, project)
+    return create_invoice_for_project(db, project, client_id=client_id)
+
+
 def _ensure_customer_for_order(
     db: Session, order: dict, in_client_id, link: OrderInvoice
 ) -> None:

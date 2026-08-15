@@ -302,10 +302,10 @@
       <h2>{{ _('Invoice (InvoiceNinja)') }}</h2>
       {% if project_invoice %}
         <p>{{ _('Invoice') }} <strong>{{ project_invoice.invoice_number or project_invoice.invoiceninja_id }}</strong> {{ _('invoice created.') }}</p>
-        <div class="row-form">
-          <a class="btn" href="{{ in_url }}/invoices/{{ project_invoice.invoiceninja_id }}/edit" target="_blank">{{ _('Open in InvoiceNinja ↗') }}</a>
-          {% if project_invoice.emailed_at %}<span class="muted small">{{ _('✓ sent to customer') }}</span>
-          {% else %}<form method="post" action="/projects/{{ project.id }}/invoice/send"><button class="primary">{{ _('Send to customer') }}</button></form>{% endif %}
+        <div class="btn-row">
+          <button class="btn" onclick="stOpenInvoice({{ project.id }})">{{ _('Check invoice') }}</button>
+          <a class="btn ghost" href="{{ in_url }}/invoices/{{ project_invoice.invoiceninja_id }}/edit" target="_blank">{{ _('Open in InvoiceNinja ↗') }}</a>
+          {% if project_invoice.emailed_at %}<span class="muted small">{{ _('✓ sent to customer') }}</span>{% endif %}
         </div>
       {% else %}
         <form method="post" action="/projects/{{ project.id }}/invoice" class="stack">
@@ -435,4 +435,78 @@
     </div>
   </div>
 </section>
+
+{% if in_enabled and project_invoice %}
+{# ===== INVOICE REVIEW =====
+   Two panes in one dialog rather than two dialogs: the send confirmation is a
+   step of checking the invoice, not a separate errand, and stacking backdrops
+   would leave Escape closing both at once. #}
+<div class="modal-backdrop" id="invoiceView">
+  <div class="modal modal-wide">
+    <div class="modal-head">
+      <h2>{{ _('Invoice') }} {{ project_invoice.invoice_number or project_invoice.invoiceninja_id }}</h2>
+      <button class="modal-close" onclick="stCloseModal(this)">×</button>
+    </div>
+
+    <div id="invPaneDoc">
+      {% if project_invoice.emailed_at %}
+      <p class="muted small">{{ _('Already sent to the customer.') }} {{ project_invoice.emailed_at.strftime('%d.%m.%Y %H:%M') }}</p>
+      {% endif %}
+      {# The frame is only loaded when the dialog opens: an invoice PDF is a
+         request to InvoiceNinja, and every project page would pay for it. #}
+      <iframe class="pdf-frame" id="invFrame" title="{{ _('Invoice PDF') }}" src="about:blank"></iframe>
+      <div class="btn-row inv-actions">
+        <button class="btn" onclick="stInvoiceSendStep({{ project.id }})">{{ _('Send to customer') }}</button>
+        <a class="btn ghost" href="/projects/{{ project.id }}/invoice.pdf" download>{{ _('Download PDF') }}</a>
+        <form method="post" action="/projects/{{ project.id }}/invoice/regenerate"
+              onsubmit="return confirm('{{ _('Regenerate the invoice from the current items and hours? The old one is deleted in InvoiceNinja and gets a new number.') }}')">
+          <button class="btn ghost">{{ _('Regenerate') }}</button>
+        </form>
+        <form method="post" action="/projects/{{ project.id }}/invoice/delete" class="push-right"
+              onsubmit="return confirm('{{ _('Delete this invoice in InvoiceNinja? The project can then be invoiced again.') }}')">
+          <button class="link danger">{{ _('Delete invoice') }}</button>
+        </form>
+      </div>
+    </div>
+
+    <div id="invPaneSend" hidden>
+      <h3 class="inv-step">{{ _('Send to this recipient?') }}</h3>
+      {# Read live from InvoiceNinja on open: this is the address the mail
+         actually uses, not what was typed into the project weeks ago. #}
+      <p class="muted small" id="invLoading">{{ _('Loading recipient…') }}</p>
+      <p class="notice-inline" id="invError" hidden></p>
+      <div class="recipient-box" id="invRecipient" hidden>
+        <dl>
+          <div class="rc-row" data-k="email"><dt>{{ _('Email') }}</dt><dd class="rc-strong"></dd></div>
+          <div class="rc-row" data-k="contact"><dt>{{ _('Contact') }}</dt><dd></dd></div>
+          <div class="rc-row" data-k="company"><dt>{{ _('Company') }}</dt><dd></dd></div>
+          <div class="rc-row" data-k="address"><dt>{{ _('Address') }}</dt><dd></dd></div>
+          <div class="rc-row" data-k="phone"><dt>{{ _('Phone') }}</dt><dd></dd></div>
+          <div class="rc-row" data-k="vat_number"><dt>{{ _('VAT number') }}</dt><dd></dd></div>
+        </dl>
+        <dl>
+          <div class="rc-row" data-k="number"><dt>{{ _('Invoice') }}</dt><dd class="rc-strong"></dd></div>
+          <div class="rc-row" data-k="amount"><dt>{{ _('Amount') }}</dt><dd></dd></div>
+          <div class="rc-row" data-k="balance"><dt>{{ _('Open balance') }}</dt><dd></dd></div>
+          <div class="rc-row" data-k="date"><dt>{{ _('Invoice date') }}</dt><dd></dd></div>
+          <div class="rc-row" data-k="due_date"><dt>{{ _('Due date') }}</dt><dd></dd></div>
+          <div class="rc-row" data-k="emailed_at"><dt>{{ _('Already sent') }}</dt><dd></dd></div>
+        </dl>
+      </div>
+      <p class="muted small" id="invVia" hidden>
+        <span data-provider="secondtrack" hidden>{{ _('Sent over your own SMTP, with the PDF attached.') }}</span>
+        <span data-provider="invoiceninja" hidden>{{ _('Sent by InvoiceNinja over its own mail configuration.') }}</span>
+      </p>
+      <p class="notice-inline" id="invNoMail" hidden>{{ _('No email address on this client. Add one in InvoiceNinja first.') }}</p>
+      <p class="notice-inline" id="invNoSender" hidden>{{ _('Sending is not configured. Set it up under Settings, Connections, Email.') }}</p>
+      <div class="btn-row inv-actions">
+        <form method="post" action="/projects/{{ project.id }}/invoice/send" id="invSendForm">
+          <button class="primary" id="invSendBtn" disabled>{{ _('Send now') }}</button>
+        </form>
+        <button class="btn ghost" onclick="stInvoiceBack()">{{ _('Back') }}</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
 {% endblock %}
