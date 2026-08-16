@@ -31,12 +31,32 @@ router = APIRouter(prefix="/warehouse")
 
 
 def _parse_float(value: str | None) -> float | None:
+    """A money value from a form field, rounded to the cent.
+
+    Everything the warehouse stores is money or a count, and money that is finer
+    than a cent cannot be printed: an invoice line shows a two-decimal unit
+    price, so a stored 13.3333 would leave the warehouse, the project and the
+    document each with a different total. The form has always displayed the
+    per-unit price to two decimals, so this stores what the user was shown.
+    """
     if value is None or value.strip() == "":
         return None
     try:
-        return float(value.replace(",", ".").strip())
+        return round(float(value.replace(",", ".").strip()), 2)
     except ValueError:
         return None
+
+
+def _per_unit(total: float | None, qty: int) -> float | None:
+    """Split an entered total across `qty` units, at the cent.
+
+    The remainder is dropped rather than hidden in the fractions: three units
+    entered as 40.00 are stored at 13.33 and are worth 39.99 from then on,
+    everywhere and consistently, instead of 40.00 here and 39.99 on the invoice.
+    """
+    if not total:
+        return None
+    return round(total / max(1, qty), 2)
 
 
 def _parse_int(value: str | None) -> int | None:
@@ -202,8 +222,8 @@ def _members_from_form(
             notes=(pick(notes, i) or "").strip() or None,
             set_id=ps.id, project_id=None, device_id=None,
             origin=PartOrigin.purchased,
-            purchase_price=(cost / qty) if cost else None,
-            sale_price=(sale / qty) if sale else 0.0,
+            purchase_price=_per_unit(cost, qty),
+            sale_price=_per_unit(sale, qty) or 0.0,
             quantity=qty,
             image_path=img,
             category_id=cat_id,
@@ -606,8 +626,8 @@ async def create_part(
         notes=notes.strip() or None,
         project_id=None,
         origin=PartOrigin.purchased if pp_total else PartOrigin.harvested,
-        purchase_price=(pp_total / qty) if pp_total else None,
-        sale_price=sale_total / qty,
+        purchase_price=_per_unit(pp_total, qty),
+        sale_price=_per_unit(sale_total, qty) or 0.0,
         image_path=img_url,
         quantity=qty,
         category_id=cat_id,

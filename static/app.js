@@ -417,9 +417,16 @@ function stUnitPrices() {
   var q = num('wpQty') || 1, pp = num('wpPurchase'), sp = num('wpSale');
   var cur = window.ST_CURRENCY || '€';
   var f = function (v) { return v.toFixed(2).replace('.', ',') + ' ' + cur; };
-  var parts = [];
-  if (pp > 0) parts.push('Einkauf/Stück: ' + f(pp / q));
-  if (sp > 0) parts.push('VK/Stück: ' + f(sp / q));
+  // Prices are stored per unit at the cent, so a total that does not divide
+  // evenly ends up slightly different from what was typed. Say so here rather
+  // than let it turn up later on an invoice.
+  var unit = function (total) { return Math.round((total / q) * 100) / 100; };
+  var parts = [], shifted = 0;
+  if (pp > 0) { parts.push('Einkauf/Stück: ' + f(unit(pp))); shifted += Math.abs(unit(pp) * q - pp); }
+  if (sp > 0) { parts.push('VK/Stück: ' + f(unit(sp))); shifted += Math.abs(unit(sp) * q - sp); }
+  if (parts.length && shifted > 0.004) {
+    parts.push('gerundet: ' + f(unit(pp) * q) + ' / ' + f(unit(sp) * q));
+  }
   out.textContent = (q > 1 && parts.length) ? parts.join('  ·  ') : '';
 }
 

@@ -363,6 +363,34 @@ def _drop_placeholder_project_items() -> None:
         db.commit()
 
 
+def _round_money_to_cents() -> None:
+    """Bring stored prices onto the cent.
+
+    Per-unit prices are entered as a total and divided, so anything that did not
+    divide evenly used to be kept in full: 13.3333 per unit. Nothing can print
+    that, and every consumer rounded it in its own direction, so the warehouse,
+    the project and the invoice each ended up with a different total. Rounding
+    is done on the way in now; this catches the rows that predate it.
+
+    Idempotent: the WHERE clause only matches what is not already at the cent.
+    """
+    from sqlalchemy import text
+
+    targets = [
+        ("parts", "purchase_price"),
+        ("parts", "sale_price"),
+        ("sets", "purchase_price"),
+        ("sets", "sale_price"),
+        ("expenses", "amount"),
+    ]
+    with engine.begin() as conn:
+        for table, column in targets:
+            conn.execute(text(
+                f"UPDATE {table} SET {column} = ROUND({column}, 2) "
+                f"WHERE {column} IS NOT NULL AND {column} <> ROUND({column}, 2)"
+            ))
+
+
 def _seed_project_types() -> None:
     """The two hard-coded kinds become editable rows, so the user can add their
     own (Repair, Conversion, …). Idempotent: seeds only what is missing and
@@ -434,3 +462,5 @@ def init_db() -> None:
     _drop_placeholder_project_items()
     # The fixed customer/shop kinds become editable project types.
     _seed_project_types()
+    # Prices from before the rounding was done on the way in.
+    _round_money_to_cents()

@@ -18,10 +18,12 @@ router = APIRouter(prefix="/expenses")
 
 
 def _parse_float(v: str | None) -> float:
+    """A money value from a form field, rounded to the cent. See the same helper
+    in the warehouse router for why nothing finer is worth storing."""
     if not v or not v.strip():
         return 0.0
     try:
-        return float(v.replace(",", ".").strip())
+        return round(float(v.replace(",", ".").strip()), 2)
     except ValueError:
         return 0.0
 
