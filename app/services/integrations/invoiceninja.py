@@ -382,13 +382,6 @@ def send_email(invoice_id: str, template: str = "invoice") -> None:
         resp.raise_for_status()
 
 
-def _hours(value: float) -> str:
-    """Hours for a customer's eyes: 2 rather than 2,00, and a comma decimal."""
-    if value == int(value):
-        return str(int(value))
-    return f"{value:.2f}".rstrip("0").replace(".", ",")
-
-
 def _line_items_for_project(db: Session, project: Project) -> list[dict]:
     f = compute_project(db, project)
     items: list[dict] = []
@@ -422,12 +415,17 @@ def _line_items_for_project(db: Session, project: Project) -> list[dict]:
     # already said, so what was actually done never reached the customer.
     worked = [s for s in sorted(f.sessions, key=lambda x: x.work_date) if (s.hours or 0) > 0]
     if worked and f.hours > 0:
+        # A bullet per activity, in the order the work happened. A session's own
+        # description is often already written as a list, so its lines are kept
+        # as lines: collapsing them ran four jobs together into one sentence.
+        # No dates and no per-session hours, because the customer is buying the
+        # work and not a timesheet, and the total hours are the quantity beside.
         done = []
         for s in worked:
-            note = s.work_date.strftime("%d.%m.%Y")
-            if s.description:
-                note += " · " + " ".join(s.description.split())
-            done.append(f"{note} ({_hours(s.hours)} h)")
+            for raw in (s.description or "").splitlines():
+                text = raw.strip().lstrip("-*•–").strip()
+                if text:
+                    done.append(f"- {text}")
         # A single line can carry a single rate, so it has to be the weighted
         # one: a session may set a rate of its own, and the project's labour
         # value honours it. Billing the project rate times the total hours would
