@@ -382,6 +382,13 @@ def send_email(invoice_id: str, template: str = "invoice") -> None:
         resp.raise_for_status()
 
 
+def _hours(value: float) -> str:
+    """Hours for a customer's eyes: 2 rather than 2,00, and a comma decimal."""
+    if value == int(value):
+        return str(int(value))
+    return f"{value:.2f}".rstrip("0").replace(".", ",")
+
+
 def _line_items_for_project(db: Session, project: Project) -> list[dict]:
     f = compute_project(db, project)
     items: list[dict] = []
@@ -410,25 +417,27 @@ def _line_items_for_project(db: Session, project: Project) -> list[dict]:
                 "cost": cost,
             }
         )
-    # One line per work session, oldest first. Collapsing them into a single
-    # "Arbeitszeit" line threw away the one thing the customer actually reads,
-    # namely what was done, and put the hours in the description column where
-    # they only repeated the quantity beside them. It was also wrong whenever a
-    # session carried its own rate: the line billed the project rate times the
-    # total hours, which is not what the project adds up.
-    for s in sorted(f.sessions, key=lambda x: x.work_date):
-        hours = s.hours or 0.0
-        if hours <= 0:
-            continue
-        rate = s.hourly_rate if s.hourly_rate is not None else f.rate
-        note = s.work_date.strftime("%d.%m.%Y")
-        if s.description:
-            note += " · " + " ".join(s.description.split())
+    # Work is one line, with the sessions listed inside its description. The
+    # description column used to hold the total hours, which the quantity column
+    # already said, so what was actually done never reached the customer.
+    worked = [s for s in sorted(f.sessions, key=lambda x: x.work_date) if (s.hours or 0) > 0]
+    if worked and f.hours > 0:
+        done = []
+        for s in worked:
+            note = s.work_date.strftime("%d.%m.%Y")
+            if s.description:
+                note += " · " + " ".join(s.description.split())
+            done.append(f"{note} ({_hours(s.hours)} h)")
+        # A single line can carry a single rate, so it has to be the weighted
+        # one: a session may set a rate of its own, and the project's labour
+        # value honours it. Billing the project rate times the total hours would
+        # hand the customer a figure the project never arrived at.
+        rate = f.labor_value / f.hours if f.hours else f.rate
         items.append(
             {
                 "product_key": "Arbeitszeit",
-                "notes": note,
-                "quantity": round(hours, 2),
+                "notes": "\n".join(done),
+                "quantity": round(f.hours, 2),
                 "cost": round(rate, 2),
             }
         )
