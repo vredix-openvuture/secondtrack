@@ -374,12 +374,21 @@ def _line_items_for_project(db: Session, project: Project) -> list[dict]:
         # item with no explanation.
         if it.get("free"):
             notes = (notes + "\nGratis" if notes else "Gratis").strip()
+        # Nine fans are nine lines' worth of one fan, not one line of nine fans
+        # at nine times the price. `it["sale"]` is already the line total, so the
+        # unit price is taken from the part itself rather than divided back out
+        # of it, which would land a cent off whenever the division is not exact.
+        if it["kind"] == "set":
+            quantity, cost = 1, round(it["sale"], 2)
+        else:
+            quantity = it.get("qty") or 1
+            cost = 0.0 if it.get("free") else round(it["obj"].sale_price or 0.0, 2)
         items.append(
             {
                 "product_key": it["obj"].name,
                 "notes": notes,
-                "quantity": 1,
-                "cost": round(it["sale"], 2),
+                "quantity": quantity,
+                "cost": cost,
             }
         )
     if f.hours > 0:

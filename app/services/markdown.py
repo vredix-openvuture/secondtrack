@@ -71,19 +71,24 @@ def render_project_markdown(db: Session, project: Project) -> str:
     lines += ["## Verbaute Teile", ""]
     if f.items:
         lines += [
-            "| Objekt | Herkunft | Einkauf | Verkaufswert |",
-            "| --- | --- | ---: | ---: |",
+            "| Objekt | Menge | Herkunft | Einkauf | Verkaufswert |",
+            "| --- | ---: | --- | ---: | ---: |",
         ]
         for it in f.items:
             if it["kind"] == "set":
                 origin = "Set"
             else:
                 origin = "Gekauft" if it["bought"] else "Ausgebaut"
+            # Both money columns are line totals, so the quantity behind them has
+            # to be on the row as well; without it nine fans read as one.
+            qty = it.get("qty") or 1
             lines.append(
-                f"| {it['obj'].name} | {origin} | {_fmt(it['purchase'])} | {_fmt(it['sale'])} |"
+                f"| {it['obj'].name} | {qty} | {origin} "
+                f"| {_fmt(it['purchase'])} | {_fmt(it['sale'])} |"
             )
         lines += [
-            f"| **Summe** | | **{_fmt(f.parts_purchase_cost)}** | **{_fmt(f.parts_value)}** |",
+            f"| **Summe** | | | **{_fmt(f.parts_purchase_cost)}** "
+            f"| **{_fmt(f.parts_value)}** |",
         ]
     else:
         lines.append("_Keine Teile erfasst._")
