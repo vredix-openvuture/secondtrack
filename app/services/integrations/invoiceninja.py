@@ -410,13 +410,26 @@ def _line_items_for_project(db: Session, project: Project) -> list[dict]:
                 "cost": cost,
             }
         )
-    if f.hours > 0:
+    # One line per work session, oldest first. Collapsing them into a single
+    # "Arbeitszeit" line threw away the one thing the customer actually reads,
+    # namely what was done, and put the hours in the description column where
+    # they only repeated the quantity beside them. It was also wrong whenever a
+    # session carried its own rate: the line billed the project rate times the
+    # total hours, which is not what the project adds up.
+    for s in sorted(f.sessions, key=lambda x: x.work_date):
+        hours = s.hours or 0.0
+        if hours <= 0:
+            continue
+        rate = s.hourly_rate if s.hourly_rate is not None else f.rate
+        note = s.work_date.strftime("%d.%m.%Y")
+        if s.description:
+            note += " · " + " ".join(s.description.split())
         items.append(
             {
                 "product_key": "Arbeitszeit",
-                "notes": f"{f.hours:.2f} h",
-                "quantity": round(f.hours, 2),
-                "cost": round(f.rate, 2),
+                "notes": note,
+                "quantity": round(hours, 2),
+                "cost": round(rate, 2),
             }
         )
     return items
