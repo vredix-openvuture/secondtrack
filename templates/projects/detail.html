@@ -473,7 +473,7 @@
         <button class="btn" onclick="stInvoiceSendStep({{ project.id }})">{{ _('Send to customer') }}</button>
         <a class="btn ghost" href="/projects/{{ project.id }}/invoice.pdf" download>{{ _('Download PDF') }}</a>
         <form method="post" action="/projects/{{ project.id }}/invoice/regenerate"
-              onsubmit="return confirm('{{ _('Regenerate the invoice from the current items and hours? The old one is deleted in InvoiceNinja and gets a new number.') }}')">
+              onsubmit="return confirm('{{ _('Rebuild the positions from the current items and hours? The invoice keeps its number; a copy already sent to the customer becomes outdated.') }}')">
           <button class="btn ghost">{{ _('Regenerate') }}</button>
         </form>
         <form method="post" action="/projects/{{ project.id }}/invoice/delete" class="push-right"

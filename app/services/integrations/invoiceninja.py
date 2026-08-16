@@ -291,6 +291,25 @@ def create_invoice(
         return resp.json()["data"]
 
 
+def update_invoice(
+    invoice_id: str, line_items: list[dict], po_number: str = ""
+) -> dict:
+    """Rewrite an invoice's lines in place.
+
+    It keeps its id and its number, which is the point: a rebuilt invoice is the
+    same invoice with the positions corrected, not a new document. Deleting and
+    creating would burn a number out of the sequence every time.
+    """
+    _require()
+    payload: dict = {"line_items": line_items}
+    if po_number:
+        payload["po_number"] = po_number
+    with _client() as c:
+        r = c.put(f"/invoices/{invoice_id}", json=payload)
+        r.raise_for_status()
+        return r.json()["data"]
+
+
 def email_invoice(invoice_id: str) -> None:
     """Ask InvoiceNinja to email the invoice to the client (uses IN's own SMTP)."""
     _require()

@@ -505,8 +505,8 @@ DE: dict[str, str] = {
     "Download PDF": "PDF herunterladen",
     "Regenerate": "Neu erzeugen",
     "Delete invoice": "Rechnung löschen",
-    "Regenerate the invoice from the current items and hours? The old one is deleted in InvoiceNinja and gets a new number.":
-        "Rechnung aus den aktuellen Objekten und Stunden neu erzeugen? Die alte wird in InvoiceNinja gelöscht, die neue bekommt eine neue Nummer.",
+    "Rebuild the positions from the current items and hours? The invoice keeps its number; a copy already sent to the customer becomes outdated.":
+        "Positionen aus den aktuellen Objekten und Stunden neu aufbauen? Die Rechnung behält ihre Nummer; eine bereits versendete Kopie ist damit veraltet.",
     "Delete this invoice in InvoiceNinja? The project can then be invoiced again.":
         "Diese Rechnung in InvoiceNinja löschen? Das Projekt kann danach erneut abgerechnet werden.",
     "Send to this recipient?": "An diesen Empfänger senden?",

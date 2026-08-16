@@ -187,20 +187,23 @@ def delete_project_invoice(db: Session, project: Project) -> str:
 
 
 def regenerate_project_invoice(db: Session, project: Project) -> OrderInvoice:
-    """Throw the invoice away and raise a fresh one from what the project says
-    today. Same client as before, so a regenerate never quietly re-addresses the
-    document; the line items and the total are rebuilt from the current items
-    and hours."""
+    """Rebuild the invoice's positions from what the project says today.
+
+    The invoice is rewritten where it is, so it keeps its number and its client.
+    Replacing it with a new document instead would consume a number from the
+    sequence on every correction and leave a deleted one behind for each.
+    """
     link = project_invoice(db, project)
     if link is None:
         raise RuntimeError("Keine Rechnung zu diesem Projekt")
-    client_id = ""
-    try:
-        client_id = str((invoiceninja.get_invoice(link.invoiceninja_id) or {}).get("client_id") or "")
-    except Exception:  # noqa: BLE001 - a gone invoice still has to be replaceable
-        client_id = ""
-    delete_project_invoice(db, project)
-    return create_invoice_for_project(db, project, client_id=client_id)
+    inv = invoiceninja.update_invoice(
+        link.invoiceninja_id,
+        invoiceninja.line_items_for_project(db, project),
+        po_number=project.number or str(project.id),
+    )
+    apply_invoice(link, inv)
+    db.commit()
+    return link
 
 
 def _ensure_customer_for_order(
