@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from .. import runtime
 from ..models import (
+    LOCKED_STATUSES,
     Customer,
     CustomerKind,
     InvoiceSource,
@@ -126,6 +127,22 @@ def project_invoice(db: Session, project: Project) -> OrderInvoice | None:
         .filter(OrderInvoice.project_id == project.id)
         .first()
     )
+
+
+def is_locked(db: Session, project: Project | None) -> bool:
+    """Whether the project has stopped being editable.
+
+    The status says so for anything invoiced through the lifecycle, but the
+    thing that actually closes a project is the invoice being in the customer's
+    hands, so a sent invoice locks it whatever the status says. That also covers
+    everything sent before the lifecycle existed, where the status never moved.
+    """
+    if project is None:
+        return False
+    if project.status in LOCKED_STATUSES:
+        return True
+    link = project_invoice(db, project)
+    return bool(link and link.emailed_at)
 
 
 def apply_invoice(link: OrderInvoice, inv: dict) -> bool:

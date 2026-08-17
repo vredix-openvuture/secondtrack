@@ -10,7 +10,6 @@ from ..auth import require_login
 from ..db import get_db
 from ..models import (
     LOCKED_MSG,
-    LOCKED_STATUSES,
     Category,
     Expense,
     Part,
@@ -23,6 +22,7 @@ from ..models import (
     Supplier,
 )
 from ..services import codes
+from ..services import hub
 from ..services import expenses as exp_service
 from ..services import warehouse as wh
 from ..services.integrations import ebay
@@ -567,7 +567,7 @@ async def create_part(
     for_project_obj = db.get(Project, for_pid) if for_pid else None
     if for_project_obj is None:
         for_pid = None
-    elif for_project_obj.status in LOCKED_STATUSES:
+    elif hub.is_locked(db, for_project_obj):
         return RedirectResponse(f"/projects/{for_pid}?msg={LOCKED_MSG}", status_code=303)
 
     if members:
@@ -764,7 +764,7 @@ async def install_part(
 ):
     part = db.get(Part, part_id)
     project = db.get(Project, project_id)
-    if project is not None and project.status in LOCKED_STATUSES:
+    if hub.is_locked(db, project):
         return RedirectResponse(f"/projects/{project_id}?msg={LOCKED_MSG}", status_code=303)
     if part and part.project_id is None and project:
         part.project_id = project.id  # sale price carries over automatically
@@ -793,7 +793,7 @@ async def book_part(
     part = db.get(Part, part_id)
     project = db.get(Project, project_id)
     view = "merch" if (part is not None and part.is_merch) else "parts"
-    if project is not None and project.status in LOCKED_STATUSES:
+    if hub.is_locked(db, project):
         return RedirectResponse(f"/projects/{project_id}?msg={LOCKED_MSG}", status_code=303)
     if not part or part.project_id is not None or part.device_id is not None or not project:
         return RedirectResponse(f"/warehouse?view={view}", status_code=303)

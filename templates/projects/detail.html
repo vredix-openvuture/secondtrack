@@ -3,19 +3,19 @@
 {% block content %}
 {% set st_label = {"open": _('Open'), "in_progress": _('In progress'), "done": _('Done'), "invoiced": _('Invoiced'), "payment_pending": _('Payment pending'), "paid": _('Paid'), "closed": _('Archived')} %}
 {% set st_class = {"open": "in_production", "in_progress": "in_production", "done": "archived", "invoiced": "sold", "payment_pending": "in_production", "paid": "sold", "closed": "archived"} %}
-{# Once the invoice is with the customer the page becomes a record: the items
-   and hours are what the document was built from, so every control that would
-   change them is gone. The routes refuse them too, this is only the surface. #}
-{% set locked = project.status.value in ('payment_pending', 'paid', 'closed') %}
+{# `locked` comes from the router, which derives it from one rule: the invoice
+   is with the customer. Deciding it a second time here is how the dialog ended
+   up still offering its buttons on a project sent before the lifecycle existed,
+   whose status had never moved. #}
 
 <p class="crumb"><a href="/projects">← {{ _('Projects') }}</a></p>
 {% if request.query_params.get('msg') %}<p class="notice">{{ _(request.query_params.get('msg')) }}</p>{% endif %}
 
 {% if locked %}
 <p class="lock-banner">
-  {% if project.status.value == 'payment_pending' %}{{ _('Invoice sent. Waiting for payment, the project can no longer be changed.') }}
+  {% if project.status.value == 'closed' %}{{ _('Archived. Kept as a record of what was sold.') }}
   {% elif project.status.value == 'paid' %}{{ _('Paid. The project is finished and can be filed away.') }}
-  {% else %}{{ _('Archived. Kept as a record of what was sold.') }}{% endif %}
+  {% else %}{{ _('Invoice sent. Waiting for payment, the project can no longer be changed.') }}{% endif %}
 </p>
 {% endif %}
 
@@ -354,7 +354,7 @@
 
         {# The lifecycle from here on is about the money, not about the build.
            One step is offered at a time, so there is never a choice to make. #}
-        {% if project.status.value == 'payment_pending' %}
+        {% if locked and project.status.value not in ('paid', 'closed') %}
         <form method="post" action="/projects/{{ project.id }}/invoice/paid" class="lifecycle"
               onsubmit="return confirm('{{ _('Record the payment? The invoice is marked paid in InvoiceNinja as well.') }}')">
           <button class="primary">{{ _('Mark as paid') }}</button>

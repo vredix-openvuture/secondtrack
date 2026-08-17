@@ -17,7 +17,7 @@ from ..auth import require_login
 from ..config import get_settings as get_app_settings
 from ..db import get_db, new_project_number
 from ..models import (
-    LOCKED_MSG, LOCKED_STATUSES, Customer, CustomerKind, Expense, OrderInvoice,
+    LOCKED_MSG, Customer, CustomerKind, Expense, OrderInvoice,
     Part, PartSet, PartOrigin, Project, ProjectImage, ProjectStatus,
     ProjectType, Report, WorkSession,
 )
@@ -64,7 +64,7 @@ def _locked(db: Session, project_id: int):
     project = db.get(Project, project_id)
     if project is None:
         return RedirectResponse("/projects", status_code=303)
-    if project.status in LOCKED_STATUSES:
+    if hub.is_locked(db, project):
         return RedirectResponse(
             f"/projects/{project_id}?msg=" + LOCKED_MSG, status_code=303
         )
@@ -312,6 +312,7 @@ def project_detail(
             in_clients=in_clients,
             project_invoice=project_invoice,
             invoice_missing=invoice_missing,
+            locked=hub.is_locked(db, project),
             project_expenses=db.query(Expense).filter(Expense.project_id == project.id).order_by(Expense.expense_date.desc()).all(),
             # Expenses not yet booked on any project, offered for linking.
             assignable_expenses=db.query(Expense).filter(
@@ -1016,7 +1017,12 @@ def mark_invoice_paid(
     project = db.get(Project, project_id)
     if not project:
         return RedirectResponse("/projects", status_code=303)
-    if project.status != ProjectStatus.payment_pending:
+    # Sent is the condition, not the status: a project invoiced before the
+    # lifecycle existed was never moved to payment_pending and must still be
+    # payable.
+    if not hub.is_locked(db, project) or project.status in (
+        ProjectStatus.paid, ProjectStatus.closed
+    ):
         return RedirectResponse(
             f"/projects/{project_id}?msg=Nur eine versendete Rechnung kann bezahlt werden",
             status_code=303,

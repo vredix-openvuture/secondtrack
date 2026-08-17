@@ -363,6 +363,29 @@ def _drop_placeholder_project_items() -> None:
         db.commit()
 
 
+def _catch_up_sent_projects() -> None:
+    """Move projects whose invoice already went out onto the payment step.
+
+    The lifecycle arrived after these were sent, so their status stopped at
+    `invoiced` while the invoice had long been with the customer. The lock reads
+    the send timestamp rather than the status, so they behave correctly either
+    way; this is so the badge says what is actually true.
+
+    Idempotent: only rows still sitting at or before `invoiced` are touched.
+    """
+    from sqlalchemy import text
+
+    with engine.begin() as conn:
+        conn.execute(text("""
+            UPDATE projects SET status = 'payment_pending'
+            WHERE status IN ('open', 'in_progress', 'done', 'invoiced')
+              AND id IN (
+                SELECT project_id FROM order_invoices
+                WHERE project_id IS NOT NULL AND emailed_at IS NOT NULL
+              )
+        """))
+
+
 def _round_money_to_cents() -> None:
     """Bring stored prices onto the cent.
 
@@ -464,3 +487,5 @@ def init_db() -> None:
     _seed_project_types()
     # Prices from before the rounding was done on the way in.
     _round_money_to_cents()
+    # Projects whose invoice went out before the lifecycle existed.
+    _catch_up_sent_projects()
