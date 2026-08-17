@@ -16,7 +16,7 @@ router = APIRouter(prefix="/hub")
 
 
 @router.get("")
-async def hub_page(
+def hub_page(
     request: Request,
     drafts: int = 0,
     archived: int = 1,
@@ -53,7 +53,7 @@ async def hub_page(
 
 
 @router.post("/orders/{order_id}/invoice")
-async def invoice_order(
+def invoice_order(
     order_id: int,
     db: Session = Depends(get_db),
     user=Depends(require_login),
@@ -69,7 +69,7 @@ async def invoice_order(
 
 
 @router.post("/invoice/{link_id}/send")
-async def send_invoice(
+def send_invoice(
     link_id: int,
     kind: str = "invoice",
     db: Session = Depends(get_db),
@@ -90,7 +90,7 @@ async def send_invoice(
 
 
 @router.post("/invoice/{link_id}/archive")
-async def archive_invoice(
+def archive_invoice(
     link_id: int,
     kind: str = "rechnung",
     db: Session = Depends(get_db),
@@ -108,7 +108,7 @@ async def archive_invoice(
 
 
 @router.post("/archive-paid")
-async def archive_paid(
+def archive_paid(
     db: Session = Depends(get_db),
     user=Depends(require_login),
 ):
@@ -124,7 +124,7 @@ async def archive_paid(
 
 
 @router.post("/in/{invoice_id}/mail")
-async def mail_invoice(
+def mail_invoice(
     invoice_id: str,
     kind: str = "reminder",
     db: Session = Depends(get_db),
@@ -143,7 +143,7 @@ async def mail_invoice(
 
 
 @router.post("/poll-orders")
-async def poll_orders(
+def poll_orders(
     db: Session = Depends(get_db),
     user=Depends(require_login),
 ):
@@ -156,7 +156,7 @@ async def poll_orders(
 
 
 @router.post("/process-due")
-async def process_due(
+def process_due(
     db: Session = Depends(get_db),
     user=Depends(require_login),
 ):

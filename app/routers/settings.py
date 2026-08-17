@@ -45,7 +45,7 @@ def _qr_data_uri(uri: str) -> str:
 
 
 @router.get("")
-async def settings_page(
+def settings_page(
     request: Request,
     tab: str = "general",
     sub: str = "woo",
@@ -246,7 +246,7 @@ async def conn_nextcloud(
 
 
 @router.post("/connection/nextcloud/test")
-async def conn_nextcloud_test(
+def conn_nextcloud_test(
     db: Session = Depends(get_db), user: User = Depends(require_login),
 ):
     from ..services.integrations import nextcloud
@@ -274,7 +274,7 @@ async def conn_ebay(
 
 
 @router.post("/connection/ebay/test")
-async def conn_ebay_test(
+def conn_ebay_test(
     db: Session = Depends(get_db), user: User = Depends(require_login),
 ):
     from ..services.integrations import ebay
@@ -323,7 +323,7 @@ async def conn_email(
 
 
 @router.post("/email/test")
-async def email_test(
+def email_test(
     to: str = Form(""),
     db: Session = Depends(get_db), user: User = Depends(require_login),
 ):

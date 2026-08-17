@@ -141,7 +141,7 @@ def _resolve_customer(
 
 
 @router.get("")
-async def list_projects(
+def list_projects(
     request: Request,
     status: str = "active",
     db: Session = Depends(get_db),
@@ -214,7 +214,7 @@ async def create_project(
 
 
 @router.get("/{project_id}")
-async def project_detail(
+def project_detail(
     project_id: int,
     request: Request,
     db: Session = Depends(get_db),
@@ -767,7 +767,7 @@ async def export_to_vault(
 # ---- Invoicing (InvoiceNinja) ----
 
 @router.post("/{project_id}/invoice")
-async def create_project_invoice(
+def create_project_invoice(
     project_id: int,
     client_id: str = Form(""),
     email: str = Form(""),
@@ -804,7 +804,7 @@ async def create_project_invoice(
 
 
 @router.post("/{project_id}/invoice/send")
-async def send_project_invoice(
+def send_project_invoice(
     project_id: int,
     db: Session = Depends(get_db),
     user=Depends(require_login),
@@ -827,7 +827,7 @@ async def send_project_invoice(
 
 
 @router.get("/{project_id}/invoice.pdf")
-async def project_invoice_pdf(
+def project_invoice_pdf(
     project_id: int,
     db: Session = Depends(get_db),
     user=Depends(require_login),
@@ -876,7 +876,7 @@ def _pdf_notice(text: str) -> str:
 
 
 @router.get("/{project_id}/invoice/recipient")
-async def project_invoice_recipient(
+def project_invoice_recipient(
     project_id: int,
     db: Session = Depends(get_db),
     user=Depends(require_login),

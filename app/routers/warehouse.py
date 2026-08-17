@@ -309,7 +309,7 @@ def _set_payload(db, ps: PartSet) -> dict:
 
 
 @router.get("")
-async def warehouse_list(
+def warehouse_list(
     request: Request,
     cat: str = "",
     low: str = "",
@@ -473,7 +473,7 @@ async def warehouse_list(
 
 
 @router.get("/price-suggest")
-async def price_suggest(
+def price_suggest(
     q: str,
     db: Session = Depends(get_db),
     user=Depends(require_login),

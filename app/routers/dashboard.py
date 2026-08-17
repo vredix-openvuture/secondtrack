@@ -102,7 +102,7 @@ def _enabled_widgets(db: Session) -> list[dict]:
 
 
 @router.get("/")
-async def dashboard(
+def dashboard(
     request: Request,
     db: Session = Depends(get_db),
     user=Depends(require_login),

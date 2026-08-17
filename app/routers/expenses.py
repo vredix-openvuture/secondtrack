@@ -47,7 +47,7 @@ def _parse_allocation(sel: str) -> tuple[int | None, str | None]:
 
 
 @router.get("")
-async def list_expenses(
+def list_expenses(
     request: Request,
     db: Session = Depends(get_db),
     user=Depends(require_login),
@@ -248,7 +248,7 @@ async def update_expense(
 
 
 @router.post("/resync")
-async def resync_expenses(
+def resync_expenses(
     db: Session = Depends(get_db),
     user=Depends(require_login),
 ):

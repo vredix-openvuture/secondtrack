@@ -16,7 +16,7 @@ router = APIRouter(prefix="/tasks")
 
 
 @router.get("")
-async def tasks_page(
+def tasks_page(
     request: Request,
     project: int | None = None,
     view: str = "list",
@@ -73,7 +73,7 @@ async def tasks_page(
 
 
 @router.post("/{task_id}/toggle")
-async def toggle_task(
+def toggle_task(
     task_id: int,
     next: str = Form("/tasks"),
     db: Session = Depends(get_db),
@@ -93,7 +93,7 @@ def _detail_url(task_id: int, back: str) -> str:
 
 
 @router.post("/{task_id}/update")
-async def update_task(
+def update_task(
     task_id: int,
     title: str = Form(""),
     description: str = Form(""),
@@ -123,7 +123,7 @@ async def update_task(
 
 
 @router.post("/{task_id}/labels/add")
-async def add_task_label(
+def add_task_label(
     task_id: int,
     label: str = Form(""),
     back: str = Form("/tasks"),
@@ -149,7 +149,7 @@ async def add_task_label(
 
 
 @router.post("/{task_id}/labels/{label_id}/remove")
-async def remove_task_label(
+def remove_task_label(
     task_id: int,
     label_id: int,
     back: str = Form("/tasks"),
@@ -188,7 +188,7 @@ async def assign_task_project(
 
 
 @router.post("/{task_id}/bucket")
-async def move_task_bucket(
+def move_task_bucket(
     task_id: int,
     project_id: int = Form(...),
     bucket_id: int = Form(...),
@@ -205,7 +205,7 @@ async def move_task_bucket(
 
 
 @router.get("/project/{project_id}/background")
-async def project_background(
+def project_background(
     project_id: int,
     db: Session = Depends(get_db),
     user=Depends(require_login),
@@ -221,7 +221,7 @@ async def project_background(
 
 
 @router.get("/{task_id}")
-async def task_detail(
+def task_detail(
     task_id: int,
     request: Request,
     back: str = "/tasks",
