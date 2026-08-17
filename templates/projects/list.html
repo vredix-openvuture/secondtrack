@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% block title %}{{ _('Projects') }} · secondtrack{% endblock %}
 {% block content %}
-{% set st_label = {"open": _('Open'), "in_progress": _('In progress'), "done": _('Done'), "invoiced": _('Invoiced')} %}
-{% set st_class = {"open": "in_production", "in_progress": "in_production", "done": "archived", "invoiced": "sold"} %}
+{% set st_label = {"open": _('Open'), "in_progress": _('In progress'), "done": _('Done'), "invoiced": _('Invoiced'), "payment_pending": _('Payment pending'), "paid": _('Paid'), "closed": _('Archived')} %}
+{% set st_class = {"open": "in_production", "in_progress": "in_production", "done": "archived", "invoiced": "sold", "payment_pending": "in_production", "paid": "sold", "closed": "archived"} %}
 
 {% if request.query_params.get('msg') %}<p class="notice">{{ _(request.query_params.get('msg')) }}</p>{% endif %}
 <div class="page-head">
@@ -16,6 +16,7 @@
     <a href="/projects?status=done" class="{{ 'on' if status == 'done' }}">{{ _('Done') }}</a>
     <a href="/projects?status=invoiced" class="{{ 'on' if status == 'invoiced' }}">{{ _('Invoiced') }}</a>
     <a href="/projects?status=all" class="{{ 'on' if status == 'all' }}">{{ _('All') }}</a>
+    <a href="/projects?status=closed" class="{{ 'on' if status == 'closed' }}">{{ _('Archive') }}</a>
   </div>
 </div>
 

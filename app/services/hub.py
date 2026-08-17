@@ -99,6 +99,11 @@ def create_invoice_for_project(
     )
 
     project.invoiceninja_id = inv["id"]
+    # An invoice exists, so the project is at that step whatever it said before.
+    if project.status not in (
+        ProjectStatus.payment_pending, ProjectStatus.paid, ProjectStatus.closed
+    ):
+        project.status = ProjectStatus.invoiced
     link = OrderInvoice(
         source=InvoiceSource.project,
         project_id=project.id,
@@ -484,7 +489,45 @@ def send_invoice(db: Session, link: OrderInvoice, kind: str = "invoice") -> None
     from . import emails
 
     emails.send_for_link(db, link, kind)
+    # The document is with the customer, so the project stops being a workspace
+    # and starts waiting for money. Done here rather than in the route, so the
+    # send button, the hub and an automatic send at creation all agree.
+    if kind in ("invoice", "receipt") and link.project_id:
+        project = db.get(Project, link.project_id)
+        if project is not None and project.status not in (
+            ProjectStatus.paid, ProjectStatus.closed
+        ):
+            project.status = ProjectStatus.payment_pending
+            db.commit()
     _maybe_archive(db, link)
+
+
+def mark_project_paid(db: Session, project: Project) -> str:
+    """Record the payment, in InvoiceNinja first and here second.
+
+    The payment is a fact about the invoice, and the invoice lives over there,
+    so it is written there before this side claims it. A failure leaves the
+    project waiting rather than showing money that was never booked.
+    """
+    link = project_invoice(db, project)
+    if link is None:
+        raise RuntimeError("Keine Rechnung zu diesem Projekt")
+
+    inv = invoiceninja.get_invoice(link.invoiceninja_id) or {}
+    amount = float(inv.get("balance") or inv.get("amount") or link.amount or 0)
+    try:
+        invoiceninja.record_payment(
+            link.invoiceninja_id, inv.get("client_id"), amount, send_email=False
+        )
+    except Exception:  # noqa: BLE001 - a payment record is nicer, paid is required
+        invoiceninja.mark_paid(link.invoiceninja_id)
+
+    fresh = invoiceninja.get_invoice(link.invoiceninja_id)
+    if fresh:
+        apply_invoice(link, fresh)
+    project.status = ProjectStatus.paid
+    db.commit()
+    return link.invoice_number or link.invoiceninja_id
 
 
 def _safe_name(s: str) -> str:

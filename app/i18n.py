@@ -494,6 +494,24 @@ DE: dict[str, str] = {
     "Open in InvoiceNinja ↗": "In InvoiceNinja öffnen ↗",
     "✓ sent to customer": "✓ an Kunde gesendet",
     "Send to customer": "An Kunde senden",
+    # project lifecycle after the invoice goes out ("Paid" and "Archived" are
+    # already in this table further down, with the same words)
+    "Payment pending": "Zahlung offen",
+    "Archive": "Archiv",
+    "Invoice sent. Waiting for payment, the project can no longer be changed.":
+        "Rechnung versendet. Warten auf Zahlung, das Projekt ist ab jetzt unveränderlich.",
+    "Paid. The project is finished and can be filed away.":
+        "Bezahlt. Das Projekt ist abgeschlossen und kann ins Archiv.",
+    "Archived. Kept as a record of what was sold.":
+        "Archiviert. Bleibt als Beleg dessen, was verkauft wurde.",
+    "Mark as paid": "Als bezahlt buchen",
+    "Books the payment in InvoiceNinja too.":
+        "Bucht die Zahlung auch in InvoiceNinja.",
+    "Record the payment? The invoice is marked paid in InvoiceNinja as well.":
+        "Zahlung buchen? Die Rechnung wird auch in InvoiceNinja auf bezahlt gesetzt.",
+    "Move to archive": "Ins Archiv verschieben",
+    "Nothing is deleted; the project leaves the working list.":
+        "Es wird nichts gelöscht; das Projekt verlässt nur die Arbeitsliste.",
     "This invoice no longer exists in InvoiceNinja.":
         "Diese Rechnung existiert in InvoiceNinja nicht mehr.",
     "Raise a new one": "Neue Rechnung erstellen",
@@ -511,10 +529,9 @@ DE: dict[str, str] = {
         "Diese Rechnung in InvoiceNinja löschen? Das Projekt kann danach erneut abgerechnet werden.",
     "Send to this recipient?": "An diesen Empfänger senden?",
     "Loading recipient…": "Empfänger wird geladen…",
-    "Contact": "Ansprechpartner",
+    # Contact, Address and Phone are already translated for suppliers and mean
+    # the same thing here; repeating them would silently retranslate that page.
     "Company": "Firma",
-    "Address": "Anschrift",
-    "Phone": "Telefon",
     "VAT number": "USt-IdNr.",
     "Open balance": "Offener Betrag",
     "Invoice date": "Rechnungsdatum",

@@ -9,6 +9,8 @@ from sqlalchemy.orm import Session
 from ..auth import require_login
 from ..db import get_db
 from ..models import (
+    LOCKED_MSG,
+    LOCKED_STATUSES,
     Category,
     Expense,
     Part,
@@ -562,8 +564,11 @@ async def create_part(
     # creating a second expense for a purchase that is already booked.
     linked_exp = db.get(Expense, _fk(expense_id)) if _fk(expense_id) else None
     for_pid = _fk(for_project)
-    if for_pid and not db.get(Project, for_pid):
+    for_project_obj = db.get(Project, for_pid) if for_pid else None
+    if for_project_obj is None:
         for_pid = None
+    elif for_project_obj.status in LOCKED_STATUSES:
+        return RedirectResponse(f"/projects/{for_pid}?msg={LOCKED_MSG}", status_code=303)
 
     if members:
         total = _parse_float(purchase_price) or 0.0
@@ -759,6 +764,8 @@ async def install_part(
 ):
     part = db.get(Part, part_id)
     project = db.get(Project, project_id)
+    if project is not None and project.status in LOCKED_STATUSES:
+        return RedirectResponse(f"/projects/{project_id}?msg={LOCKED_MSG}", status_code=303)
     if part and part.project_id is None and project:
         part.project_id = project.id  # sale price carries over automatically
         wh.carry_expense_to_project(db, part, project.id)  # and so does the cost
@@ -786,6 +793,8 @@ async def book_part(
     part = db.get(Part, part_id)
     project = db.get(Project, project_id)
     view = "merch" if (part is not None and part.is_merch) else "parts"
+    if project is not None and project.status in LOCKED_STATUSES:
+        return RedirectResponse(f"/projects/{project_id}?msg={LOCKED_MSG}", status_code=303)
     if not part or part.project_id is not None or part.device_id is not None or not project:
         return RedirectResponse(f"/warehouse?view={view}", status_code=303)
     free = mode.strip().lower() in ("free", "1", "on", "true", "yes")

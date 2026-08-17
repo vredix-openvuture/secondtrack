@@ -1,11 +1,23 @@
 {% extends "base.html" %}
 {% block title %}{{ project.name }} · secondtrack{% endblock %}
 {% block content %}
-{% set st_label = {"open": _('Open'), "in_progress": _('In progress'), "done": _('Done'), "invoiced": _('Invoiced')} %}
-{% set st_class = {"open": "in_production", "in_progress": "in_production", "done": "archived", "invoiced": "sold"} %}
+{% set st_label = {"open": _('Open'), "in_progress": _('In progress'), "done": _('Done'), "invoiced": _('Invoiced'), "payment_pending": _('Payment pending'), "paid": _('Paid'), "closed": _('Archived')} %}
+{% set st_class = {"open": "in_production", "in_progress": "in_production", "done": "archived", "invoiced": "sold", "payment_pending": "in_production", "paid": "sold", "closed": "archived"} %}
+{# Once the invoice is with the customer the page becomes a record: the items
+   and hours are what the document was built from, so every control that would
+   change them is gone. The routes refuse them too, this is only the surface. #}
+{% set locked = project.status.value in ('payment_pending', 'paid', 'closed') %}
 
 <p class="crumb"><a href="/projects">← {{ _('Projects') }}</a></p>
 {% if request.query_params.get('msg') %}<p class="notice">{{ _(request.query_params.get('msg')) }}</p>{% endif %}
+
+{% if locked %}
+<p class="lock-banner">
+  {% if project.status.value == 'payment_pending' %}{{ _('Invoice sent. Waiting for payment, the project can no longer be changed.') }}
+  {% elif project.status.value == 'paid' %}{{ _('Paid. The project is finished and can be filed away.') }}
+  {% else %}{{ _('Archived. Kept as a record of what was sold.') }}{% endif %}
+</p>
+{% endif %}
 
 <!-- ===== HEADER =====
      One form spans the compact head and the edit panel: the image input has to
@@ -14,10 +26,10 @@
      submits its inputs, so the values stay intact. -->
 <form method="post" action="/projects/{{ project.id }}/update" enctype="multipart/form-data" id="projForm">
 <section class="card project-head">
-  <label class="ph-image {{ 'placeholder' if not project.image_path }}" title="{{ _('Click to change the image') }}">
-    <input type="file" name="image" accept="image/*" class="ph-file" onchange="this.form.submit()">
+  <label class="ph-image {{ 'placeholder' if not project.image_path }}" {% if not locked %}title="{{ _('Click to change the image') }}"{% endif %}>
+    {% if not locked %}<input type="file" name="image" accept="image/*" class="ph-file" onchange="this.form.submit()">{% endif %}
     {% if project.image_path %}<img src="{{ project.image_path }}" alt="" onerror="this.style.display='none'; this.closest('.ph-image').classList.add('placeholder')">{% endif %}
-    <span class="ph-hint">{{ _('Change image') if project.image_path else _('Add image') }}</span>
+    {% if not locked %}<span class="ph-hint">{{ _('Change image') if project.image_path else _('Add image') }}</span>{% endif %}
   </label>
 
   <div class="ph-summary">
@@ -37,10 +49,13 @@
     {% endif %}
   </div>
 
+  {% if not locked %}
   <button type="button" class="btn ghost ph-edit" onclick="stToggleProjectEdit(this)"
           data-open="{{ _('Close') }}" data-closed="✎ {{ _('Edit') }}">✎ {{ _('Edit') }}</button>
+  {% endif %}
 </section>
 
+{% if not locked %}
 <section class="card" id="projEdit" hidden>
   <div class="ph-grid">
     <label>{{ _('Name') }}<input name="name" value="{{ project.name }}" required></label>
@@ -91,6 +106,7 @@
             onclick="return confirm('{{ _('Delete project? Parts move to the warehouse.') }}')">{{ _('Delete project') }}</button>
   </div>
 </section>
+{% endif %}
 </form>
 
 <!-- ===== ITEMS (everything comes from the warehouse) ===== -->
@@ -121,18 +137,20 @@
           {# Booking is a share of the stock: lowering this puts the rest
              back on the shelf, raising it takes more from there. Committing
              on change keeps it to one field instead of a field and a button. #}
-          {% if it.kind == 'part' %}
+          {% if it.kind == 'part' and not locked %}
           <form method="post" action="/projects/{{ project.id }}/items/part/{{ o.id }}/qty">
             <input type="number" name="qty" value="{{ it.qty }}" min="0" step="1" inputmode="numeric"
                    class="qty-in" aria-label="{{ _('Qty') }}" title="{{ _('Booked units — change to move the rest back to the warehouse') }}"
                    onchange="this.form.submit()">
           </form>
+          {% elif it.kind == 'part' %}{{ it.qty }}
           {% else %}<span class="muted">—</span>{% endif %}
         </td>
         <td class="num">{{ it.purchase|money }} {{ currency }}</td>
         <td class="num">{{ it.sale|money }} {{ currency }}</td>
         <td class="actions">
-          {% if it.kind == 'set' %}
+          {% if locked %}
+          {% elif it.kind == 'set' %}
           <form method="post" action="/projects/{{ project.id }}/items/set/{{ o.id }}/release" onsubmit="return confirm('{{ _('Remove from project? It goes back to the warehouse.') }}')"><button class="link danger" title="{{ _('Remove from project') }}">✕</button></form>
           {% else %}
           <form method="post" action="/projects/{{ project.id }}/parts/{{ o.id }}/remove" onsubmit="return confirm('{{ _('Remove from project? It goes back to the warehouse.') }}')"><button class="link danger" title="{{ _('Remove from project') }}">✕</button></form>
@@ -149,6 +167,7 @@
      it, so a purchase is booked once and in one place. #}
   {# Creating a new item is the same intent as picking one, so it is the last
      entry of the same list rather than a button standing next to it. #}
+{% if not locked %}
   <form method="post" action="/projects/{{ project.id }}/items/assign" class="assign-row">
     <select name="item" required onchange="stItemPick(this, '/warehouse?for_project={{ project.id }}')">
       <option value="" disabled selected>{{ _('Pick from warehouse…') }}</option>
@@ -162,6 +181,7 @@
     <button type="submit" class="primary">{{ _('Assign') }}</button>
   </form>
   <p class="muted small">{{ _('Its purchase expense is linked to this project for traceability and stays listed under Expenses.') }}</p>
+{% endif %}
 </section>
 
 
@@ -180,6 +200,7 @@
         <td class="num">{{ (s.hourly_rate if s.hourly_rate is not none else f.rate)|money }} {{ currency }}</td>
         <td class="md-content">{{ s.description|md }}</td>
         <td class="actions">
+          {% if not locked %}
           {# Editing reuses the panel below instead of a second form. #}
           <button type="button" class="link" title="{{ _('Edit') }}" onclick="stEditSession(this)"
                   data-action="/projects/{{ project.id }}/sessions/{{ s.id }}/update"
@@ -188,6 +209,7 @@
                   data-rate="{{ s.hourly_rate if s.hourly_rate is not none else '' }}"
                   data-description="{{ s.description or '' }}">✎</button>
           <form method="post" action="/projects/{{ project.id }}/sessions/{{ s.id }}/delete" onsubmit="return confirm('{{ _('Delete entry?') }}')"><button class="link danger" title="{{ _('Delete') }}">✕</button></form>
+          {% endif %}
         </td>
       </tr>
     {% endfor %}
@@ -199,6 +221,7 @@
   </div>
   {% else %}<p class="muted">{{ _('No sessions yet.') }}</p>{% endif %}
 
+{% if not locked %}
   <details class="adder" id="wsPanel">
     <summary onclick="stResetSession()">{{ _('+ Work session') }}</summary>
     <form method="post" action="/projects/{{ project.id }}/sessions" class="stack" id="wsForm"
@@ -218,6 +241,7 @@
     </form>
     <p class="muted small">{{ _('An empty rate uses the project rate.') }}</p>
   </details>
+{% endif %}
 </section>
 
 
@@ -236,12 +260,15 @@
           <figcaption>
             {# Caption edits in place — a photo without context is a photo you
                will not understand in six months. #}
+{% if not locked %}
             <form method="post" action="/projects/{{ project.id }}/gallery/{{ g.id }}/update">
               <input name="caption" value="{{ g.caption or '' }}" placeholder="{{ _('Caption…') }}" onchange="this.form.submit()">
             </form>
             <form method="post" action="/projects/{{ project.id }}/gallery/{{ g.id }}/delete" onsubmit="return confirm('{{ _('Delete photo?') }}')">
               <button class="link danger" title="{{ _('Delete') }}">✕</button>
             </form>
+{% else %}<span class="muted small">{{ g.caption or '' }}</span>
+{% endif %}
           </figcaption>
         </figure>
         {% endfor %}
@@ -272,6 +299,7 @@
           {% if r.created_at %}<span class="muted small">{{ r.created_at.strftime('%Y-%m-%d') }}</span>{% endif %}
         </div>
         {% if r.body_md %}<div class="md-content">{{ r.body_md|md }}</div>{% endif %}
+{% if not locked %}
         <details class="adder">
           <summary>{{ _('Edit') }}</summary>
           <form method="post" action="/projects/{{ project.id }}/reports/{{ r.id }}/update" class="stack">
@@ -283,9 +311,11 @@
             </div>
           </form>
         </details>
+{% endif %}
       </article>
       {% else %}<p class="muted">{{ _('No notes yet.') }}</p>{% endfor %}
 
+{% if not locked %}
       <details class="adder">
         <summary>{{ _('+ Note') }}</summary>
         <form method="post" action="/projects/{{ project.id }}/reports" class="stack">
@@ -294,6 +324,7 @@
           <button type="submit" class="primary">{{ _('Add') }}</button>
         </form>
       </details>
+{% endif %}
     </section>
 
     <!-- ===== INVOICE (InvoiceNinja) ===== -->
@@ -301,7 +332,7 @@
     <section class="card">
       <h2>{{ _('Invoice (InvoiceNinja)') }}</h2>
       {% if project_invoice %}
-        {% if invoice_missing %}
+        {% if invoice_missing and not locked %}
         {# It is gone on the side that owns it, so the link here is a leftover.
            Saying so beats showing a number for a document nobody can open. #}
         <p class="notice-inline">{{ _('This invoice no longer exists in InvoiceNinja.') }}</p>
@@ -320,6 +351,21 @@
           <a class="btn ghost" href="{{ in_url }}/invoices/{{ project_invoice.invoiceninja_id }}/edit" target="_blank">{{ _('Open in InvoiceNinja ↗') }}</a>
           {% if project_invoice.emailed_at %}<span class="muted small">{{ _('✓ sent to customer') }}</span>{% endif %}
         </div>
+
+        {# The lifecycle from here on is about the money, not about the build.
+           One step is offered at a time, so there is never a choice to make. #}
+        {% if project.status.value == 'payment_pending' %}
+        <form method="post" action="/projects/{{ project.id }}/invoice/paid" class="lifecycle"
+              onsubmit="return confirm('{{ _('Record the payment? The invoice is marked paid in InvoiceNinja as well.') }}')">
+          <button class="primary">{{ _('Mark as paid') }}</button>
+          <span class="muted small">{{ _('Books the payment in InvoiceNinja too.') }}</span>
+        </form>
+        {% elif project.status.value == 'paid' %}
+        <form method="post" action="/projects/{{ project.id }}/archive" class="lifecycle">
+          <button class="primary">{{ _('Move to archive') }}</button>
+          <span class="muted small">{{ _('Nothing is deleted; the project leaves the working list.') }}</span>
+        </form>
+        {% endif %}
         {% endif %}
       {% else %}
         <form method="post" action="/projects/{{ project.id }}/invoice" class="stack">
@@ -380,6 +426,7 @@
 
       {# One way in, not two buttons for the same intent: pick an expense that
          already exists, or switch the same form over to creating one. #}
+{% if not locked %}
       <details class="adder">
         <summary>{{ _('+ Expense') }}</summary>
         <form method="post" action="/projects/{{ project.id }}/expenses/assign"
@@ -406,10 +453,12 @@
           <button type="submit" class="primary" id="expSubmit">{{ _('Add') }}</button>
         </form>
       </details>
+{% endif %}
     </section>
 
     {# Only shop production becomes a finished good. A customer order is built
        for one customer and invoiced — it never goes into the shop. #}
+{% if not locked %}
     {% if project.type and project.type.shop_stock %}
     <!-- ===== FINISHED GOOD ===== -->
     <section class="card">
@@ -421,6 +470,7 @@
       </form>
     </section>
     {% endif %}
+{% endif %}
 </div>
 
 <!-- ===== SUMMARY (full width) ===== -->
@@ -470,8 +520,11 @@
          request to InvoiceNinja, and every project page would pay for it. #}
       <iframe class="pdf-frame" id="invFrame" title="{{ _('Invoice PDF') }}" src="about:blank"></iframe>
       <div class="btn-row inv-actions">
+        {% if not locked %}
         <button class="btn" onclick="stInvoiceSendStep({{ project.id }})">{{ _('Send to customer') }}</button>
+        {% endif %}
         <a class="btn ghost" href="/projects/{{ project.id }}/invoice.pdf" download>{{ _('Download PDF') }}</a>
+        {% if not locked %}
         <form method="post" action="/projects/{{ project.id }}/invoice/regenerate"
               onsubmit="return confirm('{{ _('Rebuild the positions from the current items and hours? The invoice keeps its number; a copy already sent to the customer becomes outdated.') }}')">
           <button class="btn ghost">{{ _('Regenerate') }}</button>
@@ -480,6 +533,7 @@
               onsubmit="return confirm('{{ _('Delete this invoice in InvoiceNinja? The project can then be invoiced again.') }}')">
           <button class="link danger">{{ _('Delete invoice') }}</button>
         </form>
+        {% endif %}
       </div>
     </div>
 

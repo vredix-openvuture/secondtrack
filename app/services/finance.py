@@ -175,7 +175,16 @@ def compute_stats(db: Session) -> Stats:
     # without their own figure the money would simply disappear from the totals.
     advertising_cost = round(sum(f.ad_cost for f in per_project), 2)
 
-    unsold = [f for f in per_project if f.project.status != ProjectStatus.invoiced]
+    # "Expected" means still to be earned. Once an invoice is out the money is
+    # no longer a forecast: it is either owed or received, and both belong to
+    # the profit and loss box rather than to this one.
+    settled = (
+        ProjectStatus.invoiced,
+        ProjectStatus.payment_pending,
+        ProjectStatus.paid,
+        ProjectStatus.closed,
+    )
+    unsold = [f for f in per_project if f.project.status not in settled]
     projected_sale_value = sum(f.sale_price for f in unsold)
     projected_gross_profit = sum(f.gross_profit for f in unsold)
     projected_net_profit = sum(f.net_profit for f in unsold)
@@ -196,6 +205,6 @@ def compute_stats(db: Session) -> Stats:
         archived_count=sum(
             1 for p in projects if p.status == ProjectStatus.done
         ),
-        sold_count=sum(1 for p in projects if p.status == ProjectStatus.invoiced),
+        sold_count=sum(1 for p in projects if p.status in settled),
         per_project=per_project,
     )

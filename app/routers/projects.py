@@ -17,9 +17,9 @@ from ..auth import require_login
 from ..config import get_settings as get_app_settings
 from ..db import get_db, new_project_number
 from ..models import (
-    Customer, CustomerKind, Expense, OrderInvoice, Part, PartSet,
-    PartOrigin, Project, ProjectImage, ProjectStatus, ProjectType, Report,
-    WorkSession,
+    LOCKED_MSG, LOCKED_STATUSES, Customer, CustomerKind, Expense, OrderInvoice,
+    Part, PartSet, PartOrigin, Project, ProjectImage, ProjectStatus,
+    ProjectType, Report, WorkSession,
 )
 from ..services import emails, hub
 from ..services import warehouse as wh
@@ -52,6 +52,23 @@ def _parse_float(value: str | None) -> float | None:
         return float(value.replace(",", ".").strip())
     except ValueError:
         return None
+
+
+def _locked(db: Session, project_id: int):
+    """Refuse a change to a project whose invoice is already with the customer.
+
+    Returns a redirect to send back, or None when the change may proceed. The
+    templates hide these controls as well, but hiding a form is decoration: the
+    route is where it has to hold, because the URL is still there.
+    """
+    project = db.get(Project, project_id)
+    if project is None:
+        return RedirectResponse("/projects", status_code=303)
+    if project.status in LOCKED_STATUSES:
+        return RedirectResponse(
+            f"/projects/{project_id}?msg=" + LOCKED_MSG, status_code=303
+        )
+    return None
 
 
 def _resolve_type(
@@ -153,7 +170,17 @@ def list_projects(
     elif status == "done":
         q = q.filter(Project.status == ProjectStatus.done)
     elif status == "invoiced":
-        q = q.filter(Project.status == ProjectStatus.invoiced)
+        # Everything with an invoice out, whether it is still waiting for the
+        # money or already has it. Filed-away projects are their own tab.
+        q = q.filter(Project.status.in_([
+            ProjectStatus.invoiced, ProjectStatus.payment_pending, ProjectStatus.paid,
+        ]))
+    elif status == "closed":
+        q = q.filter(Project.status == ProjectStatus.closed)
+    else:
+        # "All" means everything still on the desk. The archive is a place you
+        # go to on purpose, not a thing that clutters the list.
+        q = q.filter(Project.status != ProjectStatus.closed)
     projects = q.order_by(Project.created_at.desc()).all()
 
     rows = [compute_project(db, p) for p in projects]
@@ -320,6 +347,8 @@ async def update_project(
     db: Session = Depends(get_db),
     user=Depends(require_login),
 ):
+    if (stop := _locked(db, project_id)):
+        return stop
     project = db.get(Project, project_id)
     if not project:
         return RedirectResponse("/projects", status_code=303)
@@ -369,6 +398,8 @@ async def delete_project(
     db: Session = Depends(get_db),
     user=Depends(require_login),
 ):
+    if (stop := _locked(db, project_id)):
+        return stop
     project = db.get(Project, project_id)
     if project:
         # Its items return to the warehouse rather than being deleted with it.
@@ -409,6 +440,8 @@ async def add_gallery_images(
     disassembly, the type plate. Several at once, because that is how you shoot
     them. The caption applies to the whole batch — one note per upload beats no
     note at all, and per-image editing is a click away."""
+    if (stop := _locked(db, project_id)):
+        return stop
     project = db.get(Project, project_id)
     if not project:
         return RedirectResponse("/projects", status_code=303)
@@ -437,6 +470,8 @@ async def update_gallery_image(
     db: Session = Depends(get_db),
     user=Depends(require_login),
 ):
+    if (stop := _locked(db, project_id)):
+        return stop
     img = db.get(ProjectImage, image_id)
     if img and img.project_id == project_id:
         img.caption = caption.strip() or None
@@ -451,6 +486,8 @@ async def delete_gallery_image(
     db: Session = Depends(get_db),
     user=Depends(require_login),
 ):
+    if (stop := _locked(db, project_id)):
+        return stop
     img = db.get(ProjectImage, image_id)
     if img and img.project_id == project_id:
         delete_image(img.path)  # the row is worthless without the file
@@ -469,6 +506,8 @@ async def add_report(
     db: Session = Depends(get_db),
     user=Depends(require_login),
 ):
+    if (stop := _locked(db, project_id)):
+        return stop
     project = db.get(Project, project_id)
     if project:
         # An empty title stays empty — the view falls back to a neutral label,
@@ -491,6 +530,8 @@ async def update_report(
     db: Session = Depends(get_db),
     user=Depends(require_login),
 ):
+    if (stop := _locked(db, project_id)):
+        return stop
     report = db.get(Report, report_id)
     if report and report.project_id == project_id:
         report.title = title.strip() or "Report"
@@ -506,6 +547,8 @@ async def delete_report(
     db: Session = Depends(get_db),
     user=Depends(require_login),
 ):
+    if (stop := _locked(db, project_id)):
+        return stop
     report = db.get(Report, report_id)
     if report and report.project_id == project_id:
         db.delete(report)
@@ -522,6 +565,8 @@ async def remove_part_to_warehouse(
     db: Session = Depends(get_db),
     user=Depends(require_login),
 ):
+    if (stop := _locked(db, project_id)):
+        return stop
     part = db.get(Part, part_id)
     if part and part.project_id == project_id:
         # Moving out of a build: it becomes a harvested warehouse part.
@@ -545,6 +590,8 @@ async def set_item_quantity(
 ):
     """Change how many units of an item are booked on this project. The rest
     goes back on the shelf — a project takes a share of the stock, not the row."""
+    if (stop := _locked(db, project_id)):
+        return stop
     part = db.get(Part, part_id)
     if part and part.project_id == project_id and qty.strip().lstrip("-").isdigit():
         wh.set_booked_units(db, part, int(qty))
@@ -572,6 +619,8 @@ async def assign_item(
     `free` hands the item over as a gift (a sticker, a shirt): it is billed at
     nothing and its cost counts as advertising, not as material for this build.
     """
+    if (stop := _locked(db, project_id)):
+        return stop
     kind, _, raw = item.partition(":")
     if not raw.isdigit():
         return RedirectResponse(f"/projects/{project_id}", status_code=303)
@@ -619,6 +668,8 @@ async def release_set(
     user=Depends(require_login),
 ):
     """Send a set back to the warehouse, taking its member parts with it."""
+    if (stop := _locked(db, project_id)):
+        return stop
     ps = db.get(PartSet, set_id)
     if ps and ps.project_id == project_id:
         ps.project_id = None
@@ -639,6 +690,8 @@ async def assign_expense(
     user=Depends(require_login),
 ):
     """Book an existing expense onto this project instead of creating a new one."""
+    if (stop := _locked(db, project_id)):
+        return stop
     exp = db.get(Expense, expense_id)
     if exp and exp.project_id != project_id:
         exp.project_id = project_id
@@ -659,6 +712,8 @@ async def add_session(
     db: Session = Depends(get_db),
     user=Depends(require_login),
 ):
+    if (stop := _locked(db, project_id)):
+        return stop
     project = db.get(Project, project_id)
     if not project:
         return RedirectResponse("/projects", status_code=303)
@@ -692,6 +747,8 @@ async def update_session(
 ):
     """Correct a logged session after the fact — hours get mistyped and the day
     is often only written up later."""
+    if (stop := _locked(db, project_id)):
+        return stop
     s = db.get(WorkSession, session_id)
     if s and s.project_id == project_id:
         try:
@@ -715,6 +772,8 @@ async def delete_session(
     db: Session = Depends(get_db),
     user=Depends(require_login),
 ):
+    if (stop := _locked(db, project_id)):
+        return stop
     s = db.get(WorkSession, session_id)
     if s and s.project_id == project_id:
         db.delete(s)
@@ -782,6 +841,8 @@ def create_project_invoice(
     db: Session = Depends(get_db),
     user=Depends(require_login),
 ):
+    if (stop := _locked(db, project_id)):
+        return stop
     project = db.get(Project, project_id)
     if not project:
         return RedirectResponse("/projects", status_code=303)
@@ -809,6 +870,8 @@ def send_project_invoice(
     db: Session = Depends(get_db),
     user=Depends(require_login),
 ):
+    if (stop := _locked(db, project_id)):
+        return stop
     link = (
         db.query(OrderInvoice)
         .filter(OrderInvoice.project_id == project_id)
@@ -910,6 +973,8 @@ async def regenerate_project_invoice(
     user=Depends(require_login),
 ):
     """Replace the invoice with a fresh one built from the project as it is now."""
+    if (stop := _locked(db, project_id)):
+        return stop
     project = db.get(Project, project_id)
     if not project:
         return RedirectResponse("/projects", status_code=303)
@@ -927,6 +992,8 @@ async def delete_project_invoice(
     db: Session = Depends(get_db),
     user=Depends(require_login),
 ):
+    if (stop := _locked(db, project_id)):
+        return stop
     project = db.get(Project, project_id)
     if not project:
         return RedirectResponse("/projects", status_code=303)
@@ -936,3 +1003,49 @@ async def delete_project_invoice(
     except Exception as e:  # noqa: BLE001
         msg = f"Error: {e}"
     return RedirectResponse(f"/projects/{project_id}?msg={msg}", status_code=303)
+
+
+@router.post("/{project_id}/invoice/paid")
+def mark_invoice_paid(
+    project_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(require_login),
+):
+    """Record the payment. Deliberately reachable while the project is locked:
+    it is the step that moves it on, not a change to what was billed."""
+    project = db.get(Project, project_id)
+    if not project:
+        return RedirectResponse("/projects", status_code=303)
+    if project.status != ProjectStatus.payment_pending:
+        return RedirectResponse(
+            f"/projects/{project_id}?msg=Nur eine versendete Rechnung kann bezahlt werden",
+            status_code=303,
+        )
+    try:
+        number = hub.mark_project_paid(db, project)
+        msg = f"Rechnung {number} als bezahlt gebucht."
+    except Exception as e:  # noqa: BLE001
+        msg = f"Error: {e}"
+    return RedirectResponse(f"/projects/{project_id}?msg={msg}", status_code=303)
+
+
+@router.post("/{project_id}/archive")
+def archive_project(
+    project_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(require_login),
+):
+    """File a paid project away. Nothing is deleted and nothing is released:
+    the items stay booked, because they are the record of what was sold."""
+    project = db.get(Project, project_id)
+    if not project:
+        return RedirectResponse("/projects", status_code=303)
+    if project.status != ProjectStatus.paid:
+        return RedirectResponse(
+            f"/projects/{project_id}?msg=Erst bezahlt, dann ins Archiv",
+            status_code=303,
+        )
+    project.status = ProjectStatus.closed
+    project.archived_at = datetime.utcnow()
+    db.commit()
+    return RedirectResponse("/projects?status=closed", status_code=303)

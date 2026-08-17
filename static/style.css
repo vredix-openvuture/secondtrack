@@ -898,6 +898,20 @@ body.glass .widget { background: color-mix(in srgb, var(--surface) calc(var(--ca
   font-size: .9rem;
 }
 
+/* A closed project says so once, at the top, instead of leaving the reader to
+   notice that the controls are missing. */
+.lock-banner {
+  margin: 0 0 1rem; padding: .7rem 1rem;
+  border-left: 3px solid var(--accent); border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+/* The one step the project offers next, set apart from the invoice buttons. */
+.lifecycle {
+  display: flex; align-items: center; gap: .8rem; flex-wrap: wrap;
+  margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);
+}
+
 /* A blocked action has to look blocked. Without this a disabled Send reads as a
    button that simply does nothing when clicked. */
 button:disabled, button.primary:disabled, .btn:disabled {

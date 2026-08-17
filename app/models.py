@@ -23,16 +23,38 @@ class Base(DeclarativeBase):
 
 
 class ProjectStatus(str, enum.Enum):
-    # New container-lifecycle statuses (used going forward).
+    """The container lifecycle. Everything up to `invoiced` is reached by hand;
+    from there the invoice drives it, because those steps are facts about a
+    document rather than opinions about the work."""
+
     open = "open"                    # created, nothing done yet
     in_progress = "in_progress"      # being worked on
     done = "done"                    # finished, not yet invoiced
     invoiced = "invoiced"            # invoice created in InvoiceNinja
+    payment_pending = "payment_pending"  # invoice sent, waiting to be paid
+    paid = "paid"                    # payment recorded, in InvoiceNinja too
+    closed = "closed"                # paid and filed away
     # Legacy device-era statuses — kept until the P4 cleanup so finance/stats
-    # and existing rows keep working during the projects rework.
+    # and existing rows keep working during the projects rework. `archived` and
+    # `sold` are only ever read here; nothing writes them any more.
     in_production = "in_production"
     archived = "archived"
     sold = "sold"
+
+
+# Once the invoice is with the customer the project is a record, not a
+# workspace: its items, hours and texts are what the document was built from,
+# so changing them afterwards would make the two disagree with no trace.
+LOCKED_STATUSES = (
+    ProjectStatus.payment_pending,
+    ProjectStatus.paid,
+    ProjectStatus.closed,
+)
+
+LOCKED_MSG = (
+    "Das Projekt ist abgeschlossen: die Rechnung liegt beim Kunden und die "
+    "Positionen bleiben, wie sie abgerechnet wurden."
+)
 
 
 class ProjectKind(str, enum.Enum):
