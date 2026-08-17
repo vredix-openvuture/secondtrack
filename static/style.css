@@ -898,6 +898,24 @@ body.glass .widget { background: color-mix(in srgb, var(--surface) calc(var(--ca
   font-size: .9rem;
 }
 
+/* Project list, grouped by status: the section marker carries the same badge
+   the rows do, so a block is recognised by colour before it is read. */
+.grid .group-row td {
+  padding-top: 1.4rem; padding-bottom: .35rem;
+  border-bottom: 1px solid var(--border-strong);
+}
+.grid tbody tr.group-row:first-child td { padding-top: .4rem; }
+.grid .group-row:hover { background: none; }
+.grid .group-row .badge { font-size: .8rem; }
+.grid .group-row .muted { margin-left: .5rem; }
+
+.proj-group + .proj-group { margin-top: 1.6rem; }
+.group-head {
+  display: flex; align-items: center; gap: .6rem;
+  margin: 0 0 .6rem; font-size: 1rem;
+}
+.group-head .badge { font-size: .8rem; }
+
 /* A closed project says so once, at the top, instead of leaving the reader to
    notice that the controls are missing. */
 .lock-banner {

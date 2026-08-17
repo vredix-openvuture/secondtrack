@@ -11,46 +11,35 @@
     <button type="button" data-mode="list" onclick="stSetView('projects','list')">☰ {{ _('List') }}</button>
     <button type="button" data-mode="cards" onclick="stSetView('projects','cards')">▦ {{ _('Cards') }}</button>
   </div>
+  {# "All" first, because it is the view you land on: everything still on the
+     desk, split by where each project stands. #}
   <div class="tabs">
+    <a href="/projects" class="{{ 'on' if status == 'all' }}">{{ _('All') }}</a>
     <a href="/projects?status=active" class="{{ 'on' if status == 'active' }}">{{ _('Active') }}</a>
     <a href="/projects?status=done" class="{{ 'on' if status == 'done' }}">{{ _('Done') }}</a>
     <a href="/projects?status=invoiced" class="{{ 'on' if status == 'invoiced' }}">{{ _('Invoiced') }}</a>
-    <a href="/projects?status=all" class="{{ 'on' if status == 'all' }}">{{ _('All') }}</a>
     <a href="/projects?status=closed" class="{{ 'on' if status == 'closed' }}">{{ _('Archive') }}</a>
   </div>
 </div>
 
-{% if rows %}
-<div class="table-scroll">
-<table class="grid view-list">
-  <thead>
-    <tr>
-      <th class="thumb-col"></th>
-      <th>{{ _('Project') }}</th><th>{{ _('Status') }}</th><th class="num">{{ _('Items') }}</th>
-      <th class="num">{{ _('Hours') }}</th><th class="num">{{ _('Sale price') }}</th>
-      <th class="num">{{ _('Gross profit') }}</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for f in rows %}
+{# One definition per row shape, used by every section, so the grouped view and
+   a filtered tab cannot drift apart. #}
+{% macro row(f, grouped=false) %}
     <tr onclick="location.href='/projects/{{ f.project.id }}'">
       {# Own column with a placeholder, so the rows line up whether or not a
          project has a picture — an inline icon made every row a different shape. #}
       <td class="thumb-cell"><div class="row-thumb {{ 'placeholder' if not f.project.image_path }}"{% if f.project.image_path %} style="background-image:url('{{ f.project.image_path }}')"{% endif %}></div></td>
       <td><strong>{{ f.project.name }}</strong>{% if f.project.type %} <span class="badge archived">{{ f.project.type.name }}</span>{% endif %}</td>
-      <td><span class="badge {{ st_class.get(f.project.status.value, f.project.status.value) }}">{{ st_label.get(f.project.status.value, f.project.status.value) }}</span></td>
+      {# Under a status heading the per-row badge would only repeat it. #}
+      {% if not grouped %}<td><span class="badge {{ st_class.get(f.project.status.value, f.project.status.value) }}">{{ st_label.get(f.project.status.value, f.project.status.value) }}</span></td>{% endif %}
       <td class="num">{{ f.items|length }}</td>
       <td class="num">{{ f.hours|hours }}</td>
       <td class="num">{{ f.sale_price|money }} {{ currency }}</td>
       <td class="num {{ 'pos' if f.gross_profit >= 0 else 'neg' }}">{{ f.gross_profit|money }} {{ currency }}</td>
     </tr>
-    {% endfor %}
-  </tbody>
-</table>
-</div>
+{% endmacro %}
 
-<div class="cards-grid view-cards">
-  {% for f in rows %}
+{% macro card(f) %}
   <div class="entity-card" onclick="location.href='/projects/{{ f.project.id }}'">
     <div class="thumb {{ 'placeholder' if not f.project.image_path }}"
          {% if f.project.image_path %}style="background-image:url('{{ f.project.image_path }}')"{% endif %}></div>
@@ -66,6 +55,54 @@
       </div>
     </div>
   </div>
+{% endmacro %}
+
+{% if groups %}
+{% set grouped = groups[0].status is not none %}
+{# One table for every group, with the sections as rows inside it. Separate
+   tables would size their columns independently, so "Status" would sit in a
+   different place in each block, and the header would repeat per group. #}
+<div class="table-scroll">
+<table class="grid view-list">
+  <thead>
+    <tr>
+      <th class="thumb-col"></th>
+      <th>{{ _('Project') }}</th>{% if not grouped %}<th>{{ _('Status') }}</th>{% endif %}<th class="num">{{ _('Items') }}</th>
+      <th class="num">{{ _('Hours') }}</th><th class="num">{{ _('Sale price') }}</th>
+      <th class="num">{{ _('Gross profit') }}</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for g in groups %}
+      {% if g.status %}
+      <tr class="group-row">
+        <td colspan="{{ 6 if grouped else 7 }}">
+          <span class="badge {{ st_class.get(g.status, g.status) }}">{{ st_label.get(g.status, g.status) }}</span>
+          <span class="muted small">{{ g.rows|length }}</span>
+        </td>
+      </tr>
+      {% endif %}
+      {% for f in g.rows %}{{ row(f, grouped) }}{% endfor %}
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+
+{# Cards carry their own heading per section: they are not a grid of columns,
+   so nothing has to line up across the groups. #}
+<div class="view-cards">
+  {% for g in groups %}
+  <section class="proj-group">
+    {% if g.status %}
+    <h2 class="group-head">
+      <span class="badge {{ st_class.get(g.status, g.status) }}">{{ st_label.get(g.status, g.status) }}</span>
+      <span class="muted small">{{ g.rows|length }}</span>
+    </h2>
+    {% endif %}
+    <div class="cards-grid">
+      {% for f in g.rows %}{{ card(f) }}{% endfor %}
+    </div>
+  </section>
   {% endfor %}
 </div>
 {% else %}

@@ -157,10 +157,39 @@ def _resolve_customer(
     return cust.id
 
 
+# The order the list groups by: the way a project actually travels.
+LIFECYCLE_ORDER = [
+    ProjectStatus.open,
+    ProjectStatus.in_progress,
+    ProjectStatus.done,
+    ProjectStatus.invoiced,
+    ProjectStatus.payment_pending,
+    ProjectStatus.paid,
+    ProjectStatus.closed,
+]
+
+
+def _grouped_rows(rows: list) -> list[dict]:
+    """Split the rows into one section per status, in lifecycle order.
+
+    Empty sections are left out, and any status not in the order, a legacy value
+    from a database that has not been migrated, is appended rather than dropped:
+    a project must never fall out of the list because of its status.
+    """
+    buckets: dict[str, list] = {}
+    for f in rows:
+        buckets.setdefault(f.project.status.value, []).append(f)
+    known = [st.value for st in LIFECYCLE_ORDER]
+    order = known + [s for s in buckets if s not in known]
+    return [
+        {"status": s, "rows": buckets[s]} for s in order if buckets.get(s)
+    ]
+
+
 @router.get("")
 def list_projects(
     request: Request,
-    status: str = "active",
+    status: str = "all",
     db: Session = Depends(get_db),
     user=Depends(require_login),
 ):
@@ -191,9 +220,15 @@ def list_projects(
             in_clients = invoiceninja.list_clients()
         except Exception:  # noqa: BLE001
             in_clients = []
+    # "All" is the working view, so it is split by status rather than being one
+    # long undifferentiated list. A filtered tab is already one status and gets
+    # a single unlabelled section.
+    groups = _grouped_rows(rows) if status == "all" else (
+        [{"status": None, "rows": rows}] if rows else []
+    )
     return templates.TemplateResponse(
         "projects/list.html",
-        ctx(request, db, active="projects", rows=rows, status=status,
+        ctx(request, db, active="projects", rows=rows, groups=groups, status=status,
             customers=customers, in_clients=in_clients,
             project_types=db.query(ProjectType).order_by(ProjectType.position, ProjectType.name).all()),
     )
