@@ -142,7 +142,8 @@ class Stats:
     total_hours: float
     total_labor_value: float
     material_expenses: float       # all device + purchased-part costs (projects + warehouse)
-    warehouse_stock_cost: float    # purchased parts sitting in the warehouse
+    warehouse_stock_cost: float    # what everything on the shelf cost
+    warehouse_stock_value: float   # what everything on the shelf is worth
     advertising_cost: float        # merch handed out for free, at its purchase cost
     projected_sale_value: float    # listing value of unsold projects
     projected_gross_profit: float  # sale value - material costs of those projects
@@ -160,13 +161,13 @@ def compute_stats(db: Session) -> Stats:
     total_hours = sum(f.hours for f in per_project)
     total_labor_value = sum(f.labor_value for f in per_project)
 
-    # Warehouse = parts with no project.
-    warehouse_parts = db.query(Part).filter(Part.project_id.is_(None)).all()
-    warehouse_stock_cost = sum(
-        (p.purchase_price or 0.0)
-        for p in warehouse_parts
-        if p.origin == PartOrigin.purchased
-    )
+    # One definition of what the shelf holds, shared with the warehouse page.
+    # Summing part prices here ignored both the quantity and the sets, so the
+    # two pages reported different totals for the same stock.
+    from .warehouse import stock_totals
+
+    stock = stock_totals(db)
+    warehouse_stock_cost = stock["cost"]
 
     material_expenses = (
         sum(f.material_cost for f in per_project) + warehouse_stock_cost
@@ -194,6 +195,7 @@ def compute_stats(db: Session) -> Stats:
         total_labor_value=total_labor_value,
         material_expenses=material_expenses,
         warehouse_stock_cost=warehouse_stock_cost,
+        warehouse_stock_value=stock["value"],
         advertising_cost=advertising_cost,
         projected_sale_value=projected_sale_value,
         projected_gross_profit=projected_gross_profit,

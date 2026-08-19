@@ -291,3 +291,57 @@ def set_booked_units(db, part, qty: int) -> None:
     part.quantity = current + take
     if sibling.quantity <= 0:
         db.delete(sibling)
+
+
+def stock_totals(db) -> dict:
+    """What the shelf is worth, counted once and the same way everywhere.
+
+    This lived twice: the warehouse page counted quantities, lot totals and
+    assembly costs, while the statistics page summed each part's unit price and
+    ignored both the quantity and the sets. Nine fans counted as one fan there,
+    and a purchase lot counted as whatever its members happened to carry, so the
+    two pages disagreed about the same shelf.
+
+    Counted, over everything with no project on it:
+      cost   loose bought parts x quantity, plus each lot's total, plus each
+             assembly's cost. WIP ties up material as much as a finished good.
+      value  sale price x quantity of every part not consumed into an assembly,
+             plus each finished good's price. A WIP build has no sale value; it
+             is not sellable yet.
+
+    Set members are not added on top of their set: a lot's total is the invoice
+    it came from, and an assembly's cost is recomputed from its members, so
+    counting both would bill the same purchase twice.
+    """
+    from ..models import Part, PartOrigin, PartSet, SetKind
+
+    parts = (
+        db.query(Part)
+        .filter(Part.project_id.is_(None), Part.device_id.is_(None))
+        .all()
+    )
+    sets = db.query(PartSet).filter(PartSet.project_id.is_(None)).all()
+    lots = [s for s in sets if s.kind == SetKind.purchase_lot.value]
+    assemblies = [s for s in sets if s.kind == SetKind.assembly.value]
+    finished = [s for s in assemblies if s.status != "wip"]
+    assembly_ids = {s.id for s in assemblies}
+
+    cost = sum(
+        (p.purchase_price or 0.0) * (p.quantity or 1)
+        for p in parts
+        if p.set_id is None and p.origin == PartOrigin.purchased
+    ) + sum((s.purchase_price or 0.0) for s in lots) \
+      + sum((s.purchase_price or 0.0) for s in assemblies)
+
+    value = sum(
+        (p.sale_price or 0.0) * (p.quantity or 1)
+        for p in parts
+        if p.set_id not in assembly_ids
+    ) + sum((s.sale_price or 0.0) for s in finished)
+
+    return {
+        "cost": round(cost, 2),
+        "value": round(value, 2),
+        "parts": sum(p.quantity or 1 for p in parts if p.set_id not in assembly_ids),
+        "low_stock": sum(1 for p in parts if p.low_stock),
+    }

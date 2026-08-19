@@ -434,7 +434,6 @@ def warehouse_list(
     wip = [s for s in assemblies if s.status == "wip"]
     finished = [s for s in assemblies if s.status != "wip"]
     lot_ids = {s.id for s in lots}
-    assembly_ids = {s.id for s in assemblies}  # wip + finished members are consumed
 
     available = [p for p in parts if p.set_id is None or p.set_id in lot_ids]
     single_parts = [p for p in available if not p.is_merch]
@@ -444,17 +443,8 @@ def warehouse_list(
     #   EK: loose bought parts + each lot's total EK + each assembly's cost
     #       (WIP + finished both tie up material).
     #   VK: available parts' sale value + finished goods' price (WIP not sellable).
-    stock_cost = sum(
-        (p.purchase_price or 0.0) * (p.quantity or 1)
-        for p in all_wh_parts
-        if p.set_id is None and p.origin == PartOrigin.purchased
-    ) + sum((s.purchase_price or 0.0) for s in lots) \
-      + sum((s.purchase_price or 0.0) for s in assemblies)
-    stock_value = sum(
-        (p.sale_price or 0.0) * (p.quantity or 1)
-        for p in all_wh_parts
-        if p.set_id not in assembly_ids
-    ) + sum((s.sale_price or 0.0) for s in finished)
+    _stock = wh.stock_totals(db)
+    stock_cost, stock_value = _stock["cost"], _stock["value"]
 
     # Merch accounting: what the merch on the shelf is worth, and what has
     # already been handed out for free — that money is advertising, and it is

@@ -30,7 +30,10 @@
 
 <h2 class="section-h">{{ _('Inventory & costs') }}</h2>
 <div class="kpis">
+  {# Both halves of the shelf: what it cost and what it is worth. The cost
+     alone invited the question of what it was even counting. #}
   <div class="kpi"><span class="k">{{ _('Stock value (cost)') }}</span><span class="v">{{ s.warehouse_stock_cost|money }} {{ currency }}</span></div>
+  <div class="kpi"><span class="k">{{ _('Stock value (sale)') }}</span><span class="v">{{ s.warehouse_stock_value|money }} {{ currency }}</span></div>
   <div class="kpi"><span class="k">{{ _('Material expenses') }}</span><span class="v">{{ s.material_expenses|money }} {{ currency }}</span></div>
   {% if s.advertising_cost %}<div class="kpi"><span class="k">{{ _('Advertising costs (merch given away)') }}</span><span class="v">{{ s.advertising_cost|money }} {{ currency }}</span></div>{% endif %}
   <div class="kpi"><span class="k">{{ _('Labor value') }} ({{ rate|money }} {{ currency }}/h)</span><span class="v">{{ s.total_labor_value|money }} {{ currency }}</span></div>

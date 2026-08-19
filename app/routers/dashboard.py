@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from ..auth import require_login
 from ..db import get_db, get_setting, set_setting
-from ..models import Part, Project, ProjectStatus
+from ..models import Project, ProjectStatus
 from ..services.finance import compute_stats
 from ..services.integrations import invoiceninja, vikunja, woo
 from ..services.uploads import delete_image, save_image
@@ -152,9 +152,14 @@ def dashboard(
         )
 
     if "warehouse" in keys:
-        wparts = db.query(Part).filter(Part.project_id.is_(None)).all()
-        data["warehouse_count"] = len(wparts)
-        data["warehouse_value"] = sum((p.sale_price or 0.0) for p in wparts)
+        # Same count and value the warehouse page shows: quantities included,
+        # sets counted once. Summing rows and unit prices here reported a
+        # different shelf than the shelf did.
+        from ..services.warehouse import stock_totals
+
+        stock = stock_totals(db)
+        data["warehouse_count"] = stock["parts"]
+        data["warehouse_value"] = stock["value"]
 
     if "invoices" in keys and invoiceninja.is_enabled():
         try:

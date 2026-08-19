@@ -614,6 +614,7 @@ DE: dict[str, str] = {
     "Projects active": "Projekte aktiv",
     "Total work time": "Arbeitszeit gesamt",
     "Material expenses": "Materialausgaben",
+    "Stock value (sale)": "Lagerwert (VK)",
     "Stock value (cost)": "Lagerwert (EK)",
     "Expected revenue": "Voraussichtl. Umsatz",
     "Expected gross profit": "Voraussichtl. Bruttogewinn",
