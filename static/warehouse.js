@@ -629,6 +629,7 @@ async function stEditLotModal(id) {
   stRenderLotMembers(d);
   const code = document.getElementById("elCode"); if (code) code.textContent = d.code || "";
   const lbl = document.getElementById("elLabel"); if (lbl) lbl.href = "/label/" + (d.code || "");
+  stLotReceiptInit(d);
   stShowModalImage(modal, d.image);
   modal.classList.add("open");
   const nm = form.querySelector('[name="name"]'); if (nm) nm.focus();
@@ -718,3 +719,29 @@ function stScanFocus() {
   stCatInit();
   stScanFocus();
 })();
+
+// ---- Purchase receipt on a lot ----
+// Three states in one control: keep what is there, replace the file, or point
+// the lot at a purchase that is already booked. Only the chosen input is live,
+// so an untouched dialog never rewrites the receipt.
+function stLotReceiptMode(sel) {
+  var f = document.getElementById("elRecNew"), pick = document.getElementById("elRecPick");
+  if (f) { f.hidden = sel.value !== "new"; f.querySelector("input").disabled = sel.value !== "new"; }
+  if (pick) { pick.hidden = sel.value !== "existing"; pick.disabled = sel.value !== "existing"; }
+}
+function stLotReceiptInit(d) {
+  var now = document.getElementById("elRecNow"), mode = document.getElementById("elRecMode");
+  if (now) {
+    now.innerHTML = d.receipt
+      ? '<a href="' + stEsc(d.receipt) + '" target="_blank">' +
+        stEsc(d.receipt_name || (window.ST_RECEIPT || "Receipt")) + " ↗</a>"
+      : (window.ST_NO_RECEIPT || "No receipt on this set yet.");
+  }
+  if (mode) {
+    // Nothing to keep means nothing to offer keeping.
+    var keep = mode.querySelector('option[value="keep"]');
+    if (keep) keep.hidden = !d.receipt;
+    mode.value = d.receipt ? "keep" : "new";
+    stLotReceiptMode(mode);
+  }
+}

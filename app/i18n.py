@@ -232,6 +232,8 @@ DE: dict[str, str] = {
     "Create set": "Set anlegen",
     "Purchase price (set total)": "Einkaufspreis (Set gesamt)",
     "Invoice / receipt (required)": "Rechnung / Beleg (erforderlich)",
+    "Keep current receipt": "Beleg unverändert lassen",
+    "No receipt on this set yet.": "Für dieses Set liegt noch kein Beleg vor.",
     "Purchase receipt": "Kaufbeleg",
     "+ Link existing expense": "+ Vorhandene Ausgabe verknüpfen",
     "Items": "Objekte",

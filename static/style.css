@@ -964,7 +964,7 @@ body:not([data-view]) .view-cards { display: none; }
 }
 .entity-card:hover { border-color: var(--accent); }
 .entity-card .thumb {
-  aspect-ratio: 16/10; background: var(--surface-2) center/cover no-repeat;
+  aspect-ratio: 1; background: var(--surface-2) center/cover no-repeat;
   display: flex; align-items: center; justify-content: center; color: var(--border);
 }
 .entity-card .thumb.placeholder::after { content: "🖥"; font-size: 2.4rem; filter: grayscale(1); opacity: .35; }
@@ -1413,8 +1413,11 @@ td.actions .row-form.compact select { flex: 0 0 auto; min-width: 128px; max-widt
   transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
 }
 .pcard:hover { transform:translateY(-4px); border-color:color-mix(in srgb, var(--ac) 55%, var(--border)); box-shadow:0 22px 46px -18px rgba(0,0,0,.7), 0 0 0 1px color-mix(in srgb, var(--ac) 22%, transparent); }
+/* Square, not a fixed height. The card width follows the grid column, so a
+   pinned 190px made the image landscape on a narrow card and letterboxed on a
+   wide one; aspect-ratio keeps it square whatever the column does. */
 .pcard-img {
-  position:relative; height:190px; display:grid; place-items:center;
+  position:relative; aspect-ratio:1; display:grid; place-items:center;
   background:
     radial-gradient(120% 90% at 50% 16%, color-mix(in srgb, var(--ac) 26%, transparent), transparent 62%),
     linear-gradient(160deg, var(--surface-3, #40202c), var(--surface-2));

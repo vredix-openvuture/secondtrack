@@ -238,6 +238,47 @@ def _members_from_form(
         ))
 
 
+def _lot_receipt(db, ps, receipt, linked_expense_id):
+    """Attach, replace or re-point the receipt behind a purchase lot.
+
+    A lot's cost is documented by one expense. Uploading here replaces the file
+    on the existing one, or creates it if the lot was stocked as free. Picking
+    an existing receipt links that expense instead, for a purchase already
+    booked. Either way the amount is kept at the lot total, so correcting the
+    total no longer leaves the receipt claiming the old one.
+    """
+    if linked_expense_id and linked_expense_id != ps.expense_id:
+        if db.get(Expense, linked_expense_id) is not None:
+            ps.expense_id = linked_expense_id
+            for part in db.query(Part).filter(Part.set_id == ps.id).all():
+                part.source_expense_id = linked_expense_id
+
+    rpath = save_receipt(receipt, "receipt")
+    exp = db.get(Expense, ps.expense_id) if ps.expense_id else None
+
+    if exp is None:
+        if not rpath:
+            return
+        exp = exp_service.create(
+            db, amount=ps.purchase_price or 0.0, expense_date=date.today(),
+            vendor="", description=f"Set: {ps.name}", category="Parts",
+            project_id=None, receipt_path=rpath, bucket="warehouse",
+        )
+        ps.expense_id = exp.id
+        for part in db.query(Part).filter(Part.set_id == ps.id).all():
+            if part.source_expense_id is None:
+                part.source_expense_id = exp.id
+        return
+
+    exp_service.update(
+        db, exp, name=exp.name or "", amount=ps.purchase_price or 0.0,
+        expense_date=exp.expense_date, vendor=exp.vendor or "",
+        description=exp.description or "", category=exp.category or "",
+        project_id=exp.project_id, bucket=exp.bucket,
+        receipt_path=rpath, image_path=None,
+    )
+
+
 def _form_lists(db):
     """Categories/suppliers/locations offered in the create & edit forms."""
     categories = db.query(Category).order_by(Category.position, Category.name).all()
@@ -291,6 +332,7 @@ def _set_payload(db, ps: PartSet) -> dict:
         .order_by(Part.name)
         .all()
     )
+    exp = db.get(Expense, ps.expense_id) if ps.expense_id else None
     return {
         "id": ps.id,
         "name": ps.name,
@@ -301,6 +343,10 @@ def _set_payload(db, ps: PartSet) -> dict:
         "notes": ps.notes or "",
         "code": ps.code or "",
         "image": ps.image_path or "",
+        # What documents this lot's cost, so the editor can show whether a
+        # receipt exists and offer to replace it rather than only to add one.
+        "receipt": (exp.receipt_path or "") if exp else "",
+        "receipt_name": (exp.name or exp.description or "") if exp else "",
         "is_assembly": ps.is_assembly,
         "is_wip": ps.is_wip,
         "status": ("wip" if ps.is_wip else "finished") if ps.is_assembly else "",
@@ -1169,6 +1215,8 @@ async def update_lot(
     location_id: str = Form(""),
     notes: str = Form(""),
     image: UploadFile | None = File(None),
+    receipt: UploadFile | None = File(None),
+    expense_id: str = Form(""),
     part_name: list[str] = Form(default=[]),
     part_sale: list[str] = Form(default=[]),
     part_qty: list[str] = Form(default=[]),
@@ -1196,6 +1244,12 @@ async def update_lot(
         ps.purchase_price = _parse_float(purchase_price) or 0.0
         ps.location_id = _fk(location_id)
         ps.notes = notes.strip() or None
+        # A lot bought without a receipt, or with the wrong one, could never be
+        # given the right one: the create dialog demanded a receipt and the edit
+        # dialog had no field for it at all. Both routes in now, and the linked
+        # expense follows the lot total, which used to drift the moment the
+        # total was corrected here.
+        _lot_receipt(db, ps, receipt, _fk(expense_id))
         # keep member locations in sync with the set
         for p in ps.parts:
             p.location_id = ps.location_id

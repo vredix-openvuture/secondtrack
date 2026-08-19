@@ -104,6 +104,8 @@
   window.ST_PARTNAME = "{{ _('Part name') }}";
   window.ST_SALE = "{{ _('Sale') }}";
   window.ST_VK_TOTAL = "{{ _('Sale total') }}";
+  window.ST_RECEIPT = "{{ _('Receipt') }}";
+  window.ST_NO_RECEIPT = "{{ _('No receipt on this set yet.') }}";
   window.ST_EDIT_WIP = "{{ _('Edit WIP') }}";
   window.ST_EDIT_FINISHED = "{{ _('Edit finished good') }}";
   window.ST_FINISH_CONFIRM = "{{ _('Move to finished? It gets a finished storage number.') }}";
@@ -921,6 +923,25 @@
         </div>
       </div>
       <label class="fld gaptop">{{ _('Note (optional)') }}<textarea name="notes" rows="2"></textarea></label>
+
+      {# The purchase behind the lot. A lot stocked as free has none yet, and one
+         with the wrong receipt could not be corrected at all before. #}
+      <div class="fld gaptop">
+        <span class="lbl-txt">{{ _('Purchase receipt') }}</span>
+        <p class="muted small" id="elRecNow"></p>
+        <select id="elRecMode" onchange="stLotReceiptMode(this)">
+          <option value="keep">{{ _('Keep current receipt') }}</option>
+          <option value="new">{{ _('Upload new receipt') }}</option>
+          {% if linkable_expenses %}<option value="existing">{{ _('Use existing receipt') }}</option>{% endif %}
+        </select>
+        <label class="file-field" id="elRecNew" hidden><input type="file" name="receipt" accept="application/pdf,image/*"></label>
+        {% if linkable_expenses %}
+        <select name="expense_id" id="elRecPick" hidden>
+          <option value="">—</option>
+          {% for e in linkable_expenses %}<option value="{{ e.id }}">{{ e.expense_date }} · {{ e.name or e.description or _('Receipt') }} · {{ e.amount|money }} {{ currency }}</option>{% endfor %}
+        </select>
+        {% endif %}
+      </div>
 
       <div class="components gaptop">
         <div class="comp-head"><strong><svg class="ic sec-ic"><use href="#ic-layers"/></svg> {{ _('Parts in this set') }}</strong></div>
