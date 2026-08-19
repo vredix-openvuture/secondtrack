@@ -218,6 +218,7 @@ DE: dict[str, str] = {
         "Noch keine Fertigware. Bau eine aus Teilen über „Neue Fertigware“.",
     "Create it, then book component parts onto it in its editor.":
         "Anlegen, dann im Editor die Bauteile darauf buchen.",
+    "Item value": "Gegenstandswert",
     "Material value": "Materialwert",
     "Profit": "Gewinn",
     "Unit price": "Einzelpreis",

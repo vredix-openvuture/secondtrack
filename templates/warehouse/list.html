@@ -103,7 +103,7 @@
   window.ST_MATERIAL_LABEL = "{{ _('Material value') }}";
   window.ST_PARTNAME = "{{ _('Part name') }}";
   window.ST_SALE = "{{ _('Sale') }}";
-  window.ST_VK_TOTAL = "{{ _('Sale total') }}";
+  window.ST_VK_TOTAL = "{{ _('Item value') }}";
   window.ST_RECEIPT = "{{ _('Receipt') }}";
   window.ST_NO_RECEIPT = "{{ _('No receipt on this set yet.') }}";
   window.ST_EDIT_WIP = "{{ _('Edit WIP') }}";
@@ -295,7 +295,7 @@
   {% if lots %}
   <div class="table-wrap view-list">
     <table class="ntbl">
-      <thead><tr><th>{{ _('Set') }}</th><th>{{ _('Code') }}</th><th>{{ _('Location') }}</th><th class="r">{{ _('Parts') }}</th><th class="r">{{ _('Purchase') }}</th><th class="r">{{ _('Sale total') }}</th><th class="nt-act"></th></tr></thead>
+      <thead><tr><th>{{ _('Set') }}</th><th>{{ _('Code') }}</th><th>{{ _('Location') }}</th><th class="r">{{ _('Parts') }}</th><th class="r">{{ _('Purchase') }}</th><th class="r">{{ _('Item value') }}</th><th class="nt-act"></th></tr></thead>
       <tbody>
       {% for s in lots %}
         <tr data-name="{{ s.name|lower }}">
@@ -328,7 +328,9 @@
           <span class="tag prop">{{ s.parts|length }} {{ _('parts') }}</span>
         </div>
         <div class="pcard-foot">
-          <div class="pcard-price"><span class="big">{{ s.parts|sum(attribute='sale_price')|money }} {{ currency }}</span><span class="sm">{{ _('Purchase') }} {{ s.purchase_price|money }} {{ currency }}</span></div>
+          {# The value of what is in the lot, not a price the lot is sold at: a
+             purchase lot is broken up and its parts are sold individually. #}
+          <div class="pcard-price"><span class="big">{{ s.parts|sum(attribute='sale_price')|money }} {{ currency }}</span><span class="sm">{{ _('Item value') }} · {{ _('Purchase') }} {{ s.purchase_price|money }} {{ currency }}</span></div>
           <div class="pcard-go">
             <a class="act-btn" href="/label/{{ s.code }}" target="_blank" title="{{ _('Print label') }}"><svg class="ic"><use href="#ic-label"/></svg></a>
             <button type="button" class="act-btn" onclick="stEditLotModal({{ s.id }})" title="{{ _('Edit') }}"><svg class="ic"><use href="#ic-edit"/></svg></button>
