@@ -35,7 +35,9 @@ DEFAULT_WIDGETS = "welcome:4,finance:2,projects:2,warehouse:1,invoices:1,orders:
 GRID_COLUMNS = 12
 # Cards are a uniform 3 rows so a row packs flush. The hero is the deliberate
 # exception: at 2 it reads as a band across the top, not a big empty greeting.
-DEFAULT_HEIGHT = {"welcome": 2}
+# Measured against the content each tile actually renders. The finance tile
+# carries a row more than the rest and does not fit three.
+DEFAULT_HEIGHT = {"welcome": 2, "finance": 4}
 DEFAULT_ROWS = 3
 
 

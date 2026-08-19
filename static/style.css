@@ -206,7 +206,9 @@ kbd {
    min-height:0 — the body must refuse to shrink below its content, otherwise a
    box resized too small squeezes it *under* the pinned link and the two
    overlap. Refusing to shrink lets the card scroll instead. */
-.w-body { flex: 1 0 auto; }
+/* Shrinkable, and it clips itself rather than the card clipping it: on a
+   tile made too short the tail of the body goes, not the link out of it. */
+.w-body { flex: 1 1 auto; min-height: 0; overflow: hidden; }
 .wlink { align-self: flex-start; margin-top: .9rem; font-size: .88rem; font-weight: 500; }
 
 .wbig { font-size: 2rem; font-weight: 700; font-variant-numeric: tabular-nums; margin: 0 0 .1rem; letter-spacing: -.02em; line-height: 1.1; }
@@ -233,7 +235,11 @@ kbd {
 /* ---- Hero: greeting and the day's figures in one band ---- */
 /* The accent is an overlay rather than a background so glass mode keeps its
    translucency underneath instead of being painted over. */
-.widget.hero { justify-content: space-between; gap: 1.3rem; padding: 1.35rem 1.5rem; }
+/* The hero is two grid rows, 164px, and its content came to 174: the card
+   clips what does not fit, so the stat labels were sliced off along the
+   bottom edge. The rhythm is tighter now, with room to spare rather than a
+   pixel to spare. */
+.widget.hero { justify-content: space-between; gap: .9rem; padding: 1.1rem 1.5rem; }
 .widget.hero::before {
   content: ""; position: absolute; inset: 0; pointer-events: none;
   background:
@@ -246,7 +252,7 @@ kbd {
 .hero-date { color: rgba(255,255,255,.62); font-size: .92rem; margin: .25rem 0 0; }
 .hero-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: 1rem 1.5rem; }
 .hstat { display: flex; flex-direction: column; gap: .1rem; min-width: 0; }
-.hstat-v { font-size: 1.55rem; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.02em; line-height: 1.15; }
+.hstat-v { font-size: 1.4rem; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.02em; line-height: 1.15; }
 .hstat-l { font-size: .8rem; color: rgba(255,255,255,.6); }
 
 /* ---- Quick access ---- */
