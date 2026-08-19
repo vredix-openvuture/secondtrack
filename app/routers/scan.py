@@ -182,11 +182,25 @@ async def label_png(
     })
 
 
+def _safe_back(back: str) -> str:
+    """Where the label page returns to.
+
+    Only a path on this site is accepted: it arrives in the query string, so
+    anything else would turn the back button into an open redirect. Anything
+    unexpected falls back to the warehouse.
+    """
+    back = (back or "").strip()
+    if back.startswith("/") and not back.startswith("//"):
+        return back
+    return "/warehouse"
+
+
 @router.get("/label/{code}")
 async def label(
     code: str,
     request: Request,
     fmt: str = "qr",
+    back: str = "",
     db: Session = Depends(get_db),
     user=Depends(require_login),
 ):
@@ -207,6 +221,7 @@ async def label(
         ctx(
             request, db, active="warehouse",
             code=obj.code, name=name, subtitle=subtitle, kind=kind, fmt=fmt,
+            back=_safe_back(back),
             qr=codes.qr_data_uri(url), barcode=codes.barcode_svg(obj.code),
             scan_url=url, print_ready=bool(printing.queue(db)),
         ),

@@ -3,10 +3,11 @@
 {% block content %}
 
 <div class="page-head no-print">
-  <a href="/warehouse" class="btn ghost">← {{ _('Warehouse') }}</a>
+  {# Back to the view this was opened from, not to the warehouse start. #}
+  <a href="{{ back }}" class="btn ghost">← {{ _('Back') }}</a>
   <div class="tabs" style="margin-left:auto">
-    <a href="/label/{{ code }}?fmt=qr" class="{{ 'on' if fmt == 'qr' }}">{{ _('QR code') }}</a>
-    <a href="/label/{{ code }}?fmt=barcode" class="{{ 'on' if fmt == 'barcode' }}">{{ _('Barcode') }}</a>
+    <a href="/label/{{ code }}?fmt=qr&back={{ back|urlencode }}" class="{{ 'on' if fmt == 'qr' }}">{{ _('QR code') }}</a>
+    <a href="/label/{{ code }}?fmt=barcode&back={{ back|urlencode }}" class="{{ 'on' if fmt == 'barcode' }}">{{ _('Barcode') }}</a>
   </div>
   {# Native browser print is the primary action — with the driver's media
      fixed it prints correctly, and the preview IS what gets printed. Server-

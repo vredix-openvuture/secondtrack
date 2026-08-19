@@ -254,7 +254,7 @@
       <div class="gallery">
         {% for g in gallery %}
         <figure class="gal-item">
-          <a href="{{ g.path }}" target="_blank" title="{{ _('Open full size') }}">
+          <a href="{{ g.path }}" target="stfile" title="{{ _('Open full size') }}">
             <img src="{{ g.path }}" alt="{{ g.caption or '' }}" loading="lazy">
           </a>
           <figcaption>
@@ -415,7 +415,7 @@
             <td>{{ e.vendor or e.description or '—' }}</td>
             <td class="num">{{ e.amount|money }} {{ currency }}</td>
             <td class="actions">
-              {% if e.receipt_path %}<a class="btn" href="{{ e.receipt_path }}" target="_blank">📄</a>{% else %}<span class="badge neg-badge">{{ _('missing') }}</span>{% endif %}
+              {% if e.receipt_path %}<a class="btn" href="{{ e.receipt_path }}" target="stfile">📄</a>{% else %}<span class="badge neg-badge">{{ _('missing') }}</span>{% endif %}
               <form method="post" action="/expenses/{{ e.id }}/delete" onsubmit="return confirm('{{ _('Delete expense?') }}')"><button class="link danger">✕</button></form>
             </td>
           </tr>

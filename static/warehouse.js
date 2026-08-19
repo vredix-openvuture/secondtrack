@@ -171,7 +171,7 @@ function stRowMenu(ev, btn, id, code, cost) {
   const tomerch = document.getElementById("rmToMerch");
   if (tomerch) tomerch.onclick = () => stFormSubmit("/warehouse/" + id + "/merch", null, null, null);
   const label = document.getElementById("rmLabel");
-  if (label) label.href = "/label/" + code;
+  if (label) label.href = "/label/" + code + stBackQ();
   const split = document.getElementById("rmSplit");
   if (split) split.onclick = () => { stCloseRowMenu(); stOpenSplit(id, cost); };
   const del = document.getElementById("rmDelete");
@@ -206,7 +206,7 @@ function stSetMenu(ev, btn, id, code, kind) {
   const edit = document.getElementById("smEdit");
   if (edit) edit.onclick = () => { stCloseSetMenu(); (kind === "lot" ? stEditLotModal : stEditSetModal)(id); };
   const label = document.getElementById("smLabel");
-  if (label) label.href = "/label/" + code;
+  if (label) label.href = "/label/" + code + stBackQ();
   const finish = document.getElementById("smFinish");
   if (finish) {
     finish.style.display = (kind === "wip") ? "" : "none";
@@ -248,7 +248,7 @@ function stMerchMenu(ev, btn, id, code, name, stock, promo) {
   const edit = document.getElementById("mmEdit");
   if (edit) edit.onclick = () => { stCloseMerchMenu(); stEditPartModal(id); };
   const label = document.getElementById("mmLabel");
-  if (label) label.href = "/label/" + code;
+  if (label) label.href = "/label/" + code + stBackQ();
   const unmerch = document.getElementById("mmUnmerch");
   if (unmerch) unmerch.onclick = () => stFormSubmit("/warehouse/" + id + "/merch", null, null, null);
   const del = document.getElementById("mmDelete");
@@ -362,7 +362,7 @@ async function stEditPartModal(id) {
   const code = document.getElementById("epCode");
   if (code) code.textContent = d.code || "";
   const lbl = document.getElementById("epLabel");
-  if (lbl) lbl.href = "/label/" + (d.code || "");
+  if (lbl) lbl.href = "/label/" + (d.code || "") + stBackQ();
   const sp = document.getElementById("epSplit");
   if (sp) sp.onclick = () => { stCloseModal(modal); stOpenSplit(id, d.purchase_price || 0); };
   stShowModalImage(modal, d.image);
@@ -408,7 +408,7 @@ async function stEditSetModal(id) {
   const code = document.getElementById("esCode");
   if (code) code.textContent = d.code || "";
   const lbl = document.getElementById("esLabel");
-  if (lbl) lbl.href = "/label/" + (d.code || "");
+  if (lbl) lbl.href = "/label/" + (d.code || "") + stBackQ();
   stShowModalImage(modal, d.image);
   modal.classList.add("open");
   const nm = form.querySelector('[name="name"]');
@@ -628,7 +628,7 @@ async function stEditLotModal(id) {
   ["name", "purchase_price", "location_id", "notes"].forEach((k) => set(k, d[k]));
   stRenderLotMembers(d);
   const code = document.getElementById("elCode"); if (code) code.textContent = d.code || "";
-  const lbl = document.getElementById("elLabel"); if (lbl) lbl.href = "/label/" + (d.code || "");
+  const lbl = document.getElementById("elLabel"); if (lbl) lbl.href = "/label/" + (d.code || "") + stBackQ();
   stLotReceiptInit(d);
   stShowModalImage(modal, d.image);
   modal.classList.add("open");
@@ -744,4 +744,15 @@ function stLotReceiptInit(d) {
     mode.value = d.receipt ? "keep" : "new";
     stLotReceiptMode(mode);
   }
+}
+
+// ---- Labels: one tab, and a way back ----
+// Every label opens into the same named window instead of `_blank`, which
+// spawns a fresh tab on every click. The view it was opened from travels with
+// it, so its back button returns here rather than to the warehouse start.
+function stBackQ() {
+  return "?back=" + encodeURIComponent(location.pathname + location.search);
+}
+function stLabel(code) {
+  window.open("/label/" + code + stBackQ(), "stlabel");
 }

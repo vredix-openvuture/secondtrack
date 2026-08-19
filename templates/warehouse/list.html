@@ -1,6 +1,9 @@
 {% extends "base.html" %}
 {% block title %}{{ _('Warehouse') }} · secondtrack{% endblock %}
 {% block content %}
+{# Every label opens in one shared tab and carries the view it was opened
+   from, so closing it lands back here rather than on the warehouse start. #}
+{% set st_back = (request.url.path ~ ('?' ~ request.url.query if request.url.query else ''))|urlencode %}
 {% set whtab = 'stock' %}
 
 <svg width="0" height="0" class="ic-sprite" aria-hidden="true"><defs>
@@ -167,7 +170,7 @@
 
 {# Leading image tile (→ QR label) for table rows, like the parts table. #}
 {% macro row_thumb(obj, icon) %}
-<a href="/label/{{ obj.code }}" target="_blank" class="nt-ic {{ 'has-photo' if obj.image_path }}"{% if obj.image_path %} style="background-image:url('{{ obj.image_path }}')"{% endif %} title="{{ _('Show QR label') }}">{% if not obj.image_path %}<svg class="ic ph-ic"><use href="#ic-{{ icon }}"/></svg>{% endif %}</a>
+<a href="/label/{{ obj.code }}?back={{ st_back }}" target="stlabel" class="nt-ic {{ 'has-photo' if obj.image_path }}"{% if obj.image_path %} style="background-image:url('{{ obj.image_path }}')"{% endif %} title="{{ _('Show QR label') }}">{% if not obj.image_path %}<svg class="ic ph-ic"><use href="#ic-{{ icon }}"/></svg>{% endif %}</a>
 {% endmacro %}
 
 {# ============================ FINISHED GOODS ============================ #}
@@ -215,7 +218,7 @@
           {% set profit = (s.sale_price or 0) - matval %}
           <div class="pcard-price"><span class="big">{{ (s.sale_price or 0)|money }} {{ currency }}</span><span class="sm">{{ _('Profit') }} <b class="{{ 'pos' if profit >= 0 else 'neg' }}">{{ profit|money }} {{ currency }}</b> · {{ _('Material') }} {{ matval|money }} {{ currency }}</span></div>
           <div class="pcard-go">
-            <a class="act-btn" href="/label/{{ s.code }}" target="_blank" title="{{ _('Print label') }}"><svg class="ic"><use href="#ic-label"/></svg></a>
+            <a class="act-btn" href="/label/{{ s.code }}?back={{ st_back }}" target="stlabel" title="{{ _('Print label') }}"><svg class="ic"><use href="#ic-label"/></svg></a>
             <button type="button" class="act-btn" onclick="stEditSetModal({{ s.id }})" title="{{ _('Edit') }}"><svg class="ic"><use href="#ic-edit"/></svg></button>
             <form method="post" action="/warehouse/set/{{ s.id }}/delete" onsubmit="return confirm('{{ _('Delete set? Its parts stay in the warehouse.') }}')"><button class="act-btn danger" title="{{ _('Delete') }}"><svg class="ic"><use href="#ic-trash"/></svg></button></form>
           </div>
@@ -259,7 +262,7 @@
     {% for s in wip %}
     {% set matval = s.parts|sum(attribute='sale_price') %}
     <div class="pcard" id="row-{{ s.code }}" data-name="{{ s.name|lower }}" style="--ac:#f0a23a">
-      <div class="pcard-img {{ 'has-photo' if s.image_path }}"{% if s.image_path %} style="background-image:url('{{ s.image_path }}')"{% endif %} onclick="window.open('/label/{{ s.code }}','_blank')" title="{{ _('Show QR label') }}">
+      <div class="pcard-img {{ 'has-photo' if s.image_path }}"{% if s.image_path %} style="background-image:url('{{ s.image_path }}')"{% endif %} onclick="stLabel('{{ s.code }}')" title="{{ _('Show QR label') }}">
         {% if not s.image_path %}<span class="ph-ic"><svg class="ic"><use href="#ic-wrench"/></svg></span>{% endif %}
         <div class="pcard-corner"><span class="pbadge wip">{{ _('WIP') }}</span></div>
       </div>
@@ -318,7 +321,7 @@
   <div class="pgrid view-cards">
     {% for s in lots %}
     <div class="pcard" id="row-{{ s.code }}" data-name="{{ s.name|lower }}" style="--ac:#9a7f8b">
-      <div class="pcard-img {{ 'has-photo' if s.image_path }}"{% if s.image_path %} style="background-image:url('{{ s.image_path }}')"{% endif %} onclick="window.open('/label/{{ s.code }}','_blank')" title="{{ _('Show QR label') }}">
+      <div class="pcard-img {{ 'has-photo' if s.image_path }}"{% if s.image_path %} style="background-image:url('{{ s.image_path }}')"{% endif %} onclick="stLabel('{{ s.code }}')" title="{{ _('Show QR label') }}">
         {% if not s.image_path %}<span class="ph-ic"><svg class="ic"><use href="#ic-layers"/></svg></span>{% endif %}
       </div>
       <div class="pcard-body">
@@ -332,7 +335,7 @@
              purchase lot is broken up and its parts are sold individually. #}
           <div class="pcard-price"><span class="big">{{ s.parts|sum(attribute='sale_price')|money }} {{ currency }}</span><span class="sm">{{ _('Item value') }} · {{ _('Purchase') }} {{ s.purchase_price|money }} {{ currency }}</span></div>
           <div class="pcard-go">
-            <a class="act-btn" href="/label/{{ s.code }}" target="_blank" title="{{ _('Print label') }}"><svg class="ic"><use href="#ic-label"/></svg></a>
+            <a class="act-btn" href="/label/{{ s.code }}?back={{ st_back }}" target="stlabel" title="{{ _('Print label') }}"><svg class="ic"><use href="#ic-label"/></svg></a>
             <button type="button" class="act-btn" onclick="stEditLotModal({{ s.id }})" title="{{ _('Edit') }}"><svg class="ic"><use href="#ic-edit"/></svg></button>
             <form method="post" action="/warehouse/set/{{ s.id }}/delete" onsubmit="return confirm('{{ _('Delete set? Its parts stay in the warehouse.') }}')"><button class="act-btn danger" title="{{ _('Delete') }}"><svg class="ic"><use href="#ic-trash"/></svg></button></form>
           </div>
@@ -369,7 +372,7 @@
         <tr id="row-{{ p.code }}" data-name="{{ p.name|lower }}" style="--ac:{{ p.category.color if p.category else '#9a7f8b' }}">
           <td>
             <div class="nt-name">
-              <a href="/label/{{ p.code }}" target="_blank" class="nt-ic {{ 'has-photo' if p.image_path }}"{% if p.image_path %} style="background-image:url('{{ p.image_path }}')"{% endif %} title="{{ _('Show QR label') }}">{% if not p.image_path %}<svg class="ic ph-ic"><use href="#ic-part"/></svg>{% endif %}</a>
+              <a href="/label/{{ p.code }}?back={{ st_back }}" target="stlabel" class="nt-ic {{ 'has-photo' if p.image_path }}"{% if p.image_path %} style="background-image:url('{{ p.image_path }}')"{% endif %} title="{{ _('Show QR label') }}">{% if not p.image_path %}<svg class="ic ph-ic"><use href="#ic-part"/></svg>{% endif %}</a>
               <b class="nt-title" onclick="stEditPartModal({{ p.id }})" title="{{ _('Edit') }}">{{ p.name }}</b>
               {% if p.low_stock %}<span class="pbadge low" style="font-size:.62rem">{{ _('Low') }}</span>{% endif %}
               {% if p.part_set %}<span class="tag prop" title="{{ _('Part of a set') }}"><svg class="ic tag-ic"><use href="#ic-layers"/></svg> {{ p.part_set.name }}</span>{% endif %}
@@ -406,7 +409,7 @@
   <div class="pgrid">
     {% for p in g.parts %}
     <div class="pcard" id="card-{{ p.code }}" data-name="{{ p.name|lower }}" style="--ac:{{ p.category.color if p.category else '#9a7f8b' }}">
-      <div class="pcard-img {{ 'has-photo' if p.image_path }}"{% if p.image_path %} style="background-image:url('{{ p.image_path }}')"{% endif %} onclick="window.open('/label/{{ p.code }}','_blank')" title="{{ _('Show QR label') }}">
+      <div class="pcard-img {{ 'has-photo' if p.image_path }}"{% if p.image_path %} style="background-image:url('{{ p.image_path }}')"{% endif %} onclick="stLabel('{{ p.code }}')" title="{{ _('Show QR label') }}">
         {% if not p.image_path %}<span class="ph-ic"><svg class="ic"><use href="#ic-part"/></svg></span>{% endif %}
         {% if p.low_stock %}<div class="pcard-corner"><span class="pbadge low">{{ _('Low') }}</span></div>{% endif %}
       </div>
@@ -465,7 +468,7 @@
         <tr id="row-{{ p.code }}" data-name="{{ p.name|lower }}" style="--ac:{{ p.category.color if p.category else '#e0a13c' }}">
           <td>
             <div class="nt-name">
-              <a href="/label/{{ p.code }}" target="_blank" class="nt-ic {{ 'has-photo' if p.image_path }}"{% if p.image_path %} style="background-image:url('{{ p.image_path }}')"{% endif %} title="{{ _('Show QR label') }}">{% if not p.image_path %}<svg class="ic ph-ic"><use href="#ic-merch"/></svg>{% endif %}</a>
+              <a href="/label/{{ p.code }}?back={{ st_back }}" target="stlabel" class="nt-ic {{ 'has-photo' if p.image_path }}"{% if p.image_path %} style="background-image:url('{{ p.image_path }}')"{% endif %} title="{{ _('Show QR label') }}">{% if not p.image_path %}<svg class="ic ph-ic"><use href="#ic-merch"/></svg>{% endif %}</a>
               <b class="nt-title" onclick="stEditPartModal({{ p.id }})" title="{{ _('Edit') }}">{{ p.name }}</b>
               {% if p.is_promo %}<span class="pbadge promo" style="font-size:.62rem">{{ _('Promo item') }}</span>{% endif %}
               {% if p.low_stock %}<span class="pbadge low" style="font-size:.62rem">{{ _('Low') }}</span>{% endif %}
@@ -505,7 +508,7 @@
   <div class="pgrid">
     {% for p in g.parts %}
     <div class="pcard" id="card-{{ p.code }}" data-name="{{ p.name|lower }}" style="--ac:{{ p.category.color if p.category else '#e0a13c' }}">
-      <div class="pcard-img {{ 'has-photo' if p.image_path }}"{% if p.image_path %} style="background-image:url('{{ p.image_path }}')"{% endif %} onclick="window.open('/label/{{ p.code }}','_blank')" title="{{ _('Show QR label') }}">
+      <div class="pcard-img {{ 'has-photo' if p.image_path }}"{% if p.image_path %} style="background-image:url('{{ p.image_path }}')"{% endif %} onclick="stLabel('{{ p.code }}')" title="{{ _('Show QR label') }}">
         {% if not p.image_path %}<span class="ph-ic"><svg class="ic"><use href="#ic-merch"/></svg></span>{% endif %}
         <div class="pcard-corner">
           {% if p.is_promo %}<span class="pbadge promo">{{ _('Promo item') }}</span>{% endif %}
@@ -542,7 +545,7 @@
 <div class="rowmenu" id="merchMenu">
   <button type="button" id="mmBook"><svg class="ic"><use href="#ic-gift"/></svg>{{ _('Hand out / book onto project…') }}</button>
   <button type="button" id="mmEdit"><svg class="ic"><use href="#ic-edit"/></svg>{{ _('Edit') }}</button>
-  <a id="mmLabel" href="#" target="_blank"><svg class="ic"><use href="#ic-label"/></svg>{{ _('Print label') }}</a>
+  <a id="mmLabel" href="#" target="stlabel"><svg class="ic"><use href="#ic-label"/></svg>{{ _('Print label') }}</a>
   <button type="button" id="mmUnmerch"><svg class="ic"><use href="#ic-part"/></svg>{{ _('Move to single parts') }}</button>
   <div class="rm-sep"></div>
   <button type="button" id="mmDelete" class="del"><svg class="ic"><use href="#ic-trash"/></svg>{{ _('Delete') }}</button>
@@ -585,7 +588,7 @@
   <button type="button" id="rmEdit"><svg class="ic"><use href="#ic-edit"/></svg>{{ _('Edit') }}</button>
   <button type="button" id="rmToSet"><svg class="ic"><use href="#ic-layers"/></svg>{{ _('Convert to set…') }}</button>
   <button type="button" id="rmToMerch"><svg class="ic"><use href="#ic-merch"/></svg>{{ _('Move to merch') }}</button>
-  <a id="rmLabel" href="#" target="_blank"><svg class="ic"><use href="#ic-label"/></svg>{{ _('Print label') }}</a>
+  <a id="rmLabel" href="#" target="stlabel"><svg class="ic"><use href="#ic-label"/></svg>{{ _('Print label') }}</a>
   <div class="rm-sep"></div>
   <button type="button" id="rmDelete" class="del"><svg class="ic"><use href="#ic-trash"/></svg>{{ _('Delete') }}</button>
 </div>
@@ -593,7 +596,7 @@
 {# ------------------- SHARED ⋯ MENU FOR SETS / WIP / FINISHED ------------------- #}
 <div class="rowmenu" id="setMenu">
   <button type="button" id="smEdit"><svg class="ic"><use href="#ic-edit"/></svg>{{ _('Edit') }}</button>
-  <a id="smLabel" href="#" target="_blank"><svg class="ic"><use href="#ic-label"/></svg>{{ _('Print label') }}</a>
+  <a id="smLabel" href="#" target="stlabel"><svg class="ic"><use href="#ic-label"/></svg>{{ _('Print label') }}</a>
   <button type="button" id="smFinish"><svg class="ic"><use href="#ic-check"/></svg>{{ _('Move to finished') }}</button>
   <div class="rm-sep"></div>
   <button type="button" id="smDelete" class="del"><svg class="ic"><use href="#ic-trash"/></svg>{{ _('Delete') }}</button>
@@ -735,7 +738,7 @@
       {{ opt_section() }}
 
       <div class="ep-foot gaptop">
-        <div class="muted small">{{ _('Code') }}: <code id="epCode"></code> · <a id="epLabel" href="#" target="_blank"><svg class="ic tag-ic"><use href="#ic-label"/></svg> {{ _('Label') }}</a></div>
+        <div class="muted small">{{ _('Code') }}: <code id="epCode"></code> · <a id="epLabel" href="#" target="stlabel"><svg class="ic tag-ic"><use href="#ic-label"/></svg> {{ _('Label') }}</a></div>
       </div>
       <div class="pf-actions gaptop">
         <button type="submit" class="primary">{{ _('Save') }}</button>
@@ -790,7 +793,7 @@
       </div>
 
       <div class="ep-foot gaptop">
-        <div class="muted small">{{ _('Code') }}: <code id="esCode"></code> · <a id="esLabel" href="#" target="_blank"><svg class="ic tag-ic"><use href="#ic-label"/></svg> {{ _('Label') }}</a></div>
+        <div class="muted small">{{ _('Code') }}: <code id="esCode"></code> · <a id="esLabel" href="#" target="stlabel"><svg class="ic tag-ic"><use href="#ic-label"/></svg> {{ _('Label') }}</a></div>
       </div>
       <div class="pf-actions gaptop"><button type="submit" class="primary">{{ _('Save') }}</button></div>
     </form>
@@ -955,7 +958,7 @@
       </div>
 
       <div class="ep-foot gaptop">
-        <div class="muted small">{{ _('Code') }}: <code id="elCode"></code> · <a id="elLabel" href="#" target="_blank"><svg class="ic tag-ic"><use href="#ic-label"/></svg> {{ _('Label') }}</a></div>
+        <div class="muted small">{{ _('Code') }}: <code id="elCode"></code> · <a id="elLabel" href="#" target="stlabel"><svg class="ic tag-ic"><use href="#ic-label"/></svg> {{ _('Label') }}</a></div>
       </div>
       <div class="pf-actions gaptop"><button type="submit" class="primary">{{ _('Save') }}</button></div>
     </form>

@@ -1,6 +1,9 @@
 {% extends "base.html" %}
 {% block title %}{{ _('Locations') }} · secondtrack{% endblock %}
 {% block content %}
+{# Every label opens in one shared tab and carries the view it was opened
+   from, so closing it lands back here rather than on the warehouse start. #}
+{% set st_back = (request.url.path ~ ('?' ~ request.url.query if request.url.query else ''))|urlencode %}
 
 {% if msg %}<p class="notice">{{ _(msg) }}</p>{% endif %}
 
@@ -21,7 +24,7 @@
     <span class="loc-code">{{ loc.code }}</span>
     <span class="loc-count">{{ counts.get(loc.id, 0) }} {{ _('parts') }}</span>
     <span class="loc-acts">
-      <a class="act-btn" href="/label/{{ loc.code }}" target="_blank" title="{{ _('Print label') }}">🏷</a>
+      <a class="act-btn" href="/label/{{ loc.code }}?back={{ st_back }}" target="stlabel" title="{{ _('Print label') }}">🏷</a>
       <button type="button" class="act-btn" onclick="this.closest('li').querySelector('details.loc-edit').open=true" title="{{ _('Edit') }}">✎</button>
       <form method="post" action="/warehouse/locations/{{ loc.id }}/delete"
             onsubmit="return confirm('{{ _('Delete location? Sub-locations and items move up one level.') }}')">

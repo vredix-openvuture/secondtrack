@@ -45,7 +45,7 @@
       <td>{{ e.category or '—' }}</td>
       <td>{% set eps = exp_projects.get(e.id) %}{% if eps %}{% for pid, pname in eps.items() %}<a href="/projects/{{ pid }}" onclick="event.stopPropagation()">{{ pname }}</a>{{ ', ' if not loop.last }}{% endfor %}{% else %}—{% endif %}</td>
       <td class="num">{{ e.amount|money }} {{ currency }}</td>
-      <td>{% if e.receipt_path %}<a class="act-btn" href="{{ e.receipt_path }}" target="_blank" title="{{ _('Receipt') }}" onclick="event.stopPropagation()"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg></a>{% else %}<span class="io-ind warn" title="{{ _('Receipt missing') }}">!</span>{% endif %}</td>
+      <td>{% if e.receipt_path %}<a class="act-btn" href="{{ e.receipt_path }}" target="stfile" title="{{ _('Receipt') }}" onclick="event.stopPropagation()"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg></a>{% else %}<span class="io-ind warn" title="{{ _('Receipt missing') }}">!</span>{% endif %}</td>
       <td>{% if e.invoiceninja_id %}<span class="io-ind on" title="InvoiceNinja"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>{% elif in_enabled %}<span class="io-ind" title="{{ _('Not synced') }}">–</span>{% else %}<span class="muted">–</span>{% endif %}</td>
       <td class="actions"><form method="post" action="/expenses/{{ e.id }}/delete" onsubmit="return confirm('{{ _('Delete expense?') }}')" onclick="event.stopPropagation()"><button class="act-btn danger" title="{{ _('Delete expense?') }}"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="6" y1="18" x2="18" y2="6"/></svg></button></form></td>
     </tr>
@@ -77,7 +77,7 @@
       </div>
       <div class="meta">
         <span>
-          {% if e.receipt_path %}<a class="act-btn" href="{{ e.receipt_path }}" target="_blank" title="{{ _('Receipt') }}" onclick="event.stopPropagation()">📄</a>{% else %}<span class="badge neg-badge">{{ _('missing') }}</span>{% endif %}
+          {% if e.receipt_path %}<a class="act-btn" href="{{ e.receipt_path }}" target="stfile" title="{{ _('Receipt') }}" onclick="event.stopPropagation()">📄</a>{% else %}<span class="badge neg-badge">{{ _('missing') }}</span>{% endif %}
           {% if e.invoiceninja_id %}<span class="badge sold">IN ✓</span>{% endif %}
         </span>
         <form method="post" action="/expenses/{{ e.id }}/delete" onsubmit="return confirm('{{ _('Delete expense?') }}')" onclick="event.stopPropagation()"><button class="act-btn danger" title="{{ _('Delete expense?') }}">✕</button></form>
