@@ -35,10 +35,22 @@ DEFAULT_WIDGETS = "welcome:4,finance:2,projects:2,warehouse:1,invoices:1,orders:
 GRID_COLUMNS = 12
 # Cards are a uniform 3 rows so a row packs flush. The hero is the deliberate
 # exception: at 2 it reads as a band across the top, not a big empty greeting.
-# Measured against the content each tile actually renders. The finance tile
-# carries a row more than the rest and does not fit three.
-DEFAULT_HEIGHT = {"welcome": 2, "finance": 4}
-DEFAULT_ROWS = 3
+# The height each tile needs for its content, measured in the browser at the
+# narrowest width its column reaches. Nothing on the dashboard scrolls and
+# nothing is cut off, so this is a floor rather than a suggestion: a saved
+# layout is raised to it, and the grid refuses to drag below it.
+#   finance             carries a stat row more than the rest
+#   quick               six buttons, which fall into three rows once narrow
+#   warehouse/invoices  a quarter-width column wraps their stat labels
+#   welcome             is a band, and its content is trimmed to fit two
+MIN_HEIGHT = {
+    "welcome": 2, "finance": 4, "quick": 4, "warehouse": 4, "invoices": 4,
+}
+MIN_ROWS = 3
+
+
+def _min_h(key: str) -> int:
+    return MIN_HEIGHT.get(key, MIN_ROWS)
 
 
 def _default_layout(widgets: list[dict]) -> dict:
@@ -58,11 +70,7 @@ def _default_layout(widgets: list[dict]) -> dict:
         if used + width > GRID_COLUMNS and row:
             rows.append(row)
             row, used = [], 0
-        row.append({
-            "key": w["key"],
-            "w": width,
-            "h": DEFAULT_HEIGHT.get(w["key"], DEFAULT_ROWS),
-        })
+        row.append({"key": w["key"], "w": width, "h": _min_h(w["key"])})
         used += width
     if row:
         rows.append(row)
@@ -116,6 +124,15 @@ def dashboard(
         layout = json.loads(get_setting(db, "dashboard_layout", "{}") or "{}")
     except (ValueError, TypeError):
         layout = {}
+    # A layout saved before a tile grew, or dragged too small, would hide part
+    # of what the tile renders. Raise it instead: the arrangement is the user's,
+    # the minimum is what the content needs.
+    for key, box in layout.items():
+        if isinstance(box, dict) and "h" in box:
+            try:
+                box["h"] = max(int(box["h"]), _min_h(key))
+            except (ValueError, TypeError):
+                box["h"] = _min_h(key)
     data: dict = {}
 
     if keys & {"welcome", "finance", "projects", "warehouse"}:
@@ -163,6 +180,7 @@ def dashboard(
             request, db, active="dashboard",
             widgets=enabled, all_widgets=ALL_WIDGETS, sizes=sizes, layout=layout,
             default_layout=_default_layout(enabled),
+            min_heights={w["key"]: _min_h(w["key"]) for w in enabled},
             username=user.display_name or user.username, d=data,
             logo_url=get_setting(db, "dashboard_logo", "") or "",
             woo_on=woo.is_enabled(), in_on=invoiceninja.is_enabled(),

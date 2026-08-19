@@ -35,8 +35,11 @@
 {# Saved arrangement if there is one, otherwise the packed default from the
    router, which always fills whole rows. #}
 {% for w in widgets %}{% set g = layout.get(w.key) or default_layout.get(w.key) %}
+  {# gs-min-h so dragging cannot make a tile smaller than its content: the
+     dashboard neither scrolls nor cuts anything off. #}
   <div class="grid-stack-item" gs-id="{{ w.key }}"
-       gs-x="{{ g.x }}" gs-y="{{ g.y }}" gs-w="{{ g.w }}" gs-h="{{ g.h }}">
+       gs-x="{{ g.x }}" gs-y="{{ g.y }}" gs-w="{{ g.w }}" gs-h="{{ g.h }}"
+       gs-min-h="{{ min_heights.get(w.key, 3) }}">
     <div class="grid-stack-item-content">
 
       {# ---- Hero: the greeting and the day's figures are one thing, not an
